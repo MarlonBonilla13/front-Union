@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from './services/api'; // Asegúrate de que la ruta sea correcta// Asegúrate de que esta ruta sea correcta
-import MaterialForm from './components/Material/MaterialForm';
+import MaterialForm from './components/Material/MaterialForm.jsx';
 
 function App() {
   const [data, setData] = useState([]); // Estado para los materiales
