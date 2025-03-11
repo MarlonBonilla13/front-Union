@@ -1,50 +1,41 @@
-import {  useEffect, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import api from "./api";
+import { useEffect, useState } from 'react';
+import api from './services/api'; // Asegúrate de que la ruta sea correcta// Asegúrate de que esta ruta sea correcta
+import MaterialForm from './components/Material/MaterialForm';
 
 function App() {
-  const [count, setCount, data, setData] = useState(0)
-  
+  const [data, setData] = useState([]); // Estado para los materiales
+
   useEffect(() => {
-    api.get("/users") // Endpoint en NestJS
-      .then(res => setData(res.data))
-      .catch(err => console.error(err));
+    // Cargar los materiales desde la API
+    api.get('/materiales') // Ajusta la URL si es necesario
+      .then((res) => setData(res.data))
+      .catch((err) => console.error(err));
   }, []);
+
+  // Función para manejar la creación de un nuevo material
+  const handleMaterialCreated = (newMaterial) => {
+    setData((prevData) => [newMaterial, ...prevData]); // Agregar el nuevo material a la lista
+  };
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <h1>Materiales</h1>
+      <MaterialForm onMaterialCreated={handleMaterialCreated} />
 
-      <div>
-      <h1>Usuarios:</h1>
-      {data ? <pre>{JSON.stringify(data, null, 2)}</pre> : <p>Cargando...</p>}
-    </div>
+      <h2>Lista de Materiales:</h2>
+      <ul>
+        {data.length === 0 ? (
+          <p>No hay materiales disponibles.</p>
+        ) : (
+          data.map((material) => (
+            <li key={material.id_material}>
+              {material.nombre} - {material.precio_unitario} - {material.estado ? 'Activo' : 'Inactivo'}
+            </li>
+          ))
+        )}
+      </ul>
     </>
-  )
-
-
-
+  );
 }
 
-export default App
+export default App;
