@@ -1,12 +1,12 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import MaterialForm from "./components/Material/MaterialForm.jsx";
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import MaterialForm from './components/Material/MaterialForm';
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/materiales" />} />
-        <Route path="/materiales" element={<MaterialForm />} />
+        <Route path="/" element={<Home />} />  {/* Página principal */}
+        <Route path="/material" element={<MaterialForm />} />  {/* Ruta para MaterialForm */}
       </Routes>
     </Router>
   );
