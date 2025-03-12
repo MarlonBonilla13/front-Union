@@ -1,13 +1,12 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import MaterialForm from './components/Material/MaterialForm'; // Ajusta la ruta si es necesario
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import MaterialForm from './components/Material/MaterialForm';
 
 const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<MaterialForm />} /> {/* Ruta por defecto */}
-        {/* Otras rutas que puedas tener */}
+        <Route path="/" element={<MaterialForm />} />  {/* Carga MaterialForm en la ruta raíz */}
       </Routes>
     </Router>
   );
