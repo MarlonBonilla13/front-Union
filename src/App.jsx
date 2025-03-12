@@ -6,7 +6,7 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<MaterialForm />} />  {/* Carga MaterialForm en la ruta raíz */}
+        <Route path="/" element={<MaterialForm />} />  {/* Esto hace que MaterialForm se cargue por defecto */}
       </Routes>
     </Router>
   );
