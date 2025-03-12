@@ -10,7 +10,7 @@ const App = () => {
         {/* Ruta inicial con un botón */}
         <Route path="/" element={<RedirectToMaterialForm />} />
         {/* Ruta para cargar el componente MaterialForm */}
-        <Route path="/material" element={<MaterialForm />} />
+        <Route path="./components/Material" element={<MaterialForm />} />
       </Routes>
     </Router>
   );
@@ -21,7 +21,7 @@ const RedirectToMaterialForm = () => {
   return (
     <div>
       <h1>Página principal</h1>
-      <Link to="/material">
+      <Link to="./components/Material">
         <button>Ir a Material Form</button>
       </Link>
     </div>
