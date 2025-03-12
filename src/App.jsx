@@ -4,7 +4,7 @@ import MaterialForm from './components/Material/MaterialForm';
 
 const App = () => {
   return (
-    <Router>
+    <Router basename="/">
       <Routes>
         <Route path="/" element={<MaterialForm />} />  {/* Esto hace que MaterialForm se cargue por defecto */}
       </Routes>
