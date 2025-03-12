@@ -1,14 +1,30 @@
+// src/App.jsx
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import MaterialForm from './components/Material/MaterialForm';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import MaterialForm from './components/Material/MaterialForm'; // Asegúrate de que el path sea correcto
 
 const App = () => {
   return (
-    <Router basename="/">
+    <Router>
       <Routes>
-        <Route path="/" element={<MaterialForm />} />  {/* Esto hace que MaterialForm se cargue por defecto */}
+        {/* Ruta inicial con un botón */}
+        <Route path="/" element={<RedirectToMaterialForm />} />
+        {/* Ruta para cargar el componente MaterialForm */}
+        <Route path="/material" element={<MaterialForm />} />
       </Routes>
     </Router>
+  );
+};
+
+// Componente con el botón para redirigir
+const RedirectToMaterialForm = () => {
+  return (
+    <div>
+      <h1>Página principal</h1>
+      <Link to="/material">
+        <button>Ir a Material Form</button>
+      </Link>
+    </div>
   );
 };
 
