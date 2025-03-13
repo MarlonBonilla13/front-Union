@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from "react";  // Agregar useState
 import { createMaterial } from "../../services/materialService";  // Asegúrate de importar el servicio correctamente
 
 const MaterialForm = () => {
