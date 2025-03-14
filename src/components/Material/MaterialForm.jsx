@@ -29,6 +29,47 @@ const MaterialForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validación de formato de datos
+    if (!nombre.trim()) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de validación',
+        text: 'El nombre del material es requerido',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
+
+    if (stockActual < 0 || stockMinimo < 0) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de validación',
+        text: 'Los valores de stock no pueden ser negativos',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
+
+    if (precioUnitario <= 0) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de validación',
+        text: 'El precio unitario debe ser mayor a 0',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
+
+    if (!unidadMedida.trim()) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de validación',
+        text: 'La unidad de medida es requerida',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
+
     if (estado === null) {
       setErrorEstado(true);
       Swal.fire({
@@ -52,14 +93,13 @@ const MaterialForm = () => {
       cancelButtonText: 'Cancelar'
     });
 
-    // Solo proceder si el usuario confirmó
     if (confirmResult.isConfirmed) {
       const newMaterial = {
-        nombre,
-        descripcion,
+        nombre: nombre.trim(),
+        descripcion: descripcion.trim(),
         stock_actual: parseInt(stockActual, 10),
         stock_minimo: parseInt(stockMinimo, 10),
-        unidad_medida: unidadMedida,
+        unidad_medida: unidadMedida.trim(),
         precio_unitario: parseFloat(precioUnitario),
         estado,
       };
@@ -69,40 +109,117 @@ const MaterialForm = () => {
         Swal.fire({
           title: 'Guardando material...',
           allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: false,
           didOpen: () => {
             Swal.showLoading();
           }
         });
 
-        const response = await createMaterial(newMaterial);
-        if (response) {
-          setIsSaved(true);
-          Swal.fire({
-            icon: 'success',
-            title: '¡Guardado exitoso!',
-            text: 'El material ha sido registrado correctamente',
-            confirmButtonColor: '#28a745'
-          });
+        const TIMEOUT_SECONDS = 10;
+        
+        const result = await Promise.race([
+          createMaterial(newMaterial),
+          new Promise((_, reject) => 
+            setTimeout(() => {
+              reject(new Error('TIMEOUT'));
+            }, TIMEOUT_SECONDS * 1000)
+          )
+        ]);
 
-          // Limpiar el formulario después de guardar
-          setNombre("");
-          setDescripcion("");
-          setStockActual(0);
-          setStockMinimo(0);
-          setUnidadMedida("");
-          setPrecioUnitario(0);
-          setEstado(null);
-          setErrorEstado(false);
-          setIsSaved(false);
+        // Verificar la respuesta del servidor
+        if (!result) {
+          throw new Error('NO_RESPONSE');
         }
+
+        // Si tenemos una respuesta con error
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        // Si tenemos una respuesta exitosa pero sin ID (caso anómalo)
+        if (!result.id) {
+          console.warn('Advertencia: Respuesta exitosa pero sin ID del material');
+        }
+
+        // Si llegamos aquí, el guardado fue exitoso
+        setIsSaved(true);
+        await Swal.fire({
+          icon: 'success',
+          title: '¡Guardado exitoso!',
+          text: 'El material ha sido registrado correctamente',
+          confirmButtonColor: '#28a745'
+        });
+
+        // Limpiar el formulario después de guardar
+        setNombre("");
+        setDescripcion("");
+        setStockActual(0);
+        setStockMinimo(0);
+        setUnidadMedida("");
+        setPrecioUnitario(0);
+        setEstado(null);
+        setErrorEstado(false);
+        setIsSaved(false);
+
       } catch (error) {
         console.error("Error al crear material:", error);
         setIsSaved(false);
-        Swal.fire({
+
+        // Asegurarse de que cualquier diálogo previo esté cerrado
+        await Swal.close();
+        
+        // Determinar el mensaje de error apropiado
+        let errorTitle = 'Error al registrar';
+        let errorMessage = 'Hubo un problema al guardar el material.';
+        let shouldShowError = true;
+
+        switch(error.message) {
+          case 'TIMEOUT':
+            errorTitle = 'Error de conexión';
+            errorMessage = 'No se pudo establecer conexión con la base de datos después de ' + TIMEOUT_SECONDS + ' segundos. Por favor, verifique que el servidor esté disponible.';
+            break;
+          case 'NO_RESPONSE':
+            errorTitle = 'Error de comunicación';
+            errorMessage = 'No se recibió respuesta del servidor. El material podría no haberse guardado correctamente.';
+            break;
+          case 'Network Error':
+          case 'Failed to fetch':
+            errorTitle = 'Error de red';
+            errorMessage = 'Problema de conexión con el servidor. Verifique el estado del servidor y su conexión a internet.';
+            break;
+          case 'DATABASE_ERROR':
+            errorTitle = 'Error de base de datos';
+            errorMessage = 'No se pudo completar la operación en la base de datos. Por favor, contacte al administrador.';
+            break;
+          default:
+            if (!navigator.onLine) {
+              errorTitle = 'Sin conexión';
+              errorMessage = 'No hay conexión a Internet. Por favor, verifique su conexión y vuelva a intentar.';
+            } else if (error.response) {
+              switch (error.response.status) {
+                case 404:
+                  errorTitle = 'Servidor no encontrado';
+                  errorMessage = 'No se pudo encontrar el servidor. Verifique la configuración.';
+                  break;
+                case 500:
+                  errorTitle = 'Error del servidor';
+                  errorMessage = 'Error interno del servidor. Por favor, contacte al administrador.';
+                  break;
+                default:
+                  errorTitle = 'Error inesperado';
+                  errorMessage = 'Ocurrió un error inesperado. Por favor, intente nuevamente.';
+              }
+            }
+        }
+
+        // Mostrar el mensaje de error
+        await Swal.fire({
           icon: 'error',
-          title: 'Error',
-          text: 'Hubo un problema al guardar el material. Por favor, intente nuevamente.',
-          confirmButtonColor: '#dc3545'
+          title: errorTitle,
+          text: errorMessage,
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido'
         });
       }
     }
