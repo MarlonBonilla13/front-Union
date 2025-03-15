@@ -46,14 +46,15 @@ const Navbar = () => {
       divider: true
     },
     {
-      text: 'Lista de Materiales',
-      icon: <InventoryIcon />,
-      path: '/materiales'
-    },
-    {
       text: 'Nuevo Material',
       icon: <AddBoxIcon />,
       path: '/materiales/nuevo'
+      
+    },
+    {
+      text: 'Lista de Materiales',
+      icon: <InventoryIcon />,
+      path: '/materiales'
     }
   ];
 
