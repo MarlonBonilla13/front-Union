@@ -16,7 +16,17 @@ const AppRoutes = () => {
         <Route path={ROUTES.MATERIALS.NEW} element={<MaterialForm />} />
         
         {/* Ruta 404 - Debe ir al final */}
-        <Route path="*" element={<div>Página no encontrada</div>} />
+        <Route path="*" element={
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100vh',
+            color: '#666'
+          }}>
+            Página no encontrada
+          </div>
+        } />
       </Route>
     </Routes>
   );

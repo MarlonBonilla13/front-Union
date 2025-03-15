@@ -14,26 +14,36 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import InventoryIcon from '@mui/icons-material/Inventory';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddBoxIcon from '@mui/icons-material/AddBox';
-import CategoryIcon from '@mui/icons-material/Category';
-import SettingsIcon from '@mui/icons-material/Settings';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ROUTES } from '../../routes/routes.config';
 
 const drawerWidth = 240;
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
+
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Inventario', icon: <InventoryIcon />, path: '/inventario' },
-    { text: 'Nuevo Material', icon: <AddBoxIcon />, path: '/material/nuevo' },
-    { text: 'Categorías', icon: <CategoryIcon />, path: '/categorias' },
-    { text: 'Configuración', icon: <SettingsIcon />, path: '/configuracion' },
+    { 
+      text: 'Listado de Material', 
+      icon: <InventoryIcon />, 
+      path: ROUTES.MATERIALS.LIST
+    },
+    { 
+      text: 'Nuevo Ingreso', 
+      icon: <AddBoxIcon />, 
+      path: ROUTES.MATERIALS.NEW
+    }
   ];
 
   const drawer = (
@@ -42,7 +52,15 @@ const Navbar = () => {
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
+              onClick={() => {
+                navigate(item.path);
+                setMobileOpen(false);
+              }}
+              selected={isActive(item.path)}
               sx={{
+                '&.Mui-selected': {
+                  backgroundColor: '#e3f2fd',
+                },
                 '&:hover': {
                   backgroundColor: '#e3f2fd',
                 }
@@ -56,6 +74,7 @@ const Navbar = () => {
                 sx={{
                   '& .MuiListItemText-primary': {
                     fontFamily: 'Arial',
+                    color: '#2c3e50'
                   }
                 }}
               />
