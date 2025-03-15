@@ -15,10 +15,10 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import AddBoxIcon from '@mui/icons-material/AddBox';
+import HomeIcon from '@mui/icons-material/Home';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ROUTES } from '../../routes/routes.config';
 
-const drawerWidth = 240;
+export const drawerWidth = 240;
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -29,20 +29,31 @@ const Navbar = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  const isActive = (path) => {
-    return location.pathname === path;
+  const handleNavigation = (path) => {
+    navigate(path);
+    setMobileOpen(false); // Cerrar el drawer en móviles después de navegar
+  };
+
+  const handleHomeClick = () => {
+    handleNavigation('/');
   };
 
   const menuItems = [
-    { 
-      text: 'Listado de Material', 
-      icon: <InventoryIcon />, 
-      path: ROUTES.MATERIALS.LIST
+    {
+      text: 'Inicio',
+      icon: <HomeIcon />,
+      path: '/',
+      divider: true
     },
-    { 
-      text: 'Nuevo Ingreso', 
-      icon: <AddBoxIcon />, 
-      path: ROUTES.MATERIALS.NEW
+    {
+      text: 'Lista de Materiales',
+      icon: <InventoryIcon />,
+      path: '/materiales'
+    },
+    {
+      text: 'Nuevo Material',
+      icon: <AddBoxIcon />,
+      path: '/materiales/nuevo'
     }
   ];
 
@@ -50,36 +61,56 @@ const Navbar = () => {
     <Box sx={{ mt: 2 }}>
       <List>
         {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              onClick={() => {
-                navigate(item.path);
-                setMobileOpen(false);
-              }}
-              selected={isActive(item.path)}
-              sx={{
-                '&.Mui-selected': {
-                  backgroundColor: '#e3f2fd',
-                },
-                '&:hover': {
-                  backgroundColor: '#e3f2fd',
-                }
-              }}
-            >
-              <ListItemIcon sx={{ color: '#1976d2' }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text}
+          <React.Fragment key={item.text}>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => handleNavigation(item.path)}
+                selected={location.pathname === item.path}
                 sx={{
-                  '& .MuiListItemText-primary': {
-                    fontFamily: 'Arial',
-                    color: '#2c3e50'
-                  }
+                  '&.Mui-selected': {
+                    backgroundColor: '#e3f2fd',
+                  },
+                  '&:hover': {
+                    backgroundColor: '#e3f2fd',
+                  },
+                  ...(item.text === 'Inicio' && {
+                    backgroundColor: '#f5f5f5',
+                    '&:hover': {
+                      backgroundColor: '#e3f2fd',
+                    }
+                  })
                 }}
-              />
-            </ListItemButton>
-          </ListItem>
+              >
+                <ListItemIcon sx={{ 
+                  color: item.text === 'Inicio' ? '#1976d2' : '#757575',
+                  ...(item.text === 'Inicio' && {
+                    fontSize: '1.2rem',
+                    '& > svg': {
+                      fontSize: '1.2rem'
+                    }
+                  })
+                }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.text}
+                  sx={{
+                    '& .MuiListItemText-primary': {
+                      fontFamily: 'Arial',
+                      color: '#2c3e50',
+                      ...(item.text === 'Inicio' && {
+                        fontWeight: 'bold',
+                        color: '#1976d2'
+                      })
+                    }
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+            {item.divider && (
+              <Box sx={{ my: 1, borderBottom: '1px solid #e0e0e0' }} />
+            )}
+          </React.Fragment>
         ))}
       </List>
     </Box>
@@ -94,6 +125,8 @@ const Navbar = () => {
           backgroundColor: '#f8f9fa',
           color: '#1976d2',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { sm: `${drawerWidth}px` },
         }}
       >
         <Toolbar>
@@ -102,7 +135,7 @@ const Navbar = () => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2 }}
+            sx={{ mr: 2, display: { sm: 'none' } }}
           >
             <MenuIcon />
           </IconButton>
@@ -111,7 +144,7 @@ const Navbar = () => {
             noWrap 
             component="div"
             sx={{ 
-              fontFamily: 'Arial',
+              fontFamily: "Arial",
               fontWeight: 'bold',
               color: '#2c3e50',
             }}
@@ -123,7 +156,10 @@ const Navbar = () => {
 
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ 
+          width: { sm: drawerWidth },
+          flexShrink: { sm: 0 },
+        }}
       >
         <Drawer
           variant="temporary"

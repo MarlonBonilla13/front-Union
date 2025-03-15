@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
-import MaterialList from '../components/Material/MaterialList';
+import MaterialList from '../components/MaterialList/MaterialList';
 import MaterialForm from '../components/Material/MaterialForm';
 import Layout from '../components/Layout/Layout';
 import { ROUTES } from './routes.config';
