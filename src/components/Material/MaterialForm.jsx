@@ -13,6 +13,7 @@ import {
   FormGroup,
   CircularProgress
 } from "@mui/material";
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const MaterialForm = () => {
   const navigate = useNavigate();
@@ -272,6 +273,27 @@ const MaterialForm = () => {
           >
             {isEditMode ? 'Editar Material' : 'Ingreso De Material'}
           </Typography>
+          
+          {/* Botón de regresar solo visible en modo edición */}
+          {isEditMode && (
+            <Box sx={{ gridColumn: '1 / -1', mb: 2 }}>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<ArrowBackIcon />}
+                onClick={() => navigate('/materiales')}
+                sx={{ 
+                  fontWeight: 'bold',
+                  backgroundColor: '#4CAF50',
+                  '&:hover': {
+                    backgroundColor: '#45a049',
+                  }
+                }}
+              >
+                Regresar a la lista
+              </Button>
+            </Box>
+          )}
           
           <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
             <TextField

@@ -15,11 +15,13 @@ import {
   Tooltip,
   CircularProgress,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Button
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { getMaterials, deleteMaterial } from '../../services/materialService';
 import Swal from 'sweetalert2';
 
@@ -39,8 +41,21 @@ const MaterialList = () => {
       setFilteredMaterials(data);
       setError(null);
     } catch (err) {
-      setError('Error al cargar los materiales');
       console.error('Error al cargar materiales:', err);
+      
+      // Mostrar error con SweetAlert2
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error al cargar materiales',
+        text: 'No se pudieron cargar los materiales. Por favor, intente nuevamente.',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Entendido'
+      });
+      
+      // Establecer arrays vacíos para mostrar la tabla vacía
+      setMaterials([]);
+      setFilteredMaterials([]);
+      setError(null); // Importante: no establecer error para que se muestre la tabla
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +115,8 @@ const MaterialList = () => {
     }
   };
 
+  // Modificamos esta parte para que no se muestre el botón de reintentar
+  // sino que siempre se muestre la tabla (incluso vacía)
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -108,13 +125,8 @@ const MaterialList = () => {
     );
   }
 
-  if (error) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
-  }
+  // Eliminamos la condición de error que mostraba el botón de reintentar
+  // y dejamos que siempre se muestre la tabla
 
   return (
     <Box
@@ -202,11 +214,23 @@ const MaterialList = () => {
                 {filteredMaterials.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center">
-                      <Typography sx={{ py: 2, color: 'text.secondary' }}>
-                        {searchTerm 
-                          ? 'No se encontraron materiales que coincidan con la búsqueda'
-                          : 'No hay materiales registrados'}
-                      </Typography>
+                      <Box sx={{ py: 2 }}>
+                        <Typography sx={{ color: 'text.secondary', mb: 2 }}>
+                          {searchTerm 
+                            ? 'No se encontraron materiales que coincidan con la búsqueda'
+                            : 'No hay materiales registrados'}
+                        </Typography>
+                        {/* Añadimos un botón para reintentar cargar los materiales */}
+                        <Button 
+                          variant="contained" 
+                          color="primary" 
+                          onClick={loadMaterials}
+                          startIcon={<RefreshIcon />}
+                          size="small"
+                        >
+                          Reintentar cargar materiales
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ) : (
