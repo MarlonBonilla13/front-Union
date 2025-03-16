@@ -21,6 +21,7 @@ const MaterialForm = () => {
 
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [codigo, setCodigo] = useState(""); // Nuevo estado para el código
   const [stockActual, setStockActual] = useState(0);
   const [stockMinimo, setStockMinimo] = useState(0);
   const [unidadMedida, setUnidadMedida] = useState("");
@@ -40,6 +41,7 @@ const MaterialForm = () => {
           if (material) {
             setNombre(material.nombre);
             setDescripcion(material.descripcion || "");
+            setCodigo(material.codigo || ""); // Cargar el código
             setStockActual(material.stock_actual);
             setStockMinimo(material.stock_minimo);
             setUnidadMedida(material.unidad_medida);
@@ -120,6 +122,7 @@ const MaterialForm = () => {
     const materialData = {
       nombre: nombre.trim(),
       descripcion: descripcion.trim(),
+      codigo: codigo.trim(), // Incluir el código en los datos
       stock_actual: parseInt(stockActual, 10),
       stock_minimo: parseInt(stockMinimo, 10),
       unidad_medida: unidadMedida.trim(),
@@ -271,6 +274,14 @@ const MaterialForm = () => {
           </Typography>
           
           <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
+            <TextField
+              required
+              label="Código"
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}
+            />
+            
             <TextField
               required
               label="Nombre"

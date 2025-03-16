@@ -53,7 +53,8 @@ const MaterialList = () => {
   // Filtrar materiales cuando cambie el término de búsqueda
   useEffect(() => {
     const filtered = materials.filter(material =>
-      material.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+      material.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (material.codigo && material.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredMaterials(filtered);
   }, [searchTerm, materials]);
@@ -156,7 +157,7 @@ const MaterialList = () => {
             <TextField
               fullWidth
               variant="outlined"
-              placeholder="Buscar material por nombre..."
+              placeholder="Buscar material por nombre o código..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
@@ -186,6 +187,7 @@ const MaterialList = () => {
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
+                  <TableCell>Código</TableCell>
                   <TableCell>Nombre</TableCell>
                   <TableCell>Descripción</TableCell>
                   <TableCell>Stock Actual</TableCell>
@@ -199,7 +201,7 @@ const MaterialList = () => {
               <TableBody>
                 {filteredMaterials.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       <Typography sx={{ py: 2, color: 'text.secondary' }}>
                         {searchTerm 
                           ? 'No se encontraron materiales que coincidan con la búsqueda'
@@ -210,8 +212,10 @@ const MaterialList = () => {
                 ) : (
                   filteredMaterials.map((material) => (
                     <TableRow key={material.id_material}>
+                      <TableCell>{material.codigo || 'N/A'}</TableCell>
                       <TableCell>{material.nombre}</TableCell>
                       <TableCell>{material.descripcion}</TableCell>
+                      
                       <TableCell>{material.stock_actual}</TableCell>
                       <TableCell>{material.stock_minimo}</TableCell>
                       <TableCell>{material.unidad_medida}</TableCell>
@@ -261,4 +265,4 @@ const MaterialList = () => {
   );
 };
 
-export default MaterialList; 
+export default MaterialList;
