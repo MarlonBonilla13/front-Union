@@ -51,6 +51,7 @@ function App() {
             <Route path="/" element={<Welcome />} />
             <Route path="/materiales" element={<MaterialList />} />
             <Route path="/materiales/nuevo" element={<MaterialForm />} />
+            <Route path="/materiales/editar/:id" element={<MaterialForm />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Box>

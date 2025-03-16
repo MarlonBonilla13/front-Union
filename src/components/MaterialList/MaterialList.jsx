@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
+  Box,
+  Container,
   Paper,
   Table,
   TableBody,
@@ -8,232 +11,253 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Container,
   IconButton,
-  Box,
-  Button
+  Tooltip,
+  CircularProgress,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../routes/routes.config';
-import axios from 'axios';
+import SearchIcon from '@mui/icons-material/Search';
+import { getMaterials, deleteMaterial } from '../../services/materialService';
 import Swal from 'sweetalert2';
 
 const MaterialList = () => {
-  const [materials, setMaterials] = useState([]);
   const navigate = useNavigate();
+  const [materials, setMaterials] = useState([]);
+  const [filteredMaterials, setFilteredMaterials] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchMaterials();
-  }, []);
-
-  const fetchMaterials = async () => {
+  const loadMaterials = async () => {
     try {
-      const TIMEOUT_SECONDS = 10;
-      
-      const fetchPromise = axios.get('http://localhost:3000/api/materiales');
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_SECONDS * 1000)
-      );
-
-      Swal.fire({
-        title: 'Cargando materiales...',
-        text: 'Por favor espere...',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
-
-      const response = await Promise.race([fetchPromise, timeoutPromise]);
-      setMaterials(response.data);
-      Swal.close();
-    } catch (error) {
-      console.error('Error al obtener materiales:', error);
-      let errorMessage = 'No se pudieron cargar los materiales.';
-      
-      if (error.message === 'TIMEOUT') {
-        errorMessage = 'La operación excedió el tiempo de espera. Por favor, verifique su conexión.';
-      } else if (!navigator.onLine) {
-        errorMessage = 'No hay conexión a Internet. Por favor, verifique su conexión.';
-      }
-
-      await Swal.fire({
-        icon: 'error',
-        title: 'Error de conexión',
-        text: errorMessage,
-        confirmButtonColor: '#dc3545'
-      });
+      setIsLoading(true);
+      const data = await getMaterials();
+      setMaterials(data);
+      setFilteredMaterials(data);
+      setError(null);
+    } catch (err) {
+      setError('Error al cargar los materiales');
+      console.error('Error al cargar materiales:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    loadMaterials();
+  }, []);
+
+  // Filtrar materiales cuando cambie el término de búsqueda
+  useEffect(() => {
+    const filtered = materials.filter(material =>
+      material.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredMaterials(filtered);
+  }, [searchTerm, materials]);
+
   const handleEdit = (id) => {
-    navigate(ROUTES.MATERIALS.EDIT(id));
+    navigate(`/materiales/editar/${id}`);
   };
 
   const handleDelete = async (id) => {
     try {
       const result = await Swal.fire({
-        title: '¿Estás seguro?',
+        title: '¿Está seguro?',
         text: "Esta acción no se puede deshacer",
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#dc3545',
-        cancelButtonColor: '#6c757d',
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar'
       });
 
       if (result.isConfirmed) {
-        await axios.delete(`http://localhost:3000/api/materiales/${id}`);
-        await fetchMaterials();
-        await Swal.fire({
-          icon: 'success',
-          title: 'Material eliminado',
-          text: 'El material ha sido eliminado correctamente',
-          confirmButtonColor: '#28a745'
-        });
+        setIsLoading(true);
+        await deleteMaterial(id);
+        await loadMaterials();
+        
+        await Swal.fire(
+          '¡Eliminado!',
+          'El material ha sido eliminado correctamente.',
+          'success'
+        );
       }
     } catch (error) {
-      console.error('Error al eliminar material:', error);
+      console.error('Error al eliminar:', error);
       await Swal.fire({
         icon: 'error',
         title: 'Error al eliminar',
         text: 'No se pudo eliminar el material. Por favor, intente nuevamente.',
-        confirmButtonColor: '#dc3545'
+        confirmButtonColor: '#d33'
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleAddNew = () => {
-    navigate(ROUTES.MATERIALS.NEW);
-  };
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 10, mb: 4 }}>
-      <Paper 
-        elevation={3} 
+    <Box
+      component="main"
+      sx={{
+        flexGrow: 1,
+        backgroundColor: '#f5f5f5',
+        minHeight: '100vh',
+        p: 3
+      }}
+    >
+      <Container 
+        maxWidth="lg" 
         sx={{ 
-          p: 4, 
-          display: 'flex', 
-          flexDirection: 'column',
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
+          backgroundColor: '#f5f5f5',
+          height: '100%'
         }}
       >
-        <Typography
-          component="h1"
-          variant="h5"
-          align="center"
-          sx={{
-            mb: 4,
-            color: '#1976d2',
-            fontWeight: 'bold',
-            fontFamily: 'Arial'
-          }}
-        >
-          Lista de Materiales
-        </Typography>
-
-        <TableContainer 
-          component={Paper} 
-          elevation={0}
+        <Paper 
+          elevation={3} 
           sx={{ 
-            maxHeight: 440,
-            overflowX: 'auto',
-            mb: 3,
-            "& .MuiTableCell-root": {
-              borderColor: '#e0e0e0'
-            }
+            p: 3, 
+            borderRadius: 2,
+            backgroundColor: 'white'
           }}
         >
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50' }}>Nombre</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50' }}>Descripción</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50' }}>Stock Actual</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50' }}>Stock Mínimo</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50' }}>Unidad Medida</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50' }}>Precio Unitario</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50' }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5', color: '#2c3e50', textAlign: 'center' }}>Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {materials.map((material) => (
-                <TableRow
-                  key={material.id}
-                  sx={{
-                    '&:nth-of-type(odd)': {
-                      backgroundColor: '#f8f9fa',
-                    },
-                    '&:hover': {
-                      backgroundColor: '#e3f2fd',
-                      transition: 'background-color 0.2s ease',
-                    },
-                  }}
-                >
-                  <TableCell>{material.nombre}</TableCell>
-                  <TableCell>{material.descripcion}</TableCell>
-                  <TableCell>{material.stockActual}</TableCell>
-                  <TableCell>{material.stockMinimo}</TableCell>
-                  <TableCell>{material.unidadMedida}</TableCell>
-                  <TableCell>Q{material.precioUnitario.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Typography
-                      sx={{
-                        color: material.estado ? '#2e7d32' : '#d32f2f',
-                        fontWeight: 'medium',
-                        backgroundColor: material.estado ? '#e8f5e9' : '#ffebee',
-                        padding: '6px 12px',
-                        borderRadius: '16px',
-                        display: 'inline-block',
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      {material.estado ? 'Activo' : 'Inactivo'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      onClick={() => handleEdit(material.id)}
-                      color="primary"
-                      size="small"
-                      sx={{ 
-                        mr: 1,
-                        '&:hover': {
-                          backgroundColor: '#e3f2fd'
-                        }
-                      }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      onClick={() => handleDelete(material.id)}
-                      color="error"
-                      size="small"
-                      sx={{
-                        '&:hover': {
-                          backgroundColor: '#ffebee'
-                        }
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
+          <Typography
+            variant="h5"
+            align="center"
+            sx={{
+              mb: 3,
+              fontWeight: 600,
+              color: '#1976d2'
+            }}
+          >
+            Lista de Materiales
+          </Typography>
+
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Buscar material por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+                sx: {
+                  backgroundColor: 'white',
+                  '&:hover': {
+                    backgroundColor: '#fafafa'
+                  }
+                }
+              }}
+            />
+          </Box>
+
+          <TableContainer 
+            component={Paper} 
+            elevation={0}
+            sx={{ 
+              flexGrow: 1,
+              backgroundColor: 'transparent'
+            }}
+          >
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Descripción</TableCell>
+                  <TableCell>Stock Actual</TableCell>
+                  <TableCell>Stock Mínimo</TableCell>
+                  <TableCell>Unidad Medida</TableCell>
+                  <TableCell>Precio Unitario</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell align="center">Acciones</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-    </Container>
+              </TableHead>
+              <TableBody>
+                {filteredMaterials.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      <Typography sx={{ py: 2, color: 'text.secondary' }}>
+                        {searchTerm 
+                          ? 'No se encontraron materiales que coincidan con la búsqueda'
+                          : 'No hay materiales registrados'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredMaterials.map((material) => (
+                    <TableRow key={material.id_material}>
+                      <TableCell>{material.nombre}</TableCell>
+                      <TableCell>{material.descripcion}</TableCell>
+                      <TableCell>{material.stock_actual}</TableCell>
+                      <TableCell>{material.stock_minimo}</TableCell>
+                      <TableCell>{material.unidad_medida}</TableCell>
+                      <TableCell>
+                        {new Intl.NumberFormat('es-GT', {
+                          style: 'currency',
+                          currency: 'GTQ'
+                        }).format(material.precio_unitario)}
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          sx={{
+                            color: material.estado ? 'success.main' : 'error.main',
+                            fontWeight: 'medium'
+                          }}
+                        >
+                          {material.estado ? 'Activo' : 'Desactivado'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="Editar">
+                          <IconButton
+                            onClick={() => handleEdit(material.id_material)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton
+                            onClick={() => handleDelete(material.id_material)}
+                            color="error"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 

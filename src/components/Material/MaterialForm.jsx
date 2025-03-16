@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { createMaterial } from "../../services/materialService";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from 'react-router-dom';
+import { createMaterial, getMaterialById, updateMaterial } from "../../services/materialService";
 import Swal from 'sweetalert2';
 import {
   TextField,
@@ -10,20 +11,56 @@ import {
   Typography,
   Box,
   FormGroup,
-  FormHelperText
+  CircularProgress
 } from "@mui/material";
 
 const MaterialForm = () => {
+  const navigate = useNavigate();
+  const { id } = useParams(); // Para modo edición
+  const isEditMode = Boolean(id);
+
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [stockActual, setStockActual] = useState(0);
   const [stockMinimo, setStockMinimo] = useState(0);
   const [unidadMedida, setUnidadMedida] = useState("");
   const [precioUnitario, setPrecioUnitario] = useState(0);
-  const [estado, setEstado] = useState(null); // null para que inicie sin selección
-  const [errorEstado, setErrorEstado] = useState(false); // Para controlar el error de estado
+  const [estado, setEstado] = useState(null);
+  const [errorEstado, setErrorEstado] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
-  const [isSaved, setIsSaved] = useState(false); // Para manejar el estado del botón
+  // Cargar datos si estamos en modo edición
+  useEffect(() => {
+    const loadMaterial = async () => {
+      if (isEditMode) {
+        try {
+          setIsLoading(true);
+          const material = await getMaterialById(id);
+          if (material) {
+            setNombre(material.nombre);
+            setDescripcion(material.descripcion || "");
+            setStockActual(material.stock_actual);
+            setStockMinimo(material.stock_minimo);
+            setUnidadMedida(material.unidad_medida);
+            setPrecioUnitario(material.precio_unitario);
+            setEstado(material.estado);
+          }
+        } catch (error) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al cargar material',
+            text: 'No se pudo cargar la información del material',
+            confirmButtonColor: '#d33'
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadMaterial();
+  }, [id, isEditMode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,33 +117,35 @@ const MaterialForm = () => {
       return;
     }
 
-    // Diálogo de confirmación
+    const materialData = {
+      nombre: nombre.trim(),
+      descripcion: descripcion.trim(),
+      stock_actual: parseInt(stockActual, 10),
+      stock_minimo: parseInt(stockMinimo, 10),
+      unidad_medida: unidadMedida.trim(),
+      precio_unitario: parseFloat(precioUnitario),
+      estado,
+    };
+
+    // Confirmar acción
     const confirmResult = await Swal.fire({
-      title: '¿Está seguro?',
-      text: '¿Desea guardar este material?',
+      title: `¿Está seguro de ${isEditMode ? 'actualizar' : 'guardar'} este material?`,
+      text: isEditMode ? 'Los cambios se guardarán en la base de datos' : '¿Desea guardar este material?',
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#3085d6',
       cancelButtonColor: '#d33',
-      confirmButtonText: '¡Sí, guardar!',
+      confirmButtonText: isEditMode ? '¡Sí, actualizar!' : '¡Sí, guardar!',
       cancelButtonText: 'Cancelar'
     });
 
     if (confirmResult.isConfirmed) {
-      const newMaterial = {
-        nombre: nombre.trim(),
-        descripcion: descripcion.trim(),
-        stock_actual: parseInt(stockActual, 10),
-        stock_minimo: parseInt(stockMinimo, 10),
-        unidad_medida: unidadMedida.trim(),
-        precio_unitario: parseFloat(precioUnitario),
-        estado,
-      };
-
       try {
+        setIsLoading(true);
+        
         // Mostrar loading
         Swal.fire({
-          title: 'Guardando material...',
+          title: `${isEditMode ? 'Actualizando' : 'Guardando'} material...`,
           allowOutsideClick: false,
           allowEscapeKey: false,
           showConfirmButton: false,
@@ -118,7 +157,9 @@ const MaterialForm = () => {
         const TIMEOUT_SECONDS = 10;
         
         const result = await Promise.race([
-          createMaterial(newMaterial),
+          isEditMode 
+            ? updateMaterial(id, materialData)
+            : createMaterial(materialData),
           new Promise((_, reject) => 
             setTimeout(() => {
               reject(new Error('TIMEOUT'));
@@ -126,57 +167,42 @@ const MaterialForm = () => {
           )
         ]);
 
-        // Verificar explícitamente que el resultado sea válido
-        if (!result || !result.id) {
+        if (!result) {
           throw new Error('DATABASE_ERROR');
         }
 
-        // Solo si llegamos aquí y tenemos un resultado válido, mostramos éxito
         setIsSaved(true);
         await Swal.fire({
           icon: 'success',
-          title: '¡Guardado exitoso!',
-          text: 'El material ha sido registrado correctamente',
+          title: '¡Operación exitosa!',
+          text: isEditMode 
+            ? 'El material ha sido actualizado correctamente'
+            : 'El material ha sido registrado correctamente',
           confirmButtonColor: '#28a745'
         });
 
-        // Limpiar el formulario después de guardar
-        setNombre("");
-        setDescripcion("");
-        setStockActual(0);
-        setStockMinimo(0);
-        setUnidadMedida("");
-        setPrecioUnitario(0);
-        setEstado(null);
-        setErrorEstado(false);
-        setIsSaved(false);
+        // Redireccionar a la lista de materiales
+        navigate('/materiales');
 
       } catch (error) {
-        console.error("Error al crear material:", error);
+        console.error("Error:", error);
         setIsSaved(false);
-
-        // Asegurarse de que cualquier diálogo previo esté cerrado
         await Swal.close();
         
-        // Determinar el mensaje de error apropiado
-        let errorTitle = 'Error al registrar';
-        let errorMessage = 'Hubo un problema al guardar el material.';
+        let errorTitle = 'Error al procesar la operación';
+        let errorMessage = 'Hubo un problema al procesar la solicitud.';
 
         if (error.message === 'TIMEOUT') {
           errorTitle = 'Error de conexión';
-          errorMessage = 'No se pudo establecer conexión con la base de datos después de ' + TIMEOUT_SECONDS + ' segundos. Por favor, verifique que el servidor esté disponible e intente nuevamente.';
+          errorMessage = `No se pudo establecer conexión con la base de datos después de ${TIMEOUT_SECONDS} segundos.`;
         } else if (error.message === 'DATABASE_ERROR') {
           errorTitle = 'Error de base de datos';
-          errorMessage = 'No se pudo registrar el material en la base de datos. Por favor, verifique que el servidor esté disponible.';
+          errorMessage = 'No se pudo acceder a la base de datos.';
         } else if (!navigator.onLine) {
           errorTitle = 'Sin conexión';
-          errorMessage = 'No hay conexión a Internet. Por favor, verifique su conexión y vuelva a intentar.';
-        } else if (error.message?.includes('Network Error') || error.message?.includes('Failed to fetch')) {
-          errorTitle = 'Error de conexión';
-          errorMessage = 'No se pudo establecer conexión con el servidor. Por favor, verifique su conexión e intente nuevamente.';
+          errorMessage = 'No hay conexión a Internet.';
         }
 
-        // Mostrar el mensaje de error
         await Swal.fire({
           icon: 'error',
           title: errorTitle,
@@ -184,9 +210,19 @@ const MaterialForm = () => {
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido'
         });
+      } finally {
+        setIsLoading(false);
       }
     }
   };
+
+  if (isLoading && isEditMode) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -200,14 +236,7 @@ const MaterialForm = () => {
         pt: 4
       }}
     >
-      <Container 
-        maxWidth="md" 
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          px: { xs: 2, sm: 3 }
-        }}
-      >
+      <Container maxWidth="md">
         <Box
           sx={{
             width: '100%',
@@ -238,7 +267,7 @@ const MaterialForm = () => {
               letterSpacing: '0.5px'
             }}
           >
-            Ingreso De Material
+            {isEditMode ? 'Editar Material' : 'Ingreso De Material'}
           </Typography>
           
           <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
@@ -348,6 +377,7 @@ const MaterialForm = () => {
               variant="contained"
               color={isSaved ? "success" : "primary"}
               type="submit"
+              disabled={isLoading}
               sx={{ 
                 mt: 3,
                 py: 1.5,
@@ -359,7 +389,11 @@ const MaterialForm = () => {
                 }
               }}
             >
-              {isSaved ? "Guardado Exitoso" : "Guardar Material"}
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                isEditMode ? "Actualizar Material" : "Guardar Material"
+              )}
             </Button>
           </form>
         </Box>
