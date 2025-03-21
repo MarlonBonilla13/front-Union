@@ -3,8 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Box } from '@mui/material';
 import Navbar from './components/Navigation/Navbar';
 import MaterialForm from './components/Material/MaterialForm';
-import MaterialList from './components/MaterialList/MaterialList';
+import MaterialList from './components/MaterialList/MaterialList'; // Corregida la ruta
 import Welcome from './components/Welcome';
+import UserList from './components/User/UserList';
+import UserForm from './components/User/UserForm';
 
 function App() {
   return (
@@ -13,7 +15,7 @@ function App() {
         display: 'flex', 
         minHeight: '100vh', 
         bgcolor: '#f8f9fa',
-        flexDirection: { xs: 'column', sm: 'row' } // Cambia la dirección en móviles
+        flexDirection: { xs: 'column', sm: 'row' }
       }}>
         <Navbar />
         <Box 
@@ -21,29 +23,29 @@ function App() {
           sx={{ 
             flexGrow: 1,
             width: {
-              xs: 'calc(100% - 32px)', // Móviles
-              sm: 'calc(100% - 48px)', // Tablets
-              md: 'calc(100% - 48px)'  // Desktop
+              xs: 'calc(100% - 32px)',
+              sm: 'calc(100% - 48px)',
+              md: 'calc(100% - 48px)'
             },
-            mx: { // Márgenes horizontales responsivos
-              xs: '16px', // Más pequeño en móviles
+            mx: {
+              xs: '16px',
               sm: '24px',
               md: '24px'
             },
-            mt: { // Margen superior responsivo
-              xs: '56px', // Más pequeño en móviles
+            mt: {
+              xs: '56px',
               sm: '64px'
             },
             mb: {
-              xs: '16px', // Más pequeño en móviles
+              xs: '16px',
               sm: '24px'
             },
-            p: { // Padding responsivo
-              xs: 2, // Más pequeño en móviles
+            p: {
+              xs: 2,
               sm: 3
             },
-            overflow: 'auto', // Permite scroll si el contenido es muy largo
-            transition: 'all 0.3s', // Suaviza las transiciones
+            overflow: 'auto',
+            transition: 'all 0.3s',
           }}
         >
           <Routes>
@@ -52,6 +54,9 @@ function App() {
             <Route path="/materiales" element={<MaterialList />} />
             <Route path="/materiales/nuevo" element={<MaterialForm />} />
             <Route path="/materiales/editar/:id" element={<MaterialForm />} />
+            <Route path="/usuarios" element={<UserList />} />
+            <Route path="/usuarios/nuevo" element={<UserForm />} />
+            <Route path="/usuarios/editar/:id" element={<UserForm />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Box>

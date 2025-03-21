@@ -1,42 +1,33 @@
 import React, { useState } from 'react';
 import {
-  AppBar,
-  Box,
   Drawer,
-  IconButton,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Toolbar,
+  IconButton,
+  Box,
   Typography,
-  ListItemButton,
+  Divider,
+  AppBar,
+  Toolbar,
+  ListItemButton
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import HomeIcon from '@mui/icons-material/Home';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import AddBoxIcon from '@mui/icons-material/AddBox';
-import HomeIcon from '@mui/icons-material/Home';
-import { useNavigate, useLocation } from 'react-router-dom';
+import PeopleIcon from '@mui/icons-material/People';
+import MenuIcon from '@mui/icons-material/Menu';
+// Remove or comment out the logo import
+// import Logo from '../../assets/logo.png';
 
-export const drawerWidth = 240;
+const drawerWidth = 240;
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleNavigation = (path) => {
-    navigate(path);
-    setMobileOpen(false); // Cerrar el drawer en móviles después de navegar
-  };
-
-  const handleHomeClick = () => {
-    handleNavigation('/');
-  };
 
   const menuItems = [
     {
@@ -49,14 +40,27 @@ const Navbar = () => {
       text: 'Nuevo Material',
       icon: <AddBoxIcon />,
       path: '/materiales/nuevo'
-      
     },
     {
       text: 'Lista de Materiales',
       icon: <InventoryIcon />,
       path: '/materiales'
+    },
+    {
+      text: 'Usuarios',
+      icon: <PeopleIcon />,
+      path: '/usuarios'
     }
   ];
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleNavigation = (path) => {
+    navigate(path);
+    setMobileOpen(false);
+  };
 
   const drawer = (
     <Box sx={{ mt: 2 }}>
@@ -201,4 +205,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar; 
+export default Navbar;
