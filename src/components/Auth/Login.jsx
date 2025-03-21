@@ -57,17 +57,10 @@ const Login = () => {
         showConfirmButton: false
       });
 
-      // Redirigir según el rol
-      switch (response.user.role) {
-        case 'admin':
-          navigate('/admin/dashboard');
-          break;
-        case 'user':
-          navigate('/user/dashboard');
-          break;
-        default:
-          throw new Error('Rol no reconocido');
-      }
+      // Redirigir solo a la página de bienvenida
+      navigate('/welcome');
+      
+    
     } catch (error) {
       console.error('Error detallado:', {
         message: error.message,

@@ -23,6 +23,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { getMaterials, deleteMaterial } from '../../services/materialService';
+import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
 
 const MaterialList = () => {
@@ -32,6 +33,7 @@ const MaterialList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isAdmin } = useAuth();
 
   const loadMaterials = async () => {
     try {
@@ -75,10 +77,28 @@ const MaterialList = () => {
   }, [searchTerm, materials]);
 
   const handleEdit = (id) => {
+    if (!isAdmin) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso denegado',
+        text: 'No tienes permisos para editar materiales',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
     navigate(`/materiales/editar/${id}`);
   };
 
   const handleDelete = async (id) => {
+    if (!isAdmin) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso denegado',
+        text: 'No tienes permisos para eliminar materiales',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
     try {
       const result = await Swal.fire({
         title: '¿Está seguro?',
@@ -207,13 +227,13 @@ const MaterialList = () => {
                   <TableCell>Unidad Medida</TableCell>
                   <TableCell>Precio Unitario</TableCell>
                   <TableCell>Estado</TableCell>
-                  <TableCell align="center">Acciones</TableCell>
+                  {isAdmin && <TableCell align="center">Acciones</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredMaterials.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={isAdmin ? 9 : 8} align="center">
                       <Box sx={{ py: 2 }}>
                         <Typography sx={{ color: 'text.secondary', mb: 2 }}>
                           {searchTerm 
@@ -260,22 +280,26 @@ const MaterialList = () => {
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
-                        <Tooltip title="Editar">
-                          <IconButton
-                            onClick={() => handleEdit(material.id_material)}
-                            color="primary"
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton
-                            onClick={() => handleDelete(material.id_material)}
-                            color="error"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
+                        {isAdmin && (
+                          <>
+                            <Tooltip title="Editar">
+                              <IconButton
+                                onClick={() => handleEdit(material.id_material)}
+                                color="primary"
+                              >
+                                <EditIcon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Eliminar">
+                              <IconButton
+                                onClick={() => handleDelete(material.id_material)}
+                                color="error"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
