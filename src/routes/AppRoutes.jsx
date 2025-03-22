@@ -8,14 +8,14 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        {/* Ruta principal redirige a materiales */}
+        {/* Ruta principal */}
         <Route index element={<MaterialList />} />
         
         {/* Rutas de Materiales */}
         <Route path={ROUTES.MATERIALS.LIST} element={<MaterialList />} />
         <Route path={ROUTES.MATERIALS.NEW} element={<MaterialForm />} />
         
-        {/* Ruta 404 - Debe ir al final */}
+        {/* Ruta 404 */}
         <Route path="*" element={
           <div style={{ 
             display: 'flex', 

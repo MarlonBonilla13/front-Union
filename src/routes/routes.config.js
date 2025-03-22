@@ -7,10 +7,10 @@ export const ROUTES = {
     EDIT: (id) => `/materiales/editar/${id}`,
     DETAIL: (id) => `/materiales/${id}`,
   },
-  // Aquí puedes agregar más módulos de rutas según necesites
+  // módulos de rutas
 };
 
-// Metadatos de las rutas (útil para el Navbar y permisos)
+// Metadatos de las rutas (Navbar y permisos)
 export const ROUTE_METADATA = {
   [ROUTES.MATERIALS.LIST]: {
     title: 'Lista de Materiales',
