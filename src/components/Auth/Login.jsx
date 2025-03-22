@@ -57,7 +57,7 @@ const Login = () => {
         showConfirmButton: false
       });
 
-      // Redirigir solo a la página de bienvenida
+      // Redirigir a la página de bienvenida
       navigate('/welcome');
       
     
