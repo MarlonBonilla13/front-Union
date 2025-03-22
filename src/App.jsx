@@ -4,7 +4,7 @@ import { Box } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navigation/Navbar';
 import MaterialForm from './components/Material/MaterialForm';
-import MaterialList from './components/MaterialList/materiallist';
+import MaterialList from './components/MaterialList/MaterialList'; // Corregir mayúsculas/minúsculas
 import Welcome from './components/Welcome';
 import UserList from './components/User/UserList';
 import UserForm from './components/User/UserForm';
