@@ -14,12 +14,30 @@ import {
   CircularProgress
 } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { styled } from '@mui/material/styles';
+
+// Add this after the imports
+const VisuallyHiddenInput = styled('input')({
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  height: 1,
+  overflow: 'hidden',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  whiteSpace: 'nowrap',
+  width: 1,
+});
 
 const MaterialForm = () => {
   const navigate = useNavigate();
-  const { id } = useParams(); // Para modo edición
+  const { id } = useParams();
   const isEditMode = Boolean(id);
 
+  // Agregar los nuevos estados aquí, junto a los otros estados
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [codigo, setCodigo] = useState(""); // Nuevo estado para el código
@@ -229,205 +247,129 @@ const MaterialForm = () => {
   }
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        backgroundColor: '#f8f9fa',
-        width: '100%',
-        minHeight: '100vh',
-        pt: 4
-      }}
-    >
+    <Box sx={{ p: 3, bgcolor: '#f5f5f5' }}>
       <Container maxWidth="md">
-        <Box
-          sx={{
-            width: '100%',
-            p: 4,
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            borderRadius: 2,
-            border: "1px solid #64B5F6",
-            backgroundColor: '#ffffff',
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
-            gap: 3
-          }}
-        >
+        <Box sx={{ 
+          bgcolor: 'white', 
+          p: 3, 
+          borderRadius: 1,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
           <Typography 
             variant="h5" 
             align="center" 
-            gutterBottom 
             sx={{ 
-              fontFamily: "Arial",
-              gridColumn: '1 / -1',
-              borderBottom: '2px solid #64B5F6',
-              pb: 2,
-              mb: 3,
-              fontWeight: 700,
-              fontSize: '1.8rem',
-              color: '#2196F3',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              mb: 3, 
+              color: '#2196f3',
+              fontWeight: 500
             }}
           >
-            {isEditMode ? 'Editar Material' : 'Ingreso De Material'}
+            INGRESO DE MATERIAL
           </Typography>
-          
-          {/* Botón de regresar solo visible en modo edición */}
-          {isEditMode && (
-            <Box sx={{ gridColumn: '1 / -1', mb: 2 }}>
+          <form onSubmit={handleSubmit}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                required
+                label="Código"
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value)}
+              />
+              
+              <TextField
+                required
+                label="Nombre"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+              />
+              
+              <TextField
+                label="Descripción"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                multiline
+                rows={3}
+              />
+    
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                SUBIR IMAGEN
+                <VisuallyHiddenInput 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+              </Button>
+    
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <TextField
+                  required
+                  label="Stock Actual"
+                  type="number"
+                  value={stockActual}
+                  onChange={(e) => setStockActual(e.target.value)}
+                />
+                
+                <TextField
+                  required
+                  label="Stock Mínimo"
+                  type="number"
+                  value={stockMinimo}
+                  onChange={(e) => setStockMinimo(e.target.value)}
+                />
+              </Box>
+    
+              <TextField
+                required
+                label="Unidad de Medida"
+                value={unidadMedida}
+                onChange={(e) => setUnidadMedida(e.target.value)}
+              />
+              
+              <TextField
+                required
+                label="Precio Unitario"
+                type="number"
+                value={precioUnitario}
+                onChange={(e) => setPrecioUnitario(e.target.value)}
+              />
+    
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="body1" sx={{ mb: 1 }}>Estado del material</Typography>
+                <FormGroup row>
+                  <FormControlLabel
+                    control={
+                      <Checkbox 
+                        checked={estado === true} 
+                        onChange={() => setEstado(true)}
+                      />
+                    }
+                    label="Activo"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox 
+                        checked={estado === false} 
+                        onChange={() => setEstado(false)}
+                      />
+                    }
+                    label="Desactivado"
+                  />
+                </FormGroup>
+              </Box>
+    
               <Button
                 variant="contained"
-                color="success"
-                startIcon={<ArrowBackIcon />}
-                onClick={() => navigate('/materiales')}
-                sx={{ 
-                  fontWeight: 'bold',
-                  backgroundColor: '#4CAF50',
-                  '&:hover': {
-                    backgroundColor: '#45a049',
-                  }
-                }}
+                type="submit"
+                fullWidth
+                sx={{ mt: 2, py: 1.5, bgcolor: '#2196f3' }}
               >
-                Regresar a la lista
+                GUARDAR MATERIAL
               </Button>
             </Box>
-          )}
-          
-          <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
-            <TextField
-              required
-              label="Código"
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-              sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}
-            />
-            
-            <TextField
-              required
-              label="Nombre"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}
-            />
-            
-            <TextField
-              label="Descripción"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              multiline
-              rows={3}
-              sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}
-            />
-            
-            <TextField
-              required
-              label="Stock Actual"
-              type="number"
-              value={stockActual}
-              onChange={(e) => setStockActual(e.target.value)}
-            />
-            
-            <TextField
-              required
-              label="Stock Mínimo"
-              type="number"
-              value={stockMinimo}
-              onChange={(e) => setStockMinimo(e.target.value)}
-            />
-            
-            <TextField
-              required
-              label="Unidad de Medida"
-              value={unidadMedida}
-              onChange={(e) => setUnidadMedida(e.target.value)}
-            />
-            
-            <TextField
-              required
-              label="Precio Unitario"
-              type="number"
-              value={precioUnitario}
-              onChange={(e) => setPrecioUnitario(e.target.value)}
-            />
-
-            <Box sx={{ 
-              gridColumn: { xs: '1', md: '1 / -1' },
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              mt: 2,
-              backgroundColor: '#ffffff'
-            }}>
-              <Typography 
-                sx={{ 
-                  fontFamily: "Arial",
-                  fontWeight: 500,
-                  color: 'rgba(0, 0, 0, 0.87)',
-                  ml: 1
-                }}
-              >
-                Estado del material
-              </Typography>
-              <FormGroup 
-                row 
-                sx={{ 
-                  justifyContent: 'flex-start',
-                  ml: 1,
-                  '& .MuiFormControlLabel-root': {
-                    marginRight: 4,
-                    color: 'rgba(0, 0, 0, 0.87)'
-                  },
-                  '& .MuiFormControlLabel-label': {
-                    fontSize: '1rem',
-                    fontFamily: 'Arial'
-                  }
-                }}
-              >
-                <FormControlLabel
-                  control={
-                    <Checkbox 
-                      checked={estado === true} 
-                      onChange={() => setEstado(true)}
-                    />
-                  }
-                  label="Activo"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox 
-                      checked={estado === false} 
-                      onChange={() => setEstado(false)}
-                    />
-                  }
-                  label="Desactivado"
-                />
-              </FormGroup>
-            </Box>
-
-            <Button
-              variant="contained"
-              color={isSaved ? "success" : "primary"}
-              type="submit"
-              disabled={isLoading}
-              sx={{ 
-                mt: 3,
-                py: 1.5,
-                gridColumn: { xs: '1', md: '1 / -1' },
-                fontWeight: 'bold',
-                backgroundColor: isSaved ? '#4CAF50' : '#2196F3',
-                '&:hover': {
-                  backgroundColor: isSaved ? '#45a049' : '#1976D2',
-                }
-              }}
-            >
-              {isLoading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                isEditMode ? "Actualizar Material" : "Guardar Material"
-              )}
-            </Button>
           </form>
         </Box>
       </Container>
@@ -435,4 +377,14 @@ const MaterialForm = () => {
   );
 };
 
+// Move handleImageChange inside the component
+const handleImageChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+};
+
+// At the end of the MaterialForm file, verify this export
 export default MaterialForm;

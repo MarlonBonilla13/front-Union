@@ -45,13 +45,70 @@ export const updateMaterial = async (id, updateMaterialDto) => {
   }
 };
 
-// Eliminar un material
+// Eliminar un material (soft delete)
 export const deleteMaterial = async (id) => {
   try {
     const response = await api.delete(`/materiales/${id}`);
     return response.data;
   } catch (error) {
     console.error(`Error al eliminar material con ID ${id}:`, error);
+    if (error.response && error.response.status === 404) {
+      throw new Error('No se encontró el material');
+    } else if (error.response && error.response.data.message) {
+      throw new Error(error.response.data.message);
+    } else {
+      throw new Error('No se pudo eliminar el material. Por favor, intente nuevamente.');
+    }
+  }
+};
+
+// Obtener materiales inactivos
+export const getInactiveMaterials = async () => {
+  try {
+    const response = await api.get('/materiales/all/inactive');
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener materiales inactivos:', error);
     throw error;
   }
+};
+
+export const reactivateMaterial = async (id) => {
+  try {
+    // Usamos updateMaterial para cambiar solo el estado a true
+    const response = await api.patch(`/materiales/${id}`, {
+      estado: true
+    });
+    if (!response.data) {
+      throw new Error('No se recibió respuesta del servidor');
+    }
+    return response.data;
+  } catch (error) {
+    console.error(`Error al reactivar material con ID ${id}:`, error);
+    if (error.response) {
+      if (error.response.status === 404) {
+        throw new Error('No se encontró el material');
+      } else if (error.response.data && error.response.data.message) {
+        throw new Error(error.response.data.message);
+      }
+    }
+    throw new Error('No se pudo reactivar el material. Por favor, intente nuevamente.');
+  }
+};
+
+// Add this function to your existing materialService.js
+export const uploadMaterialImage = async (id, imageFile) => {
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  
+  const response = await fetch(`${API_BASE_URL}/materiales/${id}/imagen`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error('Error uploading image');
+  }
+
+  return response.json();
 };
