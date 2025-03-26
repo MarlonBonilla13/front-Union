@@ -45,6 +45,7 @@ const MaterialList = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const { isAdmin } = useAuth();
+  const { user } = useAuth();
   const [showInactive, setShowInactive] = useState(false);
 
   // En la función loadMaterials, después de obtener los datos:
@@ -244,31 +245,29 @@ const MaterialList = () => {
               Lista de Materiales
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="contained"
+                color={showInactive ? "secondary" : "primary"}
+                startIcon={<VisibilityOffIcon />}
+                onClick={() => setShowInactive(!showInactive)}
+                sx={{
+                  backgroundColor: showInactive ? '#f50057' : '#4caf50',
+                  '&:hover': {
+                    backgroundColor: showInactive ? '#c51162' : '#388e3c'
+                  }
+                }}
+              >
+                {showInactive ? 'Ver Activos' : 'Ver Inactivos'}
+              </Button>
               {isAdmin && (
-                <>
-                  <Button
-                    variant="contained"
-                    color={showInactive ? "secondary" : "primary"}
-                    startIcon={<VisibilityOffIcon />}
-                    onClick={() => setShowInactive(!showInactive)}
-                    sx={{
-                      backgroundColor: showInactive ? '#f50057' : '#4caf50',
-                      '&:hover': {
-                        backgroundColor: showInactive ? '#c51162' : '#388e3c'
-                      }
-                    }}
-                  >
-                    {showInactive ? 'Ver Activos' : 'Ver Inactivos'}
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<AddIcon />}
-                    onClick={() => navigate('/materiales/nuevo')}
-                  >
-                    Nuevo Material
-                  </Button>
-                </>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={() => navigate('/materiales/nuevo')}
+                >
+                  Nuevo Material
+                </Button>
               )}
             </Box>
           </Box>

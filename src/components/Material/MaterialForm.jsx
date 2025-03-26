@@ -344,7 +344,7 @@ const MaterialForm = () => {
               />
     
               <Box sx={{ mt: 1 }}>
-                <Typography variant="body1" sx={{ mb: 1 }}>Estado del material</Typography>
+                <Typography variant="body1" sx={{ color: 'text.primary' }}>Estado del material</Typography>
                 <FormGroup row>
                   <FormControlLabel
                     control={
@@ -354,6 +354,7 @@ const MaterialForm = () => {
                       />
                     }
                     label="Activo"
+                    sx={{ color: 'text.primary' }}
                   />
                   <FormControlLabel
                     control={
@@ -363,6 +364,7 @@ const MaterialForm = () => {
                       />
                     }
                     label="Desactivado"
+                    sx={{ color: 'text.primary' }}
                   />
                 </FormGroup>
               </Box>
