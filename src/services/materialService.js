@@ -98,17 +98,19 @@ export const reactivateMaterial = async (id) => {
 
 // Add this function to your existing materialService.js
 export const uploadMaterialImage = async (id, imageFile) => {
-  const formData = new FormData();
-  formData.append('image', imageFile);
-  
-  const response = await fetch(`${API_BASE_URL}/materiales/${id}/imagen`, {
-    method: 'POST',
-    body: formData,
-  });
+  try {
+    const formData = new FormData();
+    formData.append('file', imageFile); // Cambiado de 'imagen' a 'file' para coincidir con el backend
 
-  if (!response.ok) {
-    throw new Error('Error uploading image');
+    const response = await api.post(`/materiales/upload/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error al subir la imagen:', error);
+    throw new Error('No se pudo subir la imagen. Por favor, intente nuevamente.');
   }
-
-  return response.json();
 };

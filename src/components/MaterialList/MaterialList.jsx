@@ -35,6 +35,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ImageIcon from '@mui/icons-material/Image';
+import { API_IMAGE_URL } from '../../config/config';
 
 const MaterialList = () => {
   const navigate = useNavigate();
@@ -345,19 +346,16 @@ const MaterialList = () => {
                   filteredMaterials.map((material) => (
                     <TableRow key={material.id_material}>
                       <TableCell>
-                        {material.imagen_url ? (
-                          <img 
-                            src={`/uploads/materials/${material.imagen_url}`}
+                        {material.imagen_url && (
+                          <img
+                            src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
                             alt={material.nombre}
-                            style={{ 
-                              width: '50px', 
-                              height: '50px', 
-                              objectFit: 'cover',
-                              borderRadius: '4px'
-                            }} 
+                            style={{
+                              width: '50px',
+                              height: '50px',
+                              objectFit: 'contain'
+                            }}
                           />
-                        ) : (
-                          <ImageIcon sx={{ color: 'text.secondary' }} />
                         )}
                       </TableCell>
                       <TableCell>{material.codigo || 'N/A'}</TableCell>

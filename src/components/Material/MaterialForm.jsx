@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from 'react-router-dom';
-import { createMaterial, getMaterialById, updateMaterial } from "../../services/materialService";
+import { createMaterial, getMaterialById, updateMaterial, uploadMaterialImage } from "../../services/materialService";
 import Swal from 'sweetalert2';
 import {
   TextField,
@@ -82,6 +82,14 @@ const MaterialForm = () => {
 
     loadMaterial();
   }, [id, isEditMode]);
+
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -165,32 +173,25 @@ const MaterialForm = () => {
       try {
         setIsLoading(true);
         
-        // Mostrar loading
-        Swal.fire({
-          title: `${isEditMode ? 'Actualizando' : 'Guardando'} material...`,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          showConfirmButton: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
-
-        const TIMEOUT_SECONDS = 10;
+        // First save the material
+        const savedMaterial = await (isEditMode 
+          ? updateMaterial(id, materialData)
+          : createMaterial(materialData));
         
-        const result = await Promise.race([
-          isEditMode 
-            ? updateMaterial(id, materialData)
-            : createMaterial(materialData),
-          new Promise((_, reject) => 
-            setTimeout(() => {
-              reject(new Error('TIMEOUT'));
-            }, TIMEOUT_SECONDS * 1000)
-          )
-        ]);
-
-        if (!result) {
-          throw new Error('DATABASE_ERROR');
+        // Then upload the image if one was selected
+        if (selectedImage) {
+          try {
+            await uploadMaterialImage(savedMaterial.id_material, selectedImage);
+          } catch (error) {
+            console.error('Error uploading image:', error);
+            // Show warning but don't fail the whole operation
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Advertencia',
+              text: 'El material se guardó pero hubo un problema al subir la imagen',
+              confirmButtonColor: '#f0ad4e'
+            });
+          }
         }
 
         setIsSaved(true);
@@ -255,15 +256,7 @@ const MaterialForm = () => {
           borderRadius: 1,
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <Typography 
-            variant="h5" 
-            align="center" 
-            sx={{ 
-              mb: 3, 
-              color: '#2196f3',
-              fontWeight: 500
-            }}
-          >
+          <Typography variant="h5" align="center" sx={{ mb: 3, color: '#2196f3', fontWeight: 500 }}>
             INGRESO DE MATERIAL
           </Typography>
           <form onSubmit={handleSubmit}>
@@ -290,19 +283,32 @@ const MaterialForm = () => {
                 rows={3}
               />
     
-              <Button
-                component="label"
-                variant="outlined"
-                startIcon={<CloudUploadIcon />}
-                sx={{ alignSelf: 'flex-start' }}
-              >
-                SUBIR IMAGEN
-                <VisuallyHiddenInput 
-                  type="file" 
-                  accept="image/*"
-                  onChange={handleImageChange}
-                />
-              </Button>
+              {/* Replace the existing image upload button with this updated version */}
+              <Box sx={{ mb: 2 }}>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<CloudUploadIcon />}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  SUBIR IMAGEN
+                  <VisuallyHiddenInput 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleImageChange}
+                  />
+                </Button>
+                
+                {imagePreview && (
+                  <Box sx={{ mt: 2 }}>
+                    <img 
+                      src={imagePreview} 
+                      alt="Vista previa" 
+                      style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'contain' }} 
+                    />
+                  </Box>
+                )}
+              </Box>
     
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                 <TextField
@@ -377,14 +383,4 @@ const MaterialForm = () => {
   );
 };
 
-// Move handleImageChange inside the component
-const handleImageChange = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    setSelectedImage(file);
-    setImagePreview(URL.createObjectURL(file));
-  }
-};
-
-// At the end of the MaterialForm file, verify this export
 export default MaterialForm;
