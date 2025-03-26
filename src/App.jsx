@@ -2,14 +2,14 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
-import Navbar from './components/Navigation/navbar.jsx';
-import MaterialForm from './components/Material/materialform.jsx';
-import MaterialList from './components/MaterialList/materiallist.jsx';
+import Navbar from './components/Navigation/Navbar';  // Remove .jsx extension
+import MaterialForm from './components/Material/MaterialForm';
+import MaterialList from './components/MaterialList/MaterialList';
 import Welcome from './components/Welcome';
-import UserList from './components/User/userlist.jsx';
-import UserForm from './components/User/userform.jsx';
-import Login from './components/Auth/login.jsx';
-import ProtectedRoute from './components/Auth/protectedroute.jsx';
+import UserList from './components/User/UserList';
+import UserForm from './components/User/UserForm';
+import Login from './components/Auth/Login';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
 
 function App() {
   return (
