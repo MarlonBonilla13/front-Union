@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
-import Navbar from './components/Navigation/navbar.jsx';
+import Navbar from './components/Navigation/Navbar.jsx';  // Updated casing
 import MaterialForm from './components/Material/materialform.jsx';
 import MaterialList from './components/MaterialList/materiallist.jsx';
 import Welcome from './components/Welcome';
