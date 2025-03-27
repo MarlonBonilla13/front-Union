@@ -25,15 +25,19 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('Error en la petición:', error);
+    
     if (error.response) {
       if (error.response.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
       }
-      return Promise.reject(error.response.data);
+      // Devolver un mensaje de error más específico
+      const errorMessage = error.response.data.message || 'Error en la operación';
+      return Promise.reject(new Error(errorMessage));
     }
-    return Promise.reject(error);
+    return Promise.reject(new Error('Error de conexión con el servidor'));
   }
 );
 

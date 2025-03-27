@@ -16,6 +16,8 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import HomeIcon from '@mui/icons-material/Home';
+import GroupIcon from '@mui/icons-material/Group';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import { useAuth } from '../../contexts/AuthContext';
 import { logout } from '../../services/authService';
 import Swal from 'sweetalert2';
@@ -43,6 +45,24 @@ const Navbar = () => {
       icon: <AddBoxIcon />,
       path: '/materiales/nuevo',
       roles: ['admin']
+    },
+    {
+      text: 'Empleados',
+      icon: <GroupIcon />,
+      path: '/empleados',
+      roles: ['admin']
+    },
+    {
+      text: 'Nuevo Empleado',
+      icon: <AddBoxIcon />,
+      path: '/empleados/nuevo',
+      roles: ['admin']
+    },
+    {
+      text: 'Movimientos',
+      icon: <CompareArrowsIcon />,
+      path: '/movimientos',
+      roles: ['admin', 'user']
     },
     {
       text: 'Usuarios',

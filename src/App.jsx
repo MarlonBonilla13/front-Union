@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
-import Navbar from './components/Navigation/Navbar';  // Remove .jsx extension
+import Navbar from './components/Navigation/Navbar';
 import MaterialForm from './components/Material/MaterialForm';
 import MaterialList from './components/MaterialList/MaterialList';
 import Welcome from './components/Welcome';
@@ -10,11 +10,13 @@ import UserList from './components/User/UserList';
 import UserForm from './components/User/UserForm';
 import Login from './components/Auth/Login';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
+import EmpleadoForm from './components/Empleado/EmpleadoForm';
+import EmpleadoList from './components/Empleado/EmpleadoList';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -69,6 +71,30 @@ function App() {
                           </ProtectedRoute>
                         } 
                       />
+                      <Route
+                        path="/empleados/nuevo"
+                        element={
+                          <ProtectedRoute roles={['admin']}>
+                            <EmpleadoForm />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/empleados/editar/:id"
+                        element={
+                          <ProtectedRoute roles={['admin']}>
+                            <EmpleadoForm />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/empleados"
+                        element={
+                          <ProtectedRoute roles={['admin']}>
+                            <EmpleadoList />
+                          </ProtectedRoute>
+                        }
+                      />
                     </Routes>
                   </Box>
                 </Box>
@@ -76,8 +102,8 @@ function App() {
             }
           />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
