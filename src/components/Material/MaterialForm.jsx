@@ -256,7 +256,7 @@ const MaterialForm = () => {
           borderRadius: 1,
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <Typography variant="h5" align="center" sx={{ mb: 3, color: '#2196f3', fontWeight: 500 }}>
+          <Typography variant="h5" align="center" sx={{ mb: 3, fontWeight: 600, color: '#1976d2'}}> 
             INGRESO DE MATERIAL
           </Typography>
           <form onSubmit={handleSubmit}>

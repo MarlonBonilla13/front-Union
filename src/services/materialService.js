@@ -114,3 +114,15 @@ export const uploadMaterialImage = async (id, imageFile) => {
     throw new Error('No se pudo subir la imagen. Por favor, intente nuevamente.');
   }
 };
+
+// Add this function to your materialService
+export const updateMaterialStock = async (materialId, newStock) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/materials/${materialId}/stock`, {
+      stock_actual: newStock
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};

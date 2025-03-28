@@ -1,6 +1,24 @@
 import api from './api';
 
-// Obtener todos los empleados
+export const getEmpleadosActivos = async () => {
+  try {
+    console.log('Intentando obtener empleados activos...');
+    const response = await api.get('/empleados');  // Changed from '/empleados/activos'
+    // Filter active employees in the frontend
+    const empleadosActivos = response.data.filter(empleado => empleado.estado === true);
+    console.log('Empleados activos:', empleadosActivos);
+    return empleadosActivos;
+  } catch (error) {
+    console.error("Error detallado:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: '/empleados'
+    });
+    throw error;
+  }
+};
+
 export const getEmpleados = async () => {
   try {
     const response = await api.get('/empleados');
@@ -11,7 +29,6 @@ export const getEmpleados = async () => {
   }
 };
 
-// Obtener un empleado específico
 export const getEmpleado = async (id) => {
   try {
     const numericId = parseInt(id);
@@ -26,7 +43,6 @@ export const getEmpleado = async (id) => {
   }
 };
 
-// Actualizar empleado
 export const updateEmpleado = async (id, empleadoData) => {
   try {
     const numericId = parseInt(id);
@@ -64,8 +80,6 @@ export const updateEmpleado = async (id, empleadoData) => {
   }
 };
 
-// Eliminar empleado (cambiar estado a inactivo)
-// Modificar la función deleteEmpleado para manejar ambos casos
 export const deleteEmpleado = async (id, nuevoEstado = false) => {
   try {
     const numericId = parseInt(id);
@@ -82,7 +96,6 @@ export const deleteEmpleado = async (id, nuevoEstado = false) => {
   }
 };
 
-// Crear nuevo empleado
 export const createEmpleado = async (empleadoData) => {
   try {
     // Remover campos innecesarios para la creación

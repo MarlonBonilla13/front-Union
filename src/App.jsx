@@ -12,6 +12,7 @@ import Login from './components/Auth/Login';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import EmpleadoForm from './components/Empleado/EmpleadoForm';
 import EmpleadoList from './components/Empleado/EmpleadoList';
+import MovimientosList from './components/Movimientos/MovimientosList';
 
 function App() {
   return (
@@ -92,6 +93,15 @@ function App() {
                         element={
                           <ProtectedRoute roles={['admin']}>
                             <EmpleadoList />
+                          </ProtectedRoute>
+                        }
+                      />
+                      // Cambiar la ruta de movimientos
+                      <Route
+                        path="/movimientos"
+                        element={
+                          <ProtectedRoute>
+                            <MovimientosList />
                           </ProtectedRoute>
                         }
                       />

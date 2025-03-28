@@ -138,7 +138,7 @@ const EmpleadoList = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="h5" sx={{ fontWeight: 600, color: '#1976d2' }}>
           Lista de Empleados
         </Typography>
         <Button

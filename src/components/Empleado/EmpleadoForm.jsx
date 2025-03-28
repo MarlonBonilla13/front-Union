@@ -126,7 +126,7 @@ const EmpleadoForm = () => {
           >
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: '#1976d2' }}>
             {id ? 'Editar Empleado' : 'Nuevo Empleado'}
           </Typography>
         </Box>
