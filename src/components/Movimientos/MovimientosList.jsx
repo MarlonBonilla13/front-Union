@@ -30,9 +30,37 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import esLocale from 'date-fns/locale/es';
+import { Button } from '@mui/material';  // Add to imports
+
+// Add the handler function
+// Update the handleCreateMovimiento function
+const handleCreateMovimiento = () => {
+  if (!selectedMaterial || !selectedEmpleado || cantidad <= 0 || !comentario.trim()) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Campos Incompletos',
+      text: !comentario.trim() ? 'Por favor ingrese un comentario' : 'Por favor complete todos los campos requeridos'
+    });
+    return;
+  }
+
+  if (isStockInsuficiente) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Stock Insuficiente',
+      text: 'La cantidad excede el stock disponible'
+    });
+    return;
+  }
+
+  // Here you would add the logic to create the movement
+  // You'll need to implement this based on your backend requirements
+};
 
 const MovimientosList = () => {
-  // Keep all state declarations at the top
+  // Add these state declarations at the top with other states
+  const [cantidad, setCantidad] = useState(0);
+  const [isStockInsuficiente, setIsStockInsuficiente] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [movimientos, setMovimientos] = useState([]);
   const [filteredMovimientos, setFilteredMovimientos] = useState([]);
@@ -44,6 +72,7 @@ const MovimientosList = () => {
   const [stockMinimo, setStockMinimo] = useState(0);
   const [empleados, setEmpleados] = useState([]);
   const [selectedEmpleado, setSelectedEmpleado] = useState('');
+  const [comentario, setComentario] = useState('');
 
   const loadMaterials = async () => {
     try {
@@ -156,7 +185,27 @@ const MovimientosList = () => {
   const handleEmpleadoChange = (event) => {
     setSelectedEmpleado(event.target.value);
   };
-  
+
+  const handleCantidadChange = (event) => {
+    // Allow only numbers
+    const value = event.target.value.replace(/[^0-9]/g, '');
+    // Convert to number for comparison, default to 0 if empty
+    const numericValue = value === '' ? 0 : parseInt(value);
+    
+    setCantidad(value); // Store as string to maintain leading zeros
+    setIsStockInsuficiente(numericValue > stockActual);
+    
+    if (numericValue > stockActual) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Stock Insuficiente',
+        text: `La cantidad máxima disponible es ${stockActual}`,
+        showConfirmButton: false,
+        timer: 2000
+      });
+    }
+  };
+
   return (
     <Box sx={{ 
       flexGrow: 1,
@@ -171,8 +220,8 @@ const MovimientosList = () => {
         borderRadius: 2,
         backgroundColor: 'white',
         boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-        width: '-100%',
-        overflow: 'auto'  // Add this
+        width: '-100%',  // Changed from '-100%' to '100%'
+        overflow: 'auto'
       }}>
         <Typography variant="h5" sx={{ mb: 3, fontWeight: 600, color: '#1976d2'}}>
           Historial de Movimientos
@@ -214,29 +263,45 @@ const MovimientosList = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={2}>
+          {/* Remove the state declarations from here */}
+          <Grid item xs={12} md={1}>
             <TextField
+              label="Cantidad"
+              // Change from type="number" to type="text"
+              type="text"
+              value={cantidad}
+              onChange={handleCantidadChange}
               fullWidth
-              label="Stock Actual"
-              type="number"
-              value={stockActual}
-              onChange={handleStockActualChange}
-              disabled={!selectedMaterial}
+              error={isStockInsuficiente}
+              helperText={isStockInsuficiente ? "Stock insuficiente" : ""}
+              // Remove InputProps min and max constraints
               InputProps={{
                 inputProps: { 
-                  max: stockActual,
-                  min: 0
+                  pattern: "[0-9]*"  // Only allow numeric input
                 }
               }}
             />
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} md={1}>
             <TextField
+              label="Stock Actual"
+              value={stockActual}
+              disabled
               fullWidth
+              InputProps={{
+                readOnly: true,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <TextField
               label="Stock Mínimo"
-              type="number"
               value={stockMinimo}
-              disabled={true}
+              disabled
+              fullWidth
+              InputProps={{
+                readOnly: true,
+              }}
             />
           </Grid>
           <Grid item xs={12} md={3}>
@@ -279,7 +344,19 @@ const MovimientosList = () => {
               />
             </LocalizationProvider>
           </Grid>
-          <Grid item xs={12}>
+          {/* Add new TextField for comments */}
+          <Grid item xs={12} md={5}>
+            <TextField
+              label="Comentario"
+              multiline
+              rows={2}
+              fullWidth
+              placeholder="Ingrese un comentario sobre el movimiento..."
+              value={comentario}
+              onChange={(e) => setComentario(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={9}>
             <TextField
               fullWidth
               variant="outlined"
@@ -291,22 +368,41 @@ const MovimientosList = () => {
                   <InputAdornment position="start">
                     <SearchIcon />
                   </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+                ),
+              }}
+            />
           </Grid>
+          {/* Add Create Button */}
+          <Grid item xs={3}>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              sx={{ 
+                height: '56px',
+                backgroundColor: '#1976d2',
+                '&:hover': {
+                  backgroundColor: '#115293'
+                }
+              }}
+              onClick={handleCreateMovimiento}
+              disabled={!selectedMaterial || !selectedEmpleado || cantidad <= 0 || isStockInsuficiente || !comentario.trim()}
+            >
+              Crear Movimiento
+            </Button>
+          </Grid>
+        </Grid> {/* Close the Grid container here */}
     
-          {/* Add the table section */}
-              <Box sx={{ 
-                width: '100%', 
-                display: 'flex', 
-                justifyContent: 'center',
-                mt: 2,
-                mx: 'auto',
-                position: 'relative'
-              }}>
-                <TableContainer 
+        {/* Add the table section */}
+        <Box sx={{ 
+          width: '100%', 
+          display: 'flex', 
+          justifyContent: 'center',
+          mt: 2,
+          mx: 'auto',
+          position: 'relative'
+        }}>
+              <TableContainer 
                   component={Paper} 
                   elevation={0}
                   sx={{ 
