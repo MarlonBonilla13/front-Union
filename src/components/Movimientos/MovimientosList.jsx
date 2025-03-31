@@ -34,31 +34,38 @@ import { Button } from '@mui/material';  // Add to imports
 
 // Add the handler function
 // Update the handleCreateMovimiento function
-const handleCreateMovimiento = () => {
-  if (!selectedMaterial || !selectedEmpleado || cantidad <= 0 || !comentario.trim()) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Campos Incompletos',
-      text: !comentario.trim() ? 'Por favor ingrese un comentario' : 'Por favor complete todos los campos requeridos'
-    });
-    return;
-  }
+// Eliminar esta definición externa
+// const handleCreateMovimiento = () => {
+//   if (!selectedMaterial || !selectedEmpleado || cantidad <= 0 || !comentario.trim()) {
+//     Swal.fire({
+//       icon: 'warning',
+//       title: 'Campos Incompletos',
+//       text: !comentario.trim() ? 'Por favor ingrese un comentario' : 'Por favor complete todos los campos requeridos'
+//     });
+//     return;
+//   }
+//
+//   if (isStockInsuficiente) {
+//     Swal.fire({
+//       icon: 'error',
+//       title: 'Stock Insuficiente',
+//       text: 'La cantidad excede el stock disponible'
+//     });
+//     return;
+//   }
+//
+//   // Here you would add the logic to create the movement
+//   // You'll need to implement this based on your backend requirements
+// };
 
-  if (isStockInsuficiente) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Stock Insuficiente',
-      text: 'La cantidad excede el stock disponible'
-    });
-    return;
-  }
-
-  // Here you would add the logic to create the movement
-  // You'll need to implement this based on your backend requirements
-};
+// Añadir el import para el contexto de autenticación
+import { useAuth } from '../../contexts/AuthContext';
 
 const MovimientosList = () => {
-  // Add these state declarations at the top with other states
+  // Obtener el usuario y su rol del contexto de autenticación
+  const { user } = useAuth();
+  
+  // Estados existentes...
   const [cantidad, setCantidad] = useState(0);
   const [isStockInsuficiente, setIsStockInsuficiente] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -206,6 +213,59 @@ const MovimientosList = () => {
     }
   };
 
+  // Add the handleCreateMovimiento function here
+  const handleCreateMovimiento = () => {
+    if (!selectedMaterial || !selectedEmpleado || cantidad <= 0 || !comentario.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos Incompletos',
+        text: !comentario.trim() ? 'Por favor ingrese un comentario' : 'Por favor complete todos los campos requeridos'
+      });
+      return;
+    }
+
+    if (isStockInsuficiente) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Stock Insuficiente',
+        text: 'La cantidad excede el stock disponible'
+      });
+      return;
+    }
+
+    // Aquí agregarías la lógica para crear el movimiento
+    // Por ejemplo:
+    // createMovimiento({
+    //   id_material: selectedMaterial,
+    //   id_empleado: selectedEmpleado,
+    //   cantidad: parseInt(cantidad),
+    //   fecha: selectedDate,
+    //   comentario: comentario,
+    //   tipo_movimiento: 'salida' // o 'entrada' según corresponda
+    // })
+    // .then(() => {
+    //   Swal.fire({
+    //     icon: 'success',
+    //     title: 'Éxito',
+    //     text: 'Movimiento creado correctamente'
+    //   });
+    //   loadMovimientos();
+    //   // Resetear los campos
+    //   setSelectedMaterial('');
+    //   setSelectedEmpleado('');
+    //   setCantidad(0);
+    //   setComentario('');
+    // })
+    // .catch(error => {
+    //   console.error('Error creating movimiento:', error);
+    //   Swal.fire({
+    //     icon: 'error',
+    //     title: 'Error',
+    //     text: 'No se pudo crear el movimiento'
+    //   });
+    // });
+  };
+
   return (
     <Box sx={{ 
       flexGrow: 1,
@@ -227,173 +287,197 @@ const MovimientosList = () => {
           Historial de Movimientos
         </Typography>
         
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Seleccionar Material</InputLabel>
-              <Select
-                value={selectedMaterial}
-                onChange={handleMaterialChange}
-                label="Seleccionar Material"
-                renderValue={(selected) => {
-                  const material = materials.find(m => m.id_material === selected);
-                  return material ? material.nombre : 'Sin seleccionar';
-                }}
-              >
-                <MenuItem value="" sx={{ fontStyle: 'italic' }}>
-                  <em>Sin seleccionar</em>
-                </MenuItem>
-                {materials.map((material) => (
-                  <MenuItem key={material.id_material} value={material.id_material} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {material.imagen_url && (
-                      <img
-                        src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
-                        alt={material.nombre}
-                        style={{ 
-                          width: 40, 
-                          height: 40, 
-                          objectFit: 'contain',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    )}
-                    <span>{material.nombre}</span>
+        {/* Mostrar interfaz según el rol */}
+        {user.role === 'admin' ? (
+          // Interfaz para administradores - con todas las funcionalidades
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Seleccionar Material</InputLabel>
+                <Select
+                  value={selectedMaterial}
+                  onChange={handleMaterialChange}
+                  label="Seleccionar Material"
+                  renderValue={(selected) => {
+                    const material = materials.find(m => m.id_material === selected);
+                    return material ? material.nombre : 'Sin seleccionar';
+                  }}
+                >
+                  <MenuItem value="" sx={{ fontStyle: 'italic' }}>
+                    <em>Sin seleccionar</em>
                   </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          {/* Remove the state declarations from here */}
-          <Grid item xs={12} md={1}>
-            <TextField
-              label="Cantidad"
-              // Change from type="number" to type="text"
-              type="text"
-              value={cantidad}
-              onChange={handleCantidadChange}
-              fullWidth
-              error={isStockInsuficiente}
-              helperText={isStockInsuficiente ? "Stock insuficiente" : ""}
-              // Remove InputProps min and max constraints
-              InputProps={{
-                inputProps: { 
-                  pattern: "[0-9]*"  // Only allow numeric input
-                }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={1}>
-            <TextField
-              label="Stock Actual"
-              value={stockActual}
-              disabled
-              fullWidth
-              InputProps={{
-                readOnly: true,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={1}>
-            <TextField
-              label="Stock Mínimo"
-              value={stockMinimo}
-              disabled
-              fullWidth
-              InputProps={{
-                readOnly: true,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Seleccionar Empleado</InputLabel>
-              <Select
-                value={selectedEmpleado}
-                onChange={handleEmpleadoChange}
-                label="Seleccionar Empleado"
-                renderValue={(selected) => {
-                  const empleado = empleados.find(e => e.id_empleado === selected);
-                  return empleado ? `${empleado.codigo_empleado} - ${empleado.nombre} ${empleado.apellido}` : 'Sin seleccionar';
-                }}
-              >
-                <MenuItem value="" sx={{ fontStyle: 'italic' }}>
-                  <em>Sin seleccionar</em>
-                </MenuItem>
-                {empleados.map((empleado) => (
-                  <MenuItem key={empleado.id_empleado} value={empleado.id_empleado}>
-                    <span>{`${empleado.codigo_empleado} - ${empleado.nombre} ${empleado.apellido}`}</span>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={esLocale}>
-              <DatePicker
-                label="Fecha"
-                value={selectedDate}
-                onChange={handleDateChange}
-                format="dd/MM/yyyy"
-                sx={{ width: '100%' }}
-                slotProps={{
-                  textField: {
-                    variant: "outlined",
-                    fullWidth: true
+                  {materials.map((material) => (
+                    <MenuItem key={material.id_material} value={material.id_material} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {material.imagen_url && (
+                        <img
+                          src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
+                          alt={material.nombre}
+                          style={{ 
+                            width: 40, 
+                            height: 40, 
+                            objectFit: 'contain',
+                            borderRadius: '4px'
+                          }}
+                        />
+                      )}
+                      <span>{material.nombre}</span>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            {/* Remove the state declarations from here */}
+            <Grid item xs={12} md={1}>
+              <TextField
+                label="Cantidad"
+                // Change from type="number" to type="text"
+                type="text"
+                value={cantidad}
+                onChange={handleCantidadChange}
+                fullWidth
+                error={isStockInsuficiente}
+                helperText={isStockInsuficiente ? "Stock insuficiente" : ""}
+                // Remove InputProps min and max constraints
+                InputProps={{
+                  inputProps: { 
+                    pattern: "[0-9]*"  // Only allow numeric input
                   }
                 }}
               />
-            </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12} md={1}>
+              <TextField
+                label="Stock Actual"
+                value={stockActual}
+                disabled
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={1}>
+              <TextField
+                label="Stock Mínimo"
+                value={stockMinimo}
+                disabled
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Seleccionar Empleado</InputLabel>
+                <Select
+                  value={selectedEmpleado}
+                  onChange={handleEmpleadoChange}
+                  label="Seleccionar Empleado"
+                  renderValue={(selected) => {
+                    const empleado = empleados.find(e => e.id_empleado === selected);
+                    return empleado ? `${empleado.codigo_empleado} - ${empleado.nombre} ${empleado.apellido}` : 'Sin seleccionar';
+                  }}
+                >
+                  <MenuItem value="" sx={{ fontStyle: 'italic' }}>
+                    <em>Sin seleccionar</em>
+                  </MenuItem>
+                  {empleados.map((empleado) => (
+                    <MenuItem key={empleado.id_empleado} value={empleado.id_empleado}>
+                      <span>{`${empleado.codigo_empleado} - ${empleado.nombre} ${empleado.apellido}`}</span>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={esLocale}>
+                <DatePicker
+                  label="Fecha"
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  format="dd/MM/yyyy"
+                  sx={{ width: '100%' }}
+                  slotProps={{
+                    textField: {
+                      variant: "outlined",
+                      fullWidth: true
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            {/* Add new TextField for comments */}
+            <Grid item xs={12} md={5}>
+              <TextField
+                label="Comentario"
+                multiline
+                rows={2}
+                fullWidth
+                placeholder="Ingrese un comentario sobre el movimiento..."
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={9}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Buscar por código, nombre, tipo de movimiento..."
+                value={searchTerm}
+                onChange={handleSearch}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            {/* Add Create Button */}
+            <Grid item xs={3}>
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                sx={{ 
+                  height: '56px',
+                  backgroundColor: '#1976d2',
+                  '&:hover': {
+                    backgroundColor: '#115293'
+                  }
+                }}
+                onClick={handleCreateMovimiento}
+                disabled={!selectedMaterial || !selectedEmpleado || cantidad <= 0 || isStockInsuficiente || !comentario.trim()}
+              >
+                Crear Movimiento
+              </Button>
+            </Grid>
           </Grid>
-          {/* Add new TextField for comments */}
-          <Grid item xs={12} md={5}>
-            <TextField
-              label="Comentario"
-              multiline
-              rows={2}
-              fullWidth
-              placeholder="Ingrese un comentario sobre el movimiento..."
-              value={comentario}
-              onChange={(e) => setComentario(e.target.value)}
-            />
+        ) : (
+          // Interfaz para usuarios normales - solo búsqueda
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Buscar por código, nombre, tipo de movimiento..."
+                value={searchTerm}
+                onChange={handleSearch}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={9}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Buscar por código, nombre, tipo de movimiento..."
-              value={searchTerm}
-              onChange={handleSearch}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          {/* Add Create Button */}
-          <Grid item xs={3}>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              sx={{ 
-                height: '56px',
-                backgroundColor: '#1976d2',
-                '&:hover': {
-                  backgroundColor: '#115293'
-                }
-              }}
-              onClick={handleCreateMovimiento}
-              disabled={!selectedMaterial || !selectedEmpleado || cantidad <= 0 || isStockInsuficiente || !comentario.trim()}
-            >
-              Crear Movimiento
-            </Button>
-          </Grid>
-        </Grid> {/* Close the Grid container here */}
-    
-        {/* Add the table section */}
+        )}
+        
+        {/* La tabla de movimientos se muestra para todos los roles */}
         <Box sx={{ 
           width: '100%', 
           display: 'flex', 
@@ -402,73 +486,73 @@ const MovimientosList = () => {
           mx: 'auto',
           position: 'relative'
         }}>
-              <TableContainer 
-                  component={Paper} 
-                  elevation={0}
-                  sx={{ 
-                    width: '100%',
-                    maxWidth: '100%',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(224, 224, 224, 1)',
-                    boxShadow: 'none',
-                    position: 'relative',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      borderRadius: '8px',
-                      border: '1px solid rgba(224, 224, 224, 1)',
-                      pointerEvents: 'none'
-                    }
-                  }}
-                >
-                  <Table sx={{ 
-                    minWidth: 650,
-                    borderCollapse: 'separate',
-                    borderSpacing: 0
-                  }}>
-                    <TableHead>
-                      <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                        <TableCell>Fecha</TableCell>
-                        <TableCell>Código</TableCell>
-                        <TableCell>Material</TableCell>
-                        <TableCell>Tipo Movimiento</TableCell>
-                        <TableCell>Stock Actual</TableCell>
-                        <TableCell>Stock Mínimo</TableCell>
-                        <TableCell>Empleado</TableCell>
-                        <TableCell>Comentario</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {!isLoading && filteredMovimientos.map((movimiento) => (
-                        <TableRow key={movimiento.id_movimiento}>
-                          <TableCell>{new Date(movimiento.fecha).toLocaleDateString()}</TableCell>
-                          <TableCell>{movimiento.codigo}</TableCell>
-                          <TableCell>{movimiento.nombre}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={movimiento.tipo_movimiento}
-                              color={movimiento.tipo_movimiento.toLowerCase() === 'entrada' ? 'success' : 'error'}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>{movimiento.Stock_actual}</TableCell>
-                          <TableCell>{movimiento.Stock_minimo}</TableCell>
-                          <TableCell>{movimiento.empleado?.nombre || 'N/A'}</TableCell>
-                          <TableCell>{movimiento.comentario || '-'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-            </Paper>
-          </Box>
-        );
-  };
+          <TableContainer 
+            component={Paper} 
+            elevation={0}
+            sx={{ 
+              width: '100%',
+              maxWidth: '100%',
+              borderRadius: '8px',
+              border: '1px solid rgba(224, 224, 224, 1)',
+              boxShadow: 'none',
+              position: 'relative',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: '8px',
+                border: '1px solid rgba(224, 224, 224, 1)',
+                pointerEvents: 'none'
+              }
+            }}
+          >
+            <Table sx={{ 
+              minWidth: 650,
+              borderCollapse: 'separate',
+              borderSpacing: 0
+            }}>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                  <TableCell>Fecha</TableCell>
+                  <TableCell>Código</TableCell>
+                  <TableCell>Material</TableCell>
+                  <TableCell>Tipo Movimiento</TableCell>
+                  <TableCell>Stock Actual</TableCell>
+                  <TableCell>Stock Mínimo</TableCell>
+                  <TableCell>Empleado</TableCell>
+                  <TableCell>Comentario</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {!isLoading && filteredMovimientos.map((movimiento) => (
+                  <TableRow key={movimiento.id_movimiento}>
+                    <TableCell>{new Date(movimiento.fecha).toLocaleDateString()}</TableCell>
+                    <TableCell>{movimiento.codigo}</TableCell>
+                    <TableCell>{movimiento.nombre}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={movimiento.tipo_movimiento}
+                        color={movimiento.tipo_movimiento.toLowerCase() === 'entrada' ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>{movimiento.Stock_actual}</TableCell>
+                    <TableCell>{movimiento.Stock_minimo}</TableCell>
+                    <TableCell>{movimiento.empleado?.nombre || 'N/A'}</TableCell>
+                    <TableCell>{movimiento.comentario || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      </Paper>
+    </Box>
+  );
+};
 
 
 export default MovimientosList;
