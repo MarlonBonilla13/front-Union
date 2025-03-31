@@ -95,8 +95,14 @@ const MovimientosList = () => {
     }
   };
 
+  // Add these new states at the top with other states
+  const [solicitudMaterial, setSolicitudMaterial] = useState('');
+  const [cantidadSolicitada, setCantidadSolicitada] = useState('');
+  const [comentarioSolicitud, setComentarioSolicitud] = useState('');
+
   // Add back the loadMovimientos function
   const loadMovimientos = async () => {
+    setIsLoading(true); // Set loading at the start
     try {
       const data = await getMovimientos();
       setMovimientos(data);
@@ -456,9 +462,12 @@ const MovimientosList = () => {
             </Grid>
           </Grid>
         ) : (
-          // Interfaz para usuarios normales - solo búsqueda
+          // Interfaz para usuarios normales - búsqueda y solicitud de material
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mb: 2, color: '#555' }}>
+                Buscar Movimientos
+              </Typography>
               <TextField
                 fullWidth
                 variant="outlined"
@@ -473,6 +482,95 @@ const MovimientosList = () => {
                   ),
                 }}
               />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mt: 3, mb: 2, color: '#555' }}>
+                Solicitar Material
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Seleccionar Material</InputLabel>
+                <Select
+                  value={solicitudMaterial}
+                  onChange={(e) => setSolicitudMaterial(e.target.value)}
+                  label="Seleccionar Material"
+                >
+                  <MenuItem value="" sx={{ fontStyle: 'italic' }}>
+                    <em>Sin seleccionar</em>
+                  </MenuItem>
+                  {materials.map((material) => (
+                    <MenuItem key={material.id_material} value={material.id_material}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {material.imagen_url && (
+                          <img
+                            src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
+                            alt={material.nombre}
+                            style={{ 
+                              width: 40, 
+                              height: 40, 
+                              objectFit: 'contain',
+                              borderRadius: '4px'
+                            }}
+                          />
+                        )}
+                        <span>{material.nombre}</span>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="Cantidad"
+                type="text"
+                value={cantidadSolicitada}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setCantidadSolicitada(value);
+                }}
+                fullWidth
+                InputProps={{
+                  inputProps: { 
+                    pattern: "[0-9]*"
+                  }
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Motivo de Solicitud"
+                multiline
+                rows={2}
+                fullWidth
+                placeholder="Explique por qué necesita este material..."
+                value={comentarioSolicitud}
+                onChange={(e) => setComentarioSolicitud(e.target.value)}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                sx={{ 
+                  height: '56px',
+                  backgroundColor: '#1976d2',
+                  '&:hover': {
+                    backgroundColor: '#115293'
+                  }
+                }}
+                onClick={handleSolicitarMaterial}
+                disabled={!solicitudMaterial || !cantidadSolicitada || !comentarioSolicitud.trim()}
+              >
+                Enviar Solicitud
+              </Button>
             </Grid>
           </Grid>
         )}
@@ -527,24 +625,40 @@ const MovimientosList = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {!isLoading && filteredMovimientos.map((movimiento) => (
-                  <TableRow key={movimiento.id_movimiento}>
-                    <TableCell>{new Date(movimiento.fecha).toLocaleDateString()}</TableCell>
-                    <TableCell>{movimiento.codigo}</TableCell>
-                    <TableCell>{movimiento.nombre}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={movimiento.tipo_movimiento}
-                        color={movimiento.tipo_movimiento.toLowerCase() === 'entrada' ? 'success' : 'error'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{movimiento.Stock_actual}</TableCell>
-                    <TableCell>{movimiento.Stock_minimo}</TableCell>
-                    <TableCell>{movimiento.empleado?.nombre || 'N/A'}</TableCell>
-                    <TableCell>{movimiento.comentario || '-'}</TableCell>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">Cargando...</TableCell>
                   </TableRow>
-                ))}
+                ) : filteredMovimientos.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">No hay movimientos para mostrar</TableCell>
+                  </TableRow>
+                ) : (
+                  filteredMovimientos.map((movimiento) => (
+                    <TableRow key={movimiento.id_movimiento}>
+                      <TableCell>{new Date(movimiento.fecha).toLocaleDateString()}</TableCell>
+                      <TableCell>{movimiento.codigo}</TableCell>
+                      <TableCell>{movimiento.nombre}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={movimiento.tipo_movimiento}
+                          color={
+                            movimiento.tipo_movimiento.toLowerCase() === 'entrada' 
+                              ? 'success' 
+                              : movimiento.tipo_movimiento.toLowerCase() === 'solicitud'
+                              ? 'warning'
+                              : 'error'
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{movimiento.Stock_actual}</TableCell>
+                      <TableCell>{movimiento.Stock_minimo}</TableCell>
+                      <TableCell>{movimiento.empleado?.nombre || 'N/A'}</TableCell>
+                      <TableCell>{movimiento.comentario || '-'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -556,3 +670,49 @@ const MovimientosList = () => {
 
 
 export default MovimientosList;
+
+
+const handleSolicitarMaterial = async () => {
+    if (!solicitudMaterial || !cantidadSolicitada || !comentarioSolicitud.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos Incompletos',
+        text: 'Por favor complete todos los campos para enviar la solicitud'
+      });
+      return;
+    }
+
+    try {
+      // Here you would add the API call to create the solicitud
+      // For example:
+      await createMovimiento({
+        id_material: solicitudMaterial,
+        id_empleado: user.id,
+        cantidad: parseInt(cantidadSolicitada),
+        fecha: new Date(),
+        comentario: comentarioSolicitud,
+        tipo_movimiento: 'solicitud'
+      });
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Solicitud Enviada',
+        text: 'Su solicitud de material ha sido enviada correctamente'
+      });
+
+      // Reload movements to show the new request
+      loadMovimientos();
+
+      // Reset form
+      setSolicitudMaterial('');
+      setCantidadSolicitada('');
+      setComentarioSolicitud('');
+    } catch (error) {
+      console.error('Error creating solicitud:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo crear la solicitud'
+      });
+    }
+  };
