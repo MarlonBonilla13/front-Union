@@ -117,27 +117,20 @@ export const uploadMaterialImage = async (id, imageFile) => {
 
 // Add this function to your materialService
 // Add or update this function in your materialService.js file
+// Make sure your updateMaterialStock function looks like this:
 export const updateMaterialStock = async (materialId, newStock) => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/materiales/${materialId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
-        stock_actual: newStock
-      })
+    const response = await api.patch(`/materiales/${materialId}`, {
+      stock_actual: newStock
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Error updating material stock');
-    }
-
-    return await response.json();
+    
+    return response.data;
   } catch (error) {
-    console.error('Error in updateMaterialStock:', error);
-    throw error;
+    console.error(`Error al actualizar stock del material con ID ${materialId}:`, error);
+    if (error.response && error.response.data && error.response.data.message) {
+      throw new Error(error.response.data.message);
+    } else {
+      throw new Error('No se pudo actualizar el stock del material');
+    }
   }
 };

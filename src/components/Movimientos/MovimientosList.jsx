@@ -194,7 +194,7 @@ const MovimientosList = () => {
 
   // Add the handleCreateMovimiento function here
   // Corregir la función handleCreateMovimiento
-  const handleCreateMovimiento = () => {
+  const handleCreateMovimiento = async () => {
     if (!selectedMaterial || !selectedEmpleado || !cantidad || parseInt(cantidad) <= 0 || !comentario.trim()) {
       Swal.fire({
         icon: 'warning',
@@ -213,64 +213,76 @@ const MovimientosList = () => {
       return;
     }
 
-    // Obtener el material seleccionado
-    const materialSeleccionado = materials.find(m => m.id_material === selectedMaterial);
-    if (!materialSeleccionado) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Material no encontrado'
-      });
-      return;
-    }
-
-    // Calcular el nuevo stock después de la salida
-    const cantidadNumerica = parseInt(cantidad);
-    const nuevoStock = stockActual - cantidadNumerica;
-    
-    // Crear el objeto de movimiento según la estructura esperada por el backend
-    const movimientoData = {
-      id_material: selectedMaterial,
-      codigo: materialSeleccionado.codigo,
-      nombre: materialSeleccionado.nombre,
-      tipo_movimiento: 'salida',
-      Stock_actual: nuevoStock,
-      Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
-      comentario: comentario.trim(),
-      id_empleado: selectedEmpleado
-    };
-
-    console.log('Enviando datos de movimiento:', movimientoData);
-    
-    // Crear el movimiento sin actualizar el stock
-    createMovimiento(movimientoData)
-      .then(() => {
-        // Recargar los datos
-        loadMovimientos();
-        loadMaterials();
-        
-        // Resetear formulario
-        setSelectedMaterial('');
-        setCantidad('');
-        setComentario('');
-        setSelectedEmpleado('');
-        setStockActual(0);
-        setStockMinimo(0);
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Movimiento Creado',
-          text: 'El movimiento de salida ha sido registrado correctamente'
-        });
-      })
-      .catch(error => {
-        console.error('Error creating movimiento:', error);
+    try {
+      // Obtener el material seleccionado
+      const materialSeleccionado = materials.find(m => m.id_material === selectedMaterial);
+      if (!materialSeleccionado) {
         Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'No se pudo crear el movimiento: ' + (error.message || 'Error desconocido')
+          text: 'Material no encontrado'
         });
+        return;
+      }
+
+      // Calcular el nuevo stock después de la salida
+      const cantidadNumerica = parseInt(cantidad);
+      const nuevoStock = stockActual - cantidadNumerica;
+      
+      // PASO 1: Actualizar el stock del material en la base de datos
+      console.log(`Actualizando stock del material ${selectedMaterial} de ${stockActual} a ${nuevoStock}`);
+      
+      try {
+        // Usar la función updateMaterialStock en lugar de fetch directo
+        await updateMaterialStock(selectedMaterial, nuevoStock);
+        console.log('Stock actualizado correctamente');
+      } catch (updateError) {
+        console.error('Error al actualizar stock:', updateError);
+        throw new Error('No se pudo actualizar el stock del material');
+      }
+      
+      // PASO 2: Crear el registro de movimiento
+      const movimientoData = {
+        id_material: selectedMaterial,
+        codigo: materialSeleccionado.codigo,
+        nombre: materialSeleccionado.nombre,
+        tipo_movimiento: 'salida',
+        Stock_actual: nuevoStock,
+        Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
+        comentario: comentario.trim(),
+        id_empleado: selectedEmpleado
+      };
+
+      console.log('Enviando datos de movimiento:', movimientoData);
+      
+      // Crear el movimiento
+      await createMovimiento(movimientoData);
+      
+      // Recargar los datos
+      await loadMovimientos();
+      await loadMaterials();
+      
+      // Resetear formulario
+      setSelectedMaterial('');
+      setCantidad('');
+      setComentario('');
+      setSelectedEmpleado('');
+      setStockActual(0);
+      setStockMinimo(0);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Movimiento Creado',
+        text: 'El movimiento de salida ha sido registrado correctamente'
       });
+    } catch (error) {
+      console.error('Error en la operación:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo completar la operación: ' + (error.message || 'Error al actualizar el stock del material')
+      });
+    }
   };
 
   // Agregar la función handleSolicitarMaterial aquí
