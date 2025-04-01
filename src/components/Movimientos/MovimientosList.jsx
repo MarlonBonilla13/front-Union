@@ -272,6 +272,54 @@ const MovimientosList = () => {
     // });
   };
 
+  // Agregar la función handleSolicitarMaterial aquí
+  const handleSolicitarMaterial = async () => {
+    if (!solicitudMaterial || !cantidadSolicitada || !comentarioSolicitud.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos Incompletos',
+        text: 'Por favor complete todos los campos para enviar la solicitud'
+      });
+      return;
+    }
+
+    try {
+      const materialSeleccionado = materials.find(m => m.id_material === solicitudMaterial);
+      if (!materialSeleccionado) return;
+
+      await createMovimiento({
+        id_material: solicitudMaterial,
+        codigo: materialSeleccionado.codigo,
+        nombre: materialSeleccionado.nombre,
+        tipo_movimiento: 'solicitud',
+        Stock_actual: materialSeleccionado.stock_actual || materialSeleccionado.Stock_actual,
+        Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
+        comentario: comentarioSolicitud.trim(),
+        id_empleado: user.id,
+        fecha: new Date()
+      });
+
+      await loadMovimientos();
+      
+      setSolicitudMaterial('');
+      setCantidadSolicitada('');
+      setComentarioSolicitud('');
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Solicitud Enviada',
+        text: 'Su solicitud de material ha sido enviada correctamente'
+      });
+    } catch (error) {
+      console.error('Error creating solicitud:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo crear la solicitud'
+      });
+    }
+  };
+
   return (
     <Box sx={{ 
       flexGrow: 1,
@@ -667,52 +715,3 @@ const MovimientosList = () => {
     </Box>
   );
 };
-
-
-export default MovimientosList;
-
-
-const handleSolicitarMaterial = async () => {
-    if (!solicitudMaterial || !cantidadSolicitada || !comentarioSolicitud.trim()) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campos Incompletos',
-        text: 'Por favor complete todos los campos para enviar la solicitud'
-      });
-      return;
-    }
-
-    try {
-      // Here you would add the API call to create the solicitud
-      // For example:
-      await createMovimiento({
-        id_material: solicitudMaterial,
-        id_empleado: user.id,
-        cantidad: parseInt(cantidadSolicitada),
-        fecha: new Date(),
-        comentario: comentarioSolicitud,
-        tipo_movimiento: 'solicitud'
-      });
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Solicitud Enviada',
-        text: 'Su solicitud de material ha sido enviada correctamente'
-      });
-
-      // Reload movements to show the new request
-      loadMovimientos();
-
-      // Reset form
-      setSolicitudMaterial('');
-      setCantidadSolicitada('');
-      setComentarioSolicitud('');
-    } catch (error) {
-      console.error('Error creating solicitud:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'No se pudo crear la solicitud'
-      });
-    }
-  };
