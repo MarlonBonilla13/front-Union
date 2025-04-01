@@ -116,13 +116,28 @@ export const uploadMaterialImage = async (id, imageFile) => {
 };
 
 // Add this function to your materialService
+// Add or update this function in your materialService.js file
 export const updateMaterialStock = async (materialId, newStock) => {
   try {
-    const response = await axios.put(`${API_BASE_URL}/materials/${materialId}/stock`, {
-      stock_actual: newStock
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/materiales/${materialId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        stock_actual: newStock
+      })
     });
-    return response.data;
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Error updating material stock');
+    }
+
+    return await response.json();
   } catch (error) {
+    console.error('Error in updateMaterialStock:', error);
     throw error;
   }
 };

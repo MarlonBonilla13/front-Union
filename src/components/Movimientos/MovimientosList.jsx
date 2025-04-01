@@ -14,7 +14,7 @@ import {
   InputAdornment
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import { getMovimientos } from '../../services/movimientoService';
+import { getMovimientos, createMovimiento } from '../../services/movimientoService';
 import Swal from 'sweetalert2';
 import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { getMaterials, updateMaterialStock } from '../../services/materialService';
@@ -24,39 +24,12 @@ import { Grid } from '@mui/material'; // Actualizar imports
 // Añadir import
 import { getEmpleadosActivos } from '../../services/empleadoService';
 
-// Add new import for date handling
 // Update imports at the top
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import esLocale from 'date-fns/locale/es';
 import { Button } from '@mui/material';  // Add to imports
-
-// Add the handler function
-// Update the handleCreateMovimiento function
-// Eliminar esta definición externa
-// const handleCreateMovimiento = () => {
-//   if (!selectedMaterial || !selectedEmpleado || cantidad <= 0 || !comentario.trim()) {
-//     Swal.fire({
-//       icon: 'warning',
-//       title: 'Campos Incompletos',
-//       text: !comentario.trim() ? 'Por favor ingrese un comentario' : 'Por favor complete todos los campos requeridos'
-//     });
-//     return;
-//   }
-//
-//   if (isStockInsuficiente) {
-//     Swal.fire({
-//       icon: 'error',
-//       title: 'Stock Insuficiente',
-//       text: 'La cantidad excede el stock disponible'
-//     });
-//     return;
-//   }
-//
-//   // Here you would add the logic to create the movement
-//   // You'll need to implement this based on your backend requirements
-// };
 
 // Añadir el import para el contexto de autenticación
 import { useAuth } from '../../contexts/AuthContext';
@@ -220,8 +193,9 @@ const MovimientosList = () => {
   };
 
   // Add the handleCreateMovimiento function here
+  // Corregir la función handleCreateMovimiento
   const handleCreateMovimiento = () => {
-    if (!selectedMaterial || !selectedEmpleado || cantidad <= 0 || !comentario.trim()) {
+    if (!selectedMaterial || !selectedEmpleado || !cantidad || parseInt(cantidad) <= 0 || !comentario.trim()) {
       Swal.fire({
         icon: 'warning',
         title: 'Campos Incompletos',
@@ -239,37 +213,64 @@ const MovimientosList = () => {
       return;
     }
 
-    // Aquí agregarías la lógica para crear el movimiento
-    // Por ejemplo:
-    // createMovimiento({
-    //   id_material: selectedMaterial,
-    //   id_empleado: selectedEmpleado,
-    //   cantidad: parseInt(cantidad),
-    //   fecha: selectedDate,
-    //   comentario: comentario,
-    //   tipo_movimiento: 'salida' // o 'entrada' según corresponda
-    // })
-    // .then(() => {
-    //   Swal.fire({
-    //     icon: 'success',
-    //     title: 'Éxito',
-    //     text: 'Movimiento creado correctamente'
-    //   });
-    //   loadMovimientos();
-    //   // Resetear los campos
-    //   setSelectedMaterial('');
-    //   setSelectedEmpleado('');
-    //   setCantidad(0);
-    //   setComentario('');
-    // })
-    // .catch(error => {
-    //   console.error('Error creating movimiento:', error);
-    //   Swal.fire({
-    //     icon: 'error',
-    //     title: 'Error',
-    //     text: 'No se pudo crear el movimiento'
-    //   });
-    // });
+    // Obtener el material seleccionado
+    const materialSeleccionado = materials.find(m => m.id_material === selectedMaterial);
+    if (!materialSeleccionado) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Material no encontrado'
+      });
+      return;
+    }
+
+    // Calcular el nuevo stock después de la salida
+    const cantidadNumerica = parseInt(cantidad);
+    const nuevoStock = stockActual - cantidadNumerica;
+    
+    // Crear el objeto de movimiento según la estructura esperada por el backend
+    const movimientoData = {
+      id_material: selectedMaterial,
+      codigo: materialSeleccionado.codigo,
+      nombre: materialSeleccionado.nombre,
+      tipo_movimiento: 'salida',
+      Stock_actual: nuevoStock,
+      Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
+      comentario: comentario.trim(),
+      id_empleado: selectedEmpleado
+    };
+
+    console.log('Enviando datos de movimiento:', movimientoData);
+    
+    // Crear el movimiento sin actualizar el stock
+    createMovimiento(movimientoData)
+      .then(() => {
+        // Recargar los datos
+        loadMovimientos();
+        loadMaterials();
+        
+        // Resetear formulario
+        setSelectedMaterial('');
+        setCantidad('');
+        setComentario('');
+        setSelectedEmpleado('');
+        setStockActual(0);
+        setStockMinimo(0);
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Movimiento Creado',
+          text: 'El movimiento de salida ha sido registrado correctamente'
+        });
+      })
+      .catch(error => {
+        console.error('Error creating movimiento:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo crear el movimiento: ' + (error.message || 'Error desconocido')
+        });
+      });
   };
 
   // Agregar la función handleSolicitarMaterial aquí
@@ -295,8 +296,8 @@ const MovimientosList = () => {
         Stock_actual: materialSeleccionado.stock_actual || materialSeleccionado.Stock_actual,
         Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
         comentario: comentarioSolicitud.trim(),
-        id_empleado: user.id,
-        fecha: new Date()
+        id_empleado: user.id
+        // Removed fecha property as it's not expected by the backend
       });
 
       await loadMovimientos();
@@ -315,7 +316,7 @@ const MovimientosList = () => {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'No se pudo crear la solicitud'
+        text: 'No se pudo crear la solicitud: ' + (error.message || 'Error desconocido')
       });
     }
   };
@@ -715,3 +716,6 @@ const MovimientosList = () => {
     </Box>
   );
 };
+
+// Añadir esta línea al final del archivo
+export default MovimientosList;
