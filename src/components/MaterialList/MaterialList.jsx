@@ -36,6 +36,7 @@ import AddIcon from '@mui/icons-material/Add';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ImageIcon from '@mui/icons-material/Image';
 import { API_IMAGE_URL } from '../../config/config';
+import WarningIcon from '@mui/icons-material/Warning';
 
 const MaterialList = () => {
   const navigate = useNavigate();
@@ -312,6 +313,7 @@ const MaterialList = () => {
                   <TableCell>Descripción</TableCell>
                   <TableCell>Stock Actual</TableCell>
                   <TableCell>Stock Mínimo</TableCell>
+                  <TableCell>Estado Stock</TableCell> {/* New column */}
                   <TableCell>Unidad Medida</TableCell>
                   <TableCell>Precio Unitario</TableCell>
                   <TableCell>Estado</TableCell>
@@ -362,6 +364,13 @@ const MaterialList = () => {
                       <TableCell>{material.descripcion}</TableCell>
                       <TableCell>{material.stock_actual}</TableCell>
                       <TableCell>{material.stock_minimo}</TableCell>
+                      <TableCell>
+                        {material.stock_actual <= material.stock_minimo && (
+                          <Tooltip title="Stock Bajo" arrow>
+                            <WarningIcon sx={{ color: '#ff9800' }} />
+                          </Tooltip>
+                        )}
+                      </TableCell>
                       <TableCell>{material.unidad_medida}</TableCell>
                       <TableCell>
                         {new Intl.NumberFormat('es-GT', {

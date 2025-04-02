@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from 'react-router-dom';
 import { createMaterial, getMaterialById, updateMaterial, uploadMaterialImage } from "../../services/materialService";
+import { createMovimiento } from "../../services/movimientoService";
+import { useAuth } from '../../contexts/AuthContext'; // Add this import
 import Swal from 'sweetalert2';
 import {
   TextField,
@@ -16,6 +18,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { styled } from '@mui/material/styles';
+
 
 // Add this after the imports
 const VisuallyHiddenInput = styled('input')({
@@ -34,6 +37,7 @@ const MaterialForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
+  const { user } = useAuth(); // Add this line
 
   // Agregar los nuevos estados aquí, junto a los otros estados
   const [selectedImage, setSelectedImage] = useState(null);
@@ -177,6 +181,23 @@ const MaterialForm = () => {
         const savedMaterial = await (isEditMode 
           ? updateMaterial(id, materialData)
           : createMaterial(materialData));
+
+        // Create entrada movement
+        const movimientoData = {
+          id_material: savedMaterial.id_material,
+          codigo: savedMaterial.codigo,
+          nombre: savedMaterial.nombre,
+          tipo_movimiento: 'entrada',
+          cantidad: savedMaterial.stock_actual,
+          Stock_actual: savedMaterial.stock_actual,
+          Stock_minimo: savedMaterial.stock_minimo,
+          comentario: isEditMode 
+            ? `Actualización de stock del material`
+            : `Registro inicial de material`,
+          id_empleado: user.id
+        };
+
+        await createMovimiento(movimientoData);
         
         // Then upload the image if one was selected
         if (selectedImage) {
@@ -327,7 +348,7 @@ const MaterialForm = () => {
                   onChange={(e) => setStockMinimo(e.target.value)}
                 />
               </Box>
-    
+              
               <TextField
                 required
                 label="Unidad de Medida"

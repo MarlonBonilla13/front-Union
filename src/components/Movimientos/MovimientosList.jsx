@@ -11,8 +11,10 @@ import {
   TableRow,
   Chip,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Tooltip // Add this import
 } from '@mui/material';
+import WarningIcon from '@mui/icons-material/Warning';
 import SearchIcon from '@mui/icons-material/Search';
 import { getMovimientos, createMovimiento } from '../../services/movimientoService';
 import Swal from 'sweetalert2';
@@ -39,7 +41,9 @@ const MovimientosList = () => {
   const { user } = useAuth();
   
   // Estados existentes...
-  const [cantidad, setCantidad] = useState(0);
+  // Change the initial state from 0 to empty string
+  const [cantidad, setCantidad] = useState('');
+  
   const [isStockInsuficiente, setIsStockInsuficiente] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [movimientos, setMovimientos] = useState([]);
@@ -54,10 +58,26 @@ const MovimientosList = () => {
   const [selectedEmpleado, setSelectedEmpleado] = useState('');
   const [comentario, setComentario] = useState('');
 
+  // Add this function after loadMaterials
+  const checkStockLevels = (material) => {
+    if (material.stock_actual <= material.stock_minimo) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Stock Bajo',
+        text: `El material "${material.nombre}" tiene un stock actual (${material.stock_actual}) igual o menor al stock mínimo (${material.stock_minimo}).`,
+        confirmButtonColor: '#f0ad4e'
+      });
+    }
+  };
+  
+  // Modify loadMaterials to include stock check
+  // Remove or comment out the stock check from loadMaterials
   const loadMaterials = async () => {
     try {
       const data = await getMaterials();
       setMaterials(data);
+      
+      // Remove the data.forEach check here
     } catch (error) {
       console.error('Error loading materials:', error);
       Swal.fire({
@@ -134,8 +154,22 @@ const MovimientosList = () => {
     
     const material = materials.find(m => m.id_material === selectedId);
     if (material) {
-      setStockActual(material.stock_actual || material.Stock_actual); // Handle both cases
-      setStockMinimo(material.stock_minimo || material.Stock_minimo); // Handle both cases
+      const currentStock = material.stock_actual || material.Stock_actual;
+      const minStock = material.stock_minimo || material.Stock_minimo;
+      
+      setStockActual(currentStock);
+      setStockMinimo(minStock);
+      
+      // Check if stock is low and show alert
+      if (currentStock <= minStock) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Material Bajo',
+          text: `¡Alerta! El material "${material.nombre}" tiene stock insuficiente.\nStock Actual: ${currentStock}\nStock Mínimo: ${minStock}`,
+          confirmButtonColor: '#f0ad4e',
+          confirmButtonText: 'Entendido'
+        });
+      }
     } else {
       setStockActual(0);
       setStockMinimo(0);
@@ -247,6 +281,7 @@ const MovimientosList = () => {
         codigo: materialSeleccionado.codigo,
         nombre: materialSeleccionado.nombre,
         tipo_movimiento: 'salida',
+        cantidad: cantidadNumerica, // Add this line
         Stock_actual: nuevoStock,
         Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
         comentario: comentario.trim(),
@@ -305,6 +340,7 @@ const MovimientosList = () => {
         codigo: materialSeleccionado.codigo,
         nombre: materialSeleccionado.nombre,
         tipo_movimiento: 'solicitud',
+        cantidad: parseInt(cantidadSolicitada), // Add the cantidad field
         Stock_actual: materialSeleccionado.stock_actual || materialSeleccionado.Stock_actual,
         Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
         comentario: comentarioSolicitud.trim(),
@@ -516,7 +552,7 @@ const MovimientosList = () => {
                   }
                 }}
                 onClick={handleCreateMovimiento}
-                disabled={!selectedMaterial || !selectedEmpleado || cantidad <= 0 || isStockInsuficiente || !comentario.trim()}
+                disabled={!selectedMaterial || !selectedEmpleado || !cantidad || isStockInsuficiente || !comentario.trim()}
               >
                 Crear Movimiento
               </Button>
@@ -679,20 +715,23 @@ const MovimientosList = () => {
                   <TableCell>Código</TableCell>
                   <TableCell>Material</TableCell>
                   <TableCell>Tipo Movimiento</TableCell>
+                  <TableCell>Cantidad</TableCell>
                   <TableCell>Stock Actual</TableCell>
                   <TableCell>Stock Mínimo</TableCell>
+                  <TableCell>Estado</TableCell>
                   <TableCell>Empleado</TableCell>
+                  <TableCell>Departamento</TableCell> {/* New column */}
                   <TableCell>Comentario</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">Cargando...</TableCell>
+                    <TableCell colSpan={11} align="center">Cargando...</TableCell> {/* Updated colspan */}
                   </TableRow>
                 ) : filteredMovimientos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">No hay movimientos para mostrar</TableCell>
+                    <TableCell colSpan={11} align="center">No hay movimientos para mostrar</TableCell> {/* Updated colspan */}
                   </TableRow>
                 ) : (
                   filteredMovimientos.map((movimiento) => (
@@ -713,9 +752,18 @@ const MovimientosList = () => {
                           size="small"
                         />
                       </TableCell>
+                      <TableCell>{movimiento.cantidad || '-'}</TableCell>
                       <TableCell>{movimiento.Stock_actual}</TableCell>
                       <TableCell>{movimiento.Stock_minimo}</TableCell>
-                      <TableCell>{movimiento.empleado?.nombre || 'N/A'}</TableCell>
+                      <TableCell>
+                        {movimiento.Stock_actual <= movimiento.Stock_minimo && (
+                          <Tooltip title="Stock Bajo" arrow>
+                            <WarningIcon sx={{ color: '#ff9800' }} />
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                      <TableCell>{movimiento.empleado ? `${movimiento.empleado.nombre} ${movimiento.empleado.apellido}` : 'N/A'}</TableCell>
+                      <TableCell>{movimiento.empleado?.departamento || 'N/A'}</TableCell> {/* New cell */}
                       <TableCell>{movimiento.comentario || '-'}</TableCell>
                     </TableRow>
                   ))
