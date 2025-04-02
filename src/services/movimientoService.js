@@ -1,31 +1,37 @@
 import api from './api';
 
+// Get all movimientos
 export const getMovimientos = async () => {
   try {
     const response = await api.get('/movimientos');
     return response.data;
   } catch (error) {
-    console.error("Error al obtener movimientos:", error);
-    throw error; // Permitir que el error se propague
+    console.error('Error fetching movimientos:', error);
+    throw error;
   }
 };
 
+// Create a new movimiento
 export const createMovimiento = async (movimientoData) => {
   try {
     const response = await api.post('/movimientos', movimientoData);
     return response.data;
   } catch (error) {
-    console.error("Error al crear movimiento:", error);
-    throw error; // Permitir que el error se propague
+    console.error('Error creating movimiento:', error);
+    throw error;
   }
 };
 
-export const getMovimientosByMaterial = async (materialId) => {
+// Update movimiento estado
+export const updateMovimientoEstado = async (id, estado) => {
   try {
-    const response = await api.get(`/movimientos/material/${materialId}`);
+    console.log(`Sending request to update movimiento ${id} with estado: ${estado}`);
+    
+    // Use a more specific endpoint for updating estado
+    const response = await api.put(`/movimientos/estado/${id}`, { estado });
     return response.data;
   } catch (error) {
-    console.error("Error al obtener movimientos del material:", error);
-    throw error; // Permitir que el error se propague
+    console.error('Error updating movimiento estado:', error);
+    throw error;
   }
 };

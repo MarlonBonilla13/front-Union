@@ -16,7 +16,9 @@ import {
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
 import SearchIcon from '@mui/icons-material/Search';
-import { getMovimientos, createMovimiento } from '../../services/movimientoService';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // Add this import
+import CancelIcon from '@mui/icons-material/Cancel'; // Add this import
+import { getMovimientos, createMovimiento, updateMovimientoEstado } from '../../services/movimientoService';
 import Swal from 'sweetalert2';
 import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { getMaterials, updateMaterialStock } from '../../services/materialService';
@@ -92,6 +94,8 @@ const MovimientosList = () => {
   const [solicitudMaterial, setSolicitudMaterial] = useState('');
   const [cantidadSolicitada, setCantidadSolicitada] = useState('');
   const [comentarioSolicitud, setComentarioSolicitud] = useState('');
+  const [departamentoSolicitud, setDepartamentoSolicitud] = useState(''); 
+  const [selectedEmpleadoSolicitud, setSelectedEmpleadoSolicitud] = useState('');
 
   // Add back the loadMovimientos function
   const loadMovimientos = async () => {
@@ -321,50 +325,155 @@ const MovimientosList = () => {
   };
 
   // Agregar la función handleSolicitarMaterial aquí
+  // Modificar la función handleSolicitarMaterial para eliminar el campo departamento
   const handleSolicitarMaterial = async () => {
-    if (!solicitudMaterial || !cantidadSolicitada || !comentarioSolicitud.trim()) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campos Incompletos',
-        text: 'Por favor complete todos los campos para enviar la solicitud'
-      });
-      return;
-    }
-
     try {
-      const materialSeleccionado = materials.find(m => m.id_material === solicitudMaterial);
-      if (!materialSeleccionado) return;
-
-      await createMovimiento({
-        id_material: solicitudMaterial,
-        codigo: materialSeleccionado.codigo,
-        nombre: materialSeleccionado.nombre,
-        tipo_movimiento: 'solicitud',
-        cantidad: parseInt(cantidadSolicitada), // Add the cantidad field
-        Stock_actual: materialSeleccionado.stock_actual || materialSeleccionado.Stock_actual,
-        Stock_minimo: materialSeleccionado.stock_minimo || materialSeleccionado.Stock_minimo,
-        comentario: comentarioSolicitud.trim(),
-        id_empleado: user.id
-        // Removed fecha property as it's not expected by the backend
-      });
-
-      await loadMovimientos();
+      const selectedMaterial = materials.find(m => m.id_material === solicitudMaterial);
       
+      if (!selectedMaterial) {
+        throw new Error('Material no encontrado');
+      }
+
+      // Crear datos del movimiento sin incluir el campo departamento
+      const movimientoData = {
+        id_material: solicitudMaterial,
+        tipo_movimiento: 'solicitud',
+        cantidad: parseInt(cantidadSolicitada),
+        comentario: comentarioSolicitud,
+        id_empleado: selectedEmpleadoSolicitud || user.id_empleado, // Usar empleado seleccionado o usuario actual
+        Stock_actual: selectedMaterial.stock_actual || selectedMaterial.Stock_actual,
+        Stock_minimo: selectedMaterial.stock_minimo || selectedMaterial.Stock_minimo,
+        nombre: selectedMaterial.nombre,
+        codigo: selectedMaterial.codigo
+      };
+
+      console.log('Datos a enviar:', movimientoData);
+      await createMovimiento(movimientoData);
+      
+      // Limpiar formulario y recargar datos
       setSolicitudMaterial('');
       setCantidadSolicitada('');
       setComentarioSolicitud('');
-
+      setDepartamentoSolicitud(''); // Seguimos reseteando esto para el formulario
+      setSelectedEmpleadoSolicitud('');
+      await loadMovimientos();
+      
       Swal.fire({
         icon: 'success',
-        title: 'Solicitud Enviada',
-        text: 'Su solicitud de material ha sido enviada correctamente'
+        title: 'Solicitud Creada',
+        text: 'La solicitud ha sido enviada correctamente'
       });
     } catch (error) {
-      console.error('Error creating solicitud:', error);
+      console.error('Error completo:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'No se pudo crear la solicitud: ' + (error.message || 'Error desconocido')
+        text: 'No se pudo crear la solicitud: ' + error.message
+      });
+    };
+  };
+
+  const handleAprobarSolicitud = async (movimiento) => {
+    try {
+      // Get the current material data
+      const material = materials.find(m => m.id_material === movimiento.id_material);
+      if (!material) {
+        throw new Error('Material no encontrado');
+      }
+  
+      // Calculate new stock
+      const stockActual = material.stock_actual || material.Stock_actual;
+      const nuevoStock = stockActual - movimiento.cantidad;
+      if (nuevoStock < 0) {
+        throw new Error('Stock insuficiente para aprobar la solicitud');
+      }
+  
+      // Create the output movement
+      const movimientoSalida = {
+        id_material: movimiento.id_material,
+        tipo_movimiento: 'salida',
+        cantidad: movimiento.cantidad,
+        comentario: `Aprobación de solicitud: ${movimiento.comentario}`,
+        id_empleado: movimiento.id_empleado,
+        Stock_actual: nuevoStock,
+        Stock_minimo: material.stock_minimo || material.Stock_minimo,
+        nombre: material.nombre,
+        codigo: material.codigo,
+        solicitud: `${movimiento.id_movimiento}`
+      };
+  
+      // Update material stock
+      await updateMaterialStock(movimiento.id_material, nuevoStock);
+      
+      // Create output movement
+      await createMovimiento(movimientoSalida);
+      
+      // Update the local state to show the approval immediately
+      const updatedMovimientos = movimientos.map(m => 
+        m.id_movimiento === movimiento.id_movimiento 
+          ? { ...m, estado: 'aprobado' } 
+          : m
+      );
+      setMovimientos(updatedMovimientos);
+      setFilteredMovimientos(
+        filteredMovimientos.map(m => 
+          m.id_movimiento === movimiento.id_movimiento 
+            ? { ...m, estado: 'aprobado' } 
+            : m
+        )
+      );
+      
+      // Reload data
+      await loadMovimientos();
+      await loadMaterials();
+  
+      Swal.fire({
+        icon: 'success',
+        title: 'Solicitud Aprobada',
+        text: 'La solicitud ha sido aprobada y el material ha sido asignado'
+      });
+    } catch (error) {
+      console.error('Error al aprobar solicitud:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.message || 'No se pudo aprobar la solicitud'
+      });
+    };
+  };
+
+  const handleRechazarSolicitud = async (movimiento) => {
+    try {
+      await updateMovimientoEstado(movimiento.id_movimiento, 'rechazado');
+      
+      // Update the local state to show the rejection immediately
+      const updatedMovimientos = movimientos.map(m => 
+        m.id_movimiento === movimiento.id_movimiento 
+          ? { ...m, estado: 'rechazado' } 
+          : m
+      );
+      setMovimientos(updatedMovimientos);
+      setFilteredMovimientos(
+        filteredMovimientos.map(m => 
+          m.id_movimiento === movimiento.id_movimiento 
+            ? { ...m, estado: 'rechazado' } 
+            : m
+        )
+      );
+      
+      await loadMovimientos();
+
+      Swal.fire({
+        icon: 'info',
+        title: 'Solicitud Rechazada',
+        text: 'La solicitud ha sido rechazada'
+      });
+    } catch (error) {
+      console.error('Error al rechazar solicitud:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo rechazar la solicitud'
       });
     }
   };
@@ -562,13 +671,17 @@ const MovimientosList = () => {
           // Interfaz para usuarios normales - búsqueda y solicitud de material
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mb: 2, color: '#555' }}>
-                Buscar Movimientos
+              <Typography variant="h6" sx={{ mt: 3, mb: 2, color: '#555' }}>
+                Solicitar Material
               </Typography>
+            </Grid>
+
+            {/* Añadir campo de búsqueda para usuarios */}
+            <Grid item xs={12} md={12} sx={{ mb: 2 }}>
               <TextField
                 fullWidth
                 variant="outlined"
-                placeholder="Buscar por código, nombre, tipo de movimiento..."
+                placeholder="Buscar material por código o nombre..."
                 value={searchTerm}
                 onChange={handleSearch}
                 InputProps={{
@@ -581,13 +694,7 @@ const MovimientosList = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mt: 3, mb: 2, color: '#555' }}>
-                Solicitar Material
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <FormControl fullWidth>
                 <InputLabel>Seleccionar Material</InputLabel>
                 <Select
@@ -621,7 +728,7 @@ const MovimientosList = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={1}>
               <TextField
                 label="Cantidad"
                 type="text"
@@ -639,7 +746,41 @@ const MovimientosList = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Departamento</InputLabel>
+                <Select
+                  value={departamentoSolicitud}
+                  onChange={(e) => setDepartamentoSolicitud(e.target.value)}
+                  label="Departamento"
+                >
+                  <MenuItem value="Produccion">Producción</MenuItem>
+                  <MenuItem value="Almacen">Almacén</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Seleccionar Empleado</InputLabel>
+                <Select
+                  value={selectedEmpleadoSolicitud}
+                  onChange={(e) => setSelectedEmpleadoSolicitud(e.target.value)}
+                  label="Seleccionar Empleado"
+                >
+                  <MenuItem value="" sx={{ fontStyle: 'italic' }}>
+                    <em>Sin seleccionar</em>
+                  </MenuItem>
+                  {empleados.map((empleado) => (
+                    <MenuItem key={empleado.id_empleado} value={empleado.id_empleado}>
+                      <span>{`${empleado.codigo_empleado} - ${empleado.nombre} ${empleado.apellido}`}</span>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Motivo de Solicitud"
                 multiline
@@ -664,7 +805,7 @@ const MovimientosList = () => {
                   }
                 }}
                 onClick={handleSolicitarMaterial}
-                disabled={!solicitudMaterial || !cantidadSolicitada || !comentarioSolicitud.trim()}
+                disabled={!solicitudMaterial || !cantidadSolicitada || !comentarioSolicitud.trim() || !departamentoSolicitud || !selectedEmpleadoSolicitud}
               >
                 Enviar Solicitud
               </Button>
@@ -681,36 +822,10 @@ const MovimientosList = () => {
           mx: 'auto',
           position: 'relative'
         }}>
-          <TableContainer 
-            component={Paper} 
-            elevation={0}
-            sx={{ 
-              width: '100%',
-              maxWidth: '100%',
-              borderRadius: '8px',
-              border: '1px solid rgba(224, 224, 224, 1)',
-              boxShadow: 'none',
-              position: 'relative',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: '8px',
-                border: '1px solid rgba(224, 224, 224, 1)',
-                pointerEvents: 'none'
-              }
-            }}
-          >
-            <Table sx={{ 
-              minWidth: 650,
-              borderCollapse: 'separate',
-              borderSpacing: 0
-            }}>
+          <TableContainer component={Paper}>
+            <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                <TableRow>
                   <TableCell>Fecha</TableCell>
                   <TableCell>Código</TableCell>
                   <TableCell>Material</TableCell>
@@ -720,18 +835,23 @@ const MovimientosList = () => {
                   <TableCell>Stock Mínimo</TableCell>
                   <TableCell>Estado</TableCell>
                   <TableCell>Empleado</TableCell>
-                  <TableCell>Departamento</TableCell> {/* New column */}
+                  <TableCell>Departamento</TableCell>
                   <TableCell>Comentario</TableCell>
+                  {user.role === 'admin' && <TableCell>Acciones</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} align="center">Cargando...</TableCell> {/* Updated colspan */}
+                    <TableCell colSpan={user.role === 'admin' ? 12 : 11} align="center">
+                      Cargando...
+                    </TableCell>
                   </TableRow>
                 ) : filteredMovimientos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} align="center">No hay movimientos para mostrar</TableCell> {/* Updated colspan */}
+                    <TableCell colSpan={user.role === 'admin' ? 12 : 11} align="center">
+                      No hay movimientos para mostrar
+                    </TableCell>
                   </TableRow>
                 ) : (
                   filteredMovimientos.map((movimiento) => (
@@ -763,8 +883,54 @@ const MovimientosList = () => {
                         )}
                       </TableCell>
                       <TableCell>{movimiento.empleado ? `${movimiento.empleado.nombre} ${movimiento.empleado.apellido}` : 'N/A'}</TableCell>
-                      <TableCell>{movimiento.empleado?.departamento || 'N/A'}</TableCell> {/* New cell */}
+                      <TableCell>{movimiento.empleado?.departamento || 'N/A'}</TableCell>
                       <TableCell>{movimiento.comentario || '-'}</TableCell>
+                      {user.role === 'admin' && (
+                        <TableCell>
+                          {movimiento.tipo_movimiento.toLowerCase() === 'solicitud' && (
+                            <>
+                              {movimiento.estado === 'aprobado' ? (
+                                <Tooltip title="Solicitud Aprobada" arrow>
+                                  <Chip
+                                    icon={<CheckCircleIcon />}
+                                    label="Aprobado"
+                                    color="success"
+                                    size="small"
+                                  />
+                                </Tooltip>
+                              ) : movimiento.estado === 'rechazado' ? (
+                                <Tooltip title="Solicitud Rechazada" arrow>
+                                  <Chip
+                                    icon={<CancelIcon />}
+                                    label="Rechazado"
+                                    color="error"
+                                    size="small"
+                                  />
+                                </Tooltip>
+                              ) : (
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="success"
+                                    onClick={() => handleAprobarSolicitud(movimiento)}
+                                  >
+                                    Aprobar
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="error"
+                                    onClick={() => handleRechazarSolicitud(movimiento)}
+                                  >
+                                    Rechazar
+                                  </Button>
+                                </Box>
+                              )}
+                            </>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
