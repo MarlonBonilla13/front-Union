@@ -38,7 +38,56 @@ import { Button } from '@mui/material';  // Add to imports
 // Añadir el import para el contexto de autenticación
 import { useAuth } from '../../contexts/AuthContext';
 
+import ExportPreviewDialog from './ExportPreviewDialog';
+import PreviewIcon from '@mui/icons-material/Preview';
+import { exportToExcel, exportToPDF } from '../../services/movimientoService';
+
 const MovimientosList = () => {
+  // Add these states with your other state declarations at the top of the component
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
+
+  // Add these functions with your other function declarations
+  const handlePreviewExport = () => {
+    setPreviewData(filteredMovimientos);
+    setPreviewOpen(true);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewOpen(false);
+  };
+
+  const handleExportToExcel = (dataToExport) => {
+    exportToExcel(dataToExport);
+    handleClosePreview();
+    Swal.fire({
+      icon: 'success',
+      title: 'Exportación Exitosa',
+      text: 'Los datos han sido exportados a Excel correctamente',
+      timer: 2000,
+      showConfirmButton: false
+    });
+  };
+
+  // Función para exportar a PDF
+  const handleExportToPDF = (data) => {
+    try {
+      console.log('Iniciando exportación a PDF...');
+      const result = exportToPDF(data);
+      if (result) {
+        console.log('Exportación a PDF completada');
+      } else {
+        console.error('La exportación a PDF falló');
+      }
+    } catch (error) {
+      console.error('Error al exportar a PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo exportar a PDF'
+      });
+    }
+  };
   // Obtener el usuario y su rol del contexto de autenticación
   const { user } = useAuth();
   
@@ -476,7 +525,7 @@ const MovimientosList = () => {
         text: 'No se pudo rechazar la solicitud'
       });
     }
-  };
+  }; 
 
   return (
     <Box sx={{ 
@@ -487,12 +536,11 @@ const MovimientosList = () => {
       maxWidth: '100%',  // Add this
       overflow: 'hidden' // Add this
     }}>
-      <Paper sx={{ 
+       <Paper sx={{ 
         p: 3, 
         borderRadius: 2,
         backgroundColor: 'white',
         boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-        width: '-100%',  // Changed from '-100%' to '100%'
         overflow: 'auto'
       }}>
         <Typography variant="h5" sx={{ mb: 3, fontWeight: 600, color: '#1976d2'}}>
@@ -812,6 +860,26 @@ const MovimientosList = () => {
             </Grid>
           </Grid>
         )}
+
+        {user.role === 'admin' && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<PreviewIcon />}
+              onClick={handlePreviewExport}
+              sx={{ 
+                borderColor: '#2196f3', 
+                color: '#2196f3',
+                '&:hover': {
+                  backgroundColor: 'rgba(33, 150, 243, 0.04)',
+                  borderColor: '#1976d2'
+                }
+              }}
+            >
+              Vista Previa Exportación
+            </Button>
+          </Box>
+        )}
         
         {/* La tabla de movimientos se muestra para todos los roles */}
         <Box sx={{ 
@@ -938,10 +1006,17 @@ const MovimientosList = () => {
             </Table>
           </TableContainer>
         </Box>
+        {/* Añadir el componente de diálogo de vista previa */}
+        <ExportPreviewDialog
+          open={previewOpen}
+          onClose={handleClosePreview}
+          data={previewData}
+          onExportExcel={handleExportToExcel}
+          onExportPDF={handleExportToPDF}
+        />
       </Paper>
     </Box>
   );
 };
 
-// Añadir esta línea al final del archivo
 export default MovimientosList;
