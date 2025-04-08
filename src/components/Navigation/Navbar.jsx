@@ -18,6 +18,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import HomeIcon from '@mui/icons-material/Home';
 import GroupIcon from '@mui/icons-material/Group';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import BusinessIcon from '@mui/icons-material/Business'; // Importamos el icono para Clientes
 import { useAuth } from '../../contexts/AuthContext';
 import { logout } from '../../services/authService';
 import Swal from 'sweetalert2';
@@ -63,6 +64,13 @@ const Navbar = () => {
       icon: <CompareArrowsIcon />,
       path: '/movimientos',
       roles: ['admin', 'user']
+    },
+    // Añadimos la opción de Clientes al menú
+    {
+      text: 'Clientes',
+      icon: <BusinessIcon />,
+      path: '/clientes',
+      roles: ['admin']
     },
     {
       text: 'Usuarios',
