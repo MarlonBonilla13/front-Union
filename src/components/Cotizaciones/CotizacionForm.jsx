@@ -23,10 +23,10 @@ import AddIcon from '@mui/icons-material/Add';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getClientes } from '../../services/clienteService';
 import { getMaterials } from '../../services/materialService';
-import { createCotizacion, getCotizacionById } from '../../services/cotizacionService';
+import { createCotizacion, getCotizacionById, updateCotizacion } from '../../services/cotizacionService';
 import Swal from 'sweetalert2';
 
-const CotizacionForm = () => {
+const CotizacionForm = ({ isNew = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [clientes, setClientes] = useState([]);
@@ -44,12 +44,12 @@ const CotizacionForm = () => {
   useEffect(() => {
     const inicializarDatos = async () => {
       await cargarDatos();
-      if (id) {
+      if (!isNew && id) {
         await cargarCotizacion();
       }
     };
     inicializarDatos();
-  }, [id]);
+  }, [id, isNew]);
 
   const cargarDatos = async () => {
     try {
@@ -57,6 +57,7 @@ const CotizacionForm = () => {
         getClientes(),
         getMaterials()
       ]);
+      console.log('Materiales cargados:', materialesData); // Para debugging
       setClientes(clientesData);
       setMateriales(materialesData);
     } catch (error) {
@@ -90,6 +91,11 @@ const CotizacionForm = () => {
     }));
   };
 
+  // Add this useEffect inside the component
+useEffect(() => {
+  console.log('Materiales actualizados:', materiales);
+}, [materiales]);
+
   const eliminarItem = (index) => {
     setFormData(prev => ({
       ...prev,
@@ -102,18 +108,23 @@ const CotizacionForm = () => {
     const item = updatedItems[index];
     
     if (field === 'materialId') {
-      const material = materiales.find(m => m.id === value);
-      item.materialId = value;
-      item.precio = material ? material.precio : 0;
+      const material = materiales.find(m => m.id_material === parseInt(value));
+      console.log('Material seleccionado:', material);
+      
+      if (material) {
+        item.materialId = value;
+        item.precio = material.precio_unitario;
+        item.subtotal = item.precio * item.cantidad;
+      }
     } else if (field === 'cantidad') {
       item.cantidad = Math.max(1, parseInt(value) || 0);
+      item.subtotal = item.precio * item.cantidad;
     }
     
-    item.subtotal = item.precio * item.cantidad;
     updatedItems[index] = item;
     
-    const subtotal = updatedItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const iva = subtotal * 0.12; // 12% IVA
+    const subtotal = updatedItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+    const iva = subtotal * 0.12;
     const total = subtotal + iva;
 
     setFormData(prev => ({
@@ -125,38 +136,7 @@ const CotizacionForm = () => {
     }));
   };
 
-  const validarFormulario = () => {
-    if (!formData.clienteId) {
-      Swal.fire({
-        title: 'Error',
-        text: 'Debe seleccionar un cliente',
-        icon: 'error'
-      });
-      return false;
-    }
-
-    if (formData.items.length === 0) {
-      Swal.fire({
-        title: 'Error',
-        text: 'Debe agregar al menos un material',
-        icon: 'error'
-      });
-      return false;
-    }
-
-    const itemsInvalidos = formData.items.some(item => !item.materialId || item.cantidad < 1);
-    if (itemsInvalidos) {
-      Swal.fire({
-        title: 'Error',
-        text: 'Todos los materiales deben tener una cantidad válida',
-        icon: 'error'
-      });
-      return false;
-    }
-
-    return true;
-  };
-
+  // Add this function before the return statement
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validarFormulario()) return;
@@ -232,12 +212,16 @@ const CotizacionForm = () => {
                     <TableCell>
                       <FormControl fullWidth>
                         <Select
-                          value={item.materialId}
+                          value={item.materialId || ''}
                           onChange={(e) => handleItemChange(index, 'materialId', e.target.value)}
+                          displayEmpty
                         >
+                          <MenuItem value="" disabled>
+                            Seleccione un material
+                          </MenuItem>
                           {materiales.map(material => (
-                            <MenuItem key={material.id} value={material.id}>
-                              {material.nombre}
+                            <MenuItem key={material.id_material} value={material.id_material}>
+                              {material.nombre} - Q{material.precio_unitario}
                             </MenuItem>
                           ))}
                         </Select>
@@ -290,5 +274,7 @@ const CotizacionForm = () => {
     </form>
   );
 };
+
+
 
 export default CotizacionForm;
