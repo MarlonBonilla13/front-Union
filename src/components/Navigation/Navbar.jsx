@@ -19,6 +19,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import GroupIcon from '@mui/icons-material/Group';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import BusinessIcon from '@mui/icons-material/Business'; // Importamos el icono para Clientes
+import DescriptionIcon from '@mui/icons-material/Description';
 import { useAuth } from '../../contexts/AuthContext';
 import { logout } from '../../services/authService';
 import Swal from 'sweetalert2';
@@ -70,6 +71,19 @@ const Navbar = () => {
       text: 'Clientes',
       icon: <BusinessIcon />,
       path: '/clientes',
+      roles: ['admin']
+    },
+    // Add Cotizaciones menu items
+    {
+      text: 'Cotizaciones',
+      icon: <DescriptionIcon />,
+      path: '/cotizaciones',
+      roles: ['admin' ]
+    },
+    {
+      text: 'Nueva Cotización',
+      icon: <AddBoxIcon />,
+      path: '/cotizaciones/nueva',
       roles: ['admin']
     },
     {

@@ -15,6 +15,9 @@ import EmpleadoForm from './components/Empleado/EmpleadoForm';
 import EmpleadoList from './components/Empleado/EmpleadoList';
 import MovimientosList from './components/Movimientos/MovimientosList';
 import ClientesPage from './pages/ClientesPage'; // Importar ClientesPage
+import CotizacionesList from './components/Cotizaciones/CotizacionesList';
+import NuevaCotizacion from './components/Cotizaciones/NuevaCotizacion';
+import CotizacionForm from './components/Cotizaciones/CotizacionForm';
 
 function App() {
   return (
@@ -112,6 +115,32 @@ function App() {
                           element={
                             <ProtectedRoute roles={['admin']}>
                               <ClientesPage />
+                            </ProtectedRoute>
+                          } 
+                        />
+                        {/* Agregar rutas de cotizaciones aquí */}
+                        <Route 
+                          path="/cotizaciones" 
+                          element={
+                            <ProtectedRoute roles={['admin']}>
+                              <CotizacionesList />
+                            </ProtectedRoute>
+                          } 
+                        />
+                        <Route 
+                          path="/cotizaciones/nueva" 
+                          element={
+                            <ProtectedRoute roles={['admin']}>
+                              <NuevaCotizacion />
+                            </ProtectedRoute>
+                          } 
+                        />
+                        // Asegúrate de que la ruta esté correctamente definida
+                        <Route 
+                          path="/cotizaciones/editar/:id" 
+                          element={
+                            <ProtectedRoute roles={['admin']}>
+                              <CotizacionForm />
                             </ProtectedRoute>
                           } 
                         />
