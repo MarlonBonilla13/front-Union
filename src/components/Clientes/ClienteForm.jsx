@@ -18,10 +18,57 @@ import {
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { createCliente, updateCliente, getClienteById } from '../../services/clienteService';
+// Add uploadClienteLogo to the imports
+import { createCliente, updateCliente, getClienteById, uploadClienteLogo } from '../../services/clienteService';
 // Remove notistack import
 // import { useSnackbar } from 'notistack';
 import Swal from 'sweetalert2'; // Import SweetAlert2 instead
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { styled } from '@mui/material/styles';
+
+const VisuallyHiddenInput = styled('input')({
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  height: 1,
+  overflow: 'hidden',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  whiteSpace: 'nowrap',
+  width: 1,
+});
+
+const API_BASE_URL = 'http://localhost:4001';
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) {
+    console.log('No hay ruta de imagen');
+    return null;
+  }
+  
+  // Si la URL ya es absoluta (comienza con http)
+  if (imagePath.startsWith('http')) {
+    // Extraer el nombre del archivo de la URL completa
+    const matches = imagePath.match(/\/uploads\/clientes\/(.*?)$/);
+    if (matches && matches[1]) {
+      const fileName = matches[1].replace(/^uploads\/clientes\//, '');
+      const url = `${API_BASE_URL}/uploads/clientes/${fileName}`;
+      console.log('URL procesada:', url);
+      return url;
+    }
+    return imagePath;
+  }
+
+  // Si es una ruta relativa
+  const cleanPath = imagePath
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/^uploads\/clientes\/uploads\/clientes\//, 'uploads/clientes/')
+    .replace(/^uploads\/clientes\//, '');
+  
+  const url = `${API_BASE_URL}/uploads/clientes/${cleanPath}`;
+  console.log('URL construida:', url);
+  return url;
+};
 
 const ClienteForm = ({ clienteId, onSave, onCancel }) => {
   const initialState = {
@@ -41,8 +88,8 @@ const ClienteForm = ({ clienteId, onSave, onCancel }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  // Remove notistack hook
-  // const { enqueueSnackbar } = useSnackbar();
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
     if (clienteId) {
@@ -51,6 +98,8 @@ const ClienteForm = ({ clienteId, onSave, onCancel }) => {
     } else {
       setIsEditing(false);
       setCliente(initialState);
+      setPreviewUrl('');
+      setSelectedFile(null);
     }
   }, [clienteId]);
 
@@ -58,9 +107,15 @@ const ClienteForm = ({ clienteId, onSave, onCancel }) => {
     setLoading(true);
     try {
       const data = await getClienteById(id);
+      console.log('Datos del cliente recibidos:', data);
       setCliente(data);
+      if (data.imagen_url) {
+        console.log('Imagen URL recibida:', data.imagen_url);
+        const imageUrl = getImageUrl(data.imagen_url);
+        setPreviewUrl(imageUrl);
+      }
     } catch (error) {
-      // Replace notistack with SweetAlert2
+      console.error("Error detallado al cargar cliente:", error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -71,21 +126,27 @@ const ClienteForm = ({ clienteId, onSave, onCancel }) => {
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, checked } = e.target;
-    const newValue = name === 'estado' ? checked : value;
-    
-    setCliente({
-      ...cliente,
-      [name]: newValue
-    });
-    
-    // Limpiar error cuando se edita el campo
-    if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: null
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      console.log('Archivo seleccionado:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
       });
+      
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file);
+        const fileUrl = URL.createObjectURL(file);
+        console.log('URL de preview creada:', fileUrl);
+        setPreviewUrl(fileUrl);
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Por favor seleccione un archivo de imagen válido (PNG, JPG, JPEG)'
+        });
+      }
     }
   };
 
@@ -113,24 +174,50 @@ const ClienteForm = ({ clienteId, onSave, onCancel }) => {
     setLoading(true);
     try {
       if (isEditing) {
-        await updateCliente(clienteId, cliente);
-        Swal.fire({
-          icon: 'success',
-          title: 'Éxito',
-          text: 'Cliente actualizado exitosamente'
-        });
+        const updateResponse = await updateCliente(clienteId, cliente);
+        console.log('Respuesta de actualización:', updateResponse);
+        
+        if (selectedFile) {
+          try {
+            console.log('Subiendo logo...', {
+              clienteId,
+              fileName: selectedFile.name
+            });
+            const logoResponse = await uploadClienteLogo(clienteId, selectedFile);
+            console.log('Respuesta de subida de logo:', logoResponse);
+          } catch (logoError) {
+            console.error('Error detallado al subir logo:', logoError);
+            throw new Error(`Error al subir el logo: ${logoError.message}`);
+          }
+        }
       } else {
-        await createCliente(cliente);
-        Swal.fire({
-          icon: 'success',
-          title: 'Éxito',
-          text: 'Cliente registrado exitosamente'
-        });
+        const response = await createCliente(cliente);
+        console.log('Cliente creado:', response);
+        
+        if (selectedFile && response.id_cliente) {
+          try {
+            console.log('Subiendo logo para nuevo cliente...', {
+              clienteId: response.id_cliente,
+              fileName: selectedFile.name
+            });
+            const logoResponse = await uploadClienteLogo(response.id_cliente, selectedFile);
+            console.log('Respuesta de subida de logo:', logoResponse);
+          } catch (logoError) {
+            console.error('Error al subir logo:', logoError);
+          }
+        }
       }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: `Cliente ${isEditing ? 'actualizado' : 'registrado'} exitosamente`
+      });
       
       if (onSave) onSave();
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Error al guardar el cliente';
+      console.error('Error detallado al guardar:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Error al guardar el cliente';
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -141,13 +228,23 @@ const ClienteForm = ({ clienteId, onSave, onCancel }) => {
     }
   };
 
-  if (loading && isEditing) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const handleChange = (e) => {
+    const { name, value, checked } = e.target;
+    const newValue = name === 'estado' ? checked : value;
+    
+    setCliente({
+      ...cliente,
+      [name]: newValue
+    });
+    
+    // Clear error when field is edited
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: null
+      });
+    }
+  };
 
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
@@ -158,6 +255,63 @@ const ClienteForm = ({ clienteId, onSave, onCancel }) => {
       
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {/* Logo preview */}
+              <Box
+                sx={{
+                  width: 150,
+                  height: 150,
+                  border: '2px dashed #ccc',
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 2,
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="Logo preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain'
+                    }}
+                    onError={(e) => {
+                      console.error('Error cargando preview:', {
+                        url: previewUrl
+                      });
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <Typography variant="body2" color="textSecondary">
+                    Sin logo
+                  </Typography>
+                )}
+              </Box>
+              
+              <Button
+                component="label"
+                variant="contained"
+                startIcon={<CloudUploadIcon />}
+                sx={{ mb: 2 }}
+              >
+                Subir Logo
+                <VisuallyHiddenInput
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+              </Button>
+            </Box>
+          </Grid>
+
           <Grid item xs={12} sm={6}>
             <TextField
               required

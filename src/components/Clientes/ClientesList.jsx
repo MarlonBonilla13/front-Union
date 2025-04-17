@@ -30,6 +30,40 @@ import { getClientes, deleteCliente, cambiarEstadoCliente } from '../../services
 import Swal from 'sweetalert2'; // Import SweetAlert2 instead
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import api from '../../services/api'; // Add this import
+
+// Define the API base URL to match your backend
+const API_BASE_URL = 'http://localhost:4001';
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) {
+    console.log('No hay ruta de imagen');
+    return null;
+  }
+  
+  // Si la URL ya es absoluta (comienza con http)
+  if (imagePath.startsWith('http')) {
+    // Extraer el nombre del archivo de la URL completa
+    const matches = imagePath.match(/\/uploads\/clientes\/(.*?)$/);
+    if (matches && matches[1]) {
+      const fileName = matches[1].replace(/^uploads\/clientes\//, '');
+      const url = `${API_BASE_URL}/uploads/clientes/${fileName}`;
+      console.log('URL procesada:', url);
+      return url;
+    }
+    return imagePath;
+  }
+
+  // Si es una ruta relativa
+  const cleanPath = imagePath
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/^uploads\/clientes\/uploads\/clientes\//, 'uploads/clientes/')
+    .replace(/^uploads\/clientes\//, '');
+  
+  const url = `${API_BASE_URL}/uploads/clientes/${cleanPath}`;
+  console.log('URL construida:', url);
+  return url;
+};
 
 const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty function
   const [clientes, setClientes] = useState([]);
@@ -131,10 +165,11 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
     setLoading(true);
     try {
       const data = await getClientes();
+      console.log('Clientes cargados:', data); // Debug log para ver la data completa
       setClientes(data);
       setFilteredClientes(data);
     } catch (error) {
-      // Replace notistack with SweetAlert2
+      console.error('Error al cargar clientes:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -213,6 +248,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
             <Table stickyHeader aria-label="sticky table">
               <TableHead>
                 <TableRow>
+                  <TableCell>Logo</TableCell>
                   <TableCell>Nombre</TableCell>
                   <TableCell>Teléfono</TableCell>
                   <TableCell>Correo</TableCell>
@@ -230,13 +266,47 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                   .map((cliente) => (
                     <TableRow hover key={cliente.id_cliente}>
                       <TableCell>
-                        {cliente.nombre} {cliente.apellido}
-                        {cliente.nombre_comercial && (
-                          <Typography variant="caption" display="block" color="textSecondary">
-                            {cliente.nombre_comercial}
-                          </Typography>
+                        {cliente.imagen_url ? (
+                          <>
+                            <img
+                              src={getImageUrl(cliente.imagen_url)}
+                              alt={`Logo de ${cliente.nombre}`}
+                              style={{
+                                width: '50px',
+                                height: '50px',
+                                objectFit: 'contain',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px'
+                              }}
+                              onError={(e) => {
+                                console.error('Error cargando imagen:', {
+                                  cliente: cliente.nombre,
+                                  url: e.target.src,
+                                  originalUrl: cliente.imagen_url
+                                });
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </>
+                        ) : (
+                          <Box
+                            sx={{
+                              width: '50px',
+                              height: '50px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#f5f5f5'
+                            }}
+                          >
+                            No logo
+                          </Box>
                         )}
                       </TableCell>
+                      <TableCell>{`${cliente.nombre} ${cliente.apellido}`}</TableCell>
                       <TableCell>{cliente.telefono}</TableCell>
                       <TableCell>{cliente.correo}</TableCell>
                       <TableCell>{cliente.tipo_cliente}</TableCell>

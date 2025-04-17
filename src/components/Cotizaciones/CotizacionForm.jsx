@@ -33,6 +33,9 @@ const CotizacionForm = ({ isNew = false }) => {
   const [materiales, setMateriales] = useState([]);
   const [formData, setFormData] = useState({
     clienteId: '',
+    nombreComercial: '',
+    direccion: '',
+    telefono: '',
     fecha: new Date().toISOString().split('T')[0],
     items: [],
     observaciones: '',
@@ -171,18 +174,56 @@ useEffect(() => {
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Cliente</InputLabel>
+            <InputLabel id="cliente-label">Cliente</InputLabel>
             <Select
-              value={formData.clienteId}
-              onChange={(e) => setFormData({...formData, clienteId: e.target.value})}
+              labelId="cliente-label"
+              value={formData.clienteId || ''}
+              onChange={(e) => {
+                const clienteSeleccionado = clientes.find(c => c.id_cliente === e.target.value);
+                setFormData({
+                  ...formData, 
+                  clienteId: e.target.value,
+                  nombreComercial: clienteSeleccionado?.nombre_comercial || '',
+                  direccion: clienteSeleccionado?.direccion || '',
+                  telefono: clienteSeleccionado?.telefono || ''
+                });
+              }}
+              label="Cliente"
             >
+              <MenuItem value="" disabled>
+                Seleccione un cliente
+              </MenuItem>
               {clientes.map(cliente => (
-                <MenuItem key={cliente.id} value={cliente.id}>
-                  {cliente.nombre}
+                <MenuItem key={cliente.id_cliente} value={cliente.id_cliente}>
+                  {`${cliente.nombre} ${cliente.apellido}`}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Nombre Comercial"
+            value={formData.nombreComercial || ''}
+            disabled
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Dirección"
+            value={formData.direccion || ''}
+            disabled
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Teléfono"
+            value={formData.telefono || ''}
+            disabled
+          />
         </Grid>
 
         <Grid item xs={12}>

@@ -7,12 +7,21 @@ const api = axios.create({
   },
 });
 
+// Add a debug log to see the base URL
+console.log('API Base URL:', api.defaults.baseURL);
+
 // Interceptor para agregar el token a las peticiones
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Log URL being requested for debugging
+    if (config.url.includes('upload') || config.url.includes('clientes')) {
+      console.log('Request URL:', `${api.defaults.baseURL}${config.url}`);
+      console.log('Request method:', config.method);
+      console.log('Request headers:', config.headers);
     }
     return config;
   },
