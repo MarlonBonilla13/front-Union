@@ -13,9 +13,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import PrintIcon from '@mui/icons-material/Print';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
@@ -29,10 +30,12 @@ import TimelineConnector from '@mui/lab/TimelineConnector';
 import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineDot from '@mui/lab/TimelineDot';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
+import { toast } from 'react-toastify';
 
 const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
   const [cotizacion, setCotizacion] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const getEstadoColor = (estado) => {
     const colors = {
@@ -48,16 +51,46 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
   useEffect(() => {
     const loadCotizacion = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        console.log('Cargando cotización:', cotizacionId);
         const data = await getCotizacionById(cotizacionId);
-        setCotizacion(data);
+        
+        // Validar datos requeridos
+        if (!data || !data.id_cotizacion) {
+          throw new Error('Datos de cotización inválidos');
+        }
+
+        // Asegurar que los campos numéricos sean números
+        const processedData = {
+          ...data,
+          subtotal: parseFloat(data.subtotal) || 0,
+          descuento: parseFloat(data.descuento) || 0,
+          impuestos: parseFloat(data.impuestos) || 0,
+          total: parseFloat(data.total) || 0,
+          validez: parseInt(data.validez) || 30,
+          detalles: Array.isArray(data.detalles) ? data.detalles.map(detalle => ({
+            ...detalle,
+            cantidad: parseFloat(detalle.cantidad) || 0,
+            precio_unitario: parseFloat(detalle.precio_unitario) || 0,
+            subtotal: parseFloat(detalle.subtotal) || 0
+          })) : []
+        };
+
+        console.log('Cotización cargada exitosamente:', processedData);
+        setCotizacion(processedData);
       } catch (error) {
         console.error('Error al cargar la cotización:', error);
+        setError(error.message || 'Error al cargar la cotización');
+        toast.error('Error al cargar los detalles de la cotización');
       } finally {
         setLoading(false);
       }
     };
 
-    loadCotizacion();
+    if (cotizacionId) {
+      loadCotizacion();
+    }
   }, [cotizacionId]);
 
   const handlePrint = () => {
@@ -89,6 +122,30 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
       });
     }
   };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mb: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!cotizacion) {
+    return (
+      <Alert severity="info">
+        No se encontró la cotización solicitada
+      </Alert>
+    );
+  }
 
   return (
     <Paper elevation={3} sx={{ p: 3 }}>
@@ -155,7 +212,7 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
                 Fecha: {format(new Date(cotizacion.fecha_cotizacion), 'dd/MM/yyyy', { locale: es })}
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                Válida hasta: {format(new Date(cotizacion.validez), 'dd/MM/yyyy', { locale: es })}
+                Válida hasta: {format(addDays(new Date(cotizacion.fecha_cotizacion), cotizacion.validez), 'dd/MM/yyyy', { locale: es })}
               </Typography>
             </Box>
           </Box>

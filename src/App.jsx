@@ -18,142 +18,146 @@ import ClientesPage from './pages/ClientesPage'; // Importar ClientesPage
 import CotizacionesList from './components/Cotizaciones/CotizacionesList';
 import NuevaCotizacion from './components/Cotizaciones/NuevaCotizacion';
 import CotizacionForm from './components/Cotizaciones/CotizacionForm';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
-    <SnackbarProvider maxSnack={3}>
-      <Router>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8f9fa' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1 }}>
-                      <Routes>
-                        <Route path="/welcome" element={<Welcome />} />
-                        <Route path="/materiales" element={<MaterialList />} />
-                        <Route 
-                          path="/materiales/nuevo" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <MaterialForm />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/materiales/editar/:id" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <MaterialForm />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/usuarios" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <UserList />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/usuarios/nuevo" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <UserForm />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/usuarios/editar/:id" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <UserForm />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route
-                          path="/empleados/nuevo"
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <EmpleadoForm />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="/empleados/editar/:id"
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <EmpleadoForm />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="/empleados"
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <EmpleadoList />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="/movimientos"
-                          element={
-                            <ProtectedRoute>
-                              <MovimientosList />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route 
-                          path="/clientes" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <ClientesPage />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        {/* Agregar rutas de cotizaciones aquí */}
-                        <Route 
-                          path="/cotizaciones" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <CotizacionesList />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/cotizaciones/nueva" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <NuevaCotizacion />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        // Asegúrate de que la ruta esté correctamente definida
-                        <Route 
-                          path="/cotizaciones/editar/:id" 
-                          element={
-                            <ProtectedRoute roles={['admin']}>
-                              <CotizacionForm />
-                            </ProtectedRoute>
-                          } 
-                        />
-                      </Routes>
+    <>
+      <Toaster position="top-right" />
+      <SnackbarProvider maxSnack={3}>
+        <Router>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8f9fa' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1 }}>
+                        <Routes>
+                          <Route path="/welcome" element={<Welcome />} />
+                          <Route path="/materiales" element={<MaterialList />} />
+                          <Route 
+                            path="/materiales/nuevo" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <MaterialForm />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/materiales/editar/:id" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <MaterialForm />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/usuarios" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <UserList />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/usuarios/nuevo" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <UserForm />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/usuarios/editar/:id" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <UserForm />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route
+                            path="/empleados/nuevo"
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <EmpleadoForm />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/empleados/editar/:id"
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <EmpleadoForm />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/empleados"
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <EmpleadoList />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/movimientos"
+                            element={
+                              <ProtectedRoute>
+                                <MovimientosList />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route 
+                            path="/clientes" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <ClientesPage />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          {/* Agregar rutas de cotizaciones aquí */}
+                          <Route 
+                            path="/cotizaciones" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <CotizacionesList />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/cotizaciones/nueva" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <NuevaCotizacion />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          // Asegúrate de que la ruta esté correctamente definida
+                          <Route 
+                            path="/cotizaciones/editar/:id" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <CotizacionForm />
+                              </ProtectedRoute>
+                            } 
+                          />
+                        </Routes>
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </AuthProvider>
-      </Router>
-    </SnackbarProvider>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </AuthProvider>
+        </Router>
+      </SnackbarProvider>
+    </>
   );
 }
 

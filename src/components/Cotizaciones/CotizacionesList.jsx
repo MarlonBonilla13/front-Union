@@ -10,7 +10,8 @@ import {
   TableRow,
   IconButton,
   Button,
-  Typography
+  Typography,
+  Chip
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
@@ -33,6 +34,7 @@ const CotizacionesList = () => {
       const data = await getCotizaciones();
       setCotizaciones(data);
     } catch (error) {
+      console.error('Error al cargar cotizaciones:', error);
       Swal.fire({
         title: 'Error',
         text: 'No se pudieron cargar las cotizaciones',
@@ -59,6 +61,7 @@ const CotizacionesList = () => {
         await cargarCotizaciones();
         Swal.fire('¡Eliminado!', 'La cotización ha sido eliminada.', 'success');
       } catch (error) {
+        console.error('Error al eliminar:', error);
         Swal.fire('Error', 'No se pudo eliminar la cotización', 'error');
       }
     }
@@ -68,13 +71,34 @@ const CotizacionesList = () => {
     try {
       await generatePDF(id);
     } catch (error) {
+      console.error('Error al generar PDF:', error);
       Swal.fire('Error', 'No se pudo generar el PDF', 'error');
     }
   };
 
+  // Función para formatear números como moneda
+  const formatearMoneda = (valor) => {
+    if (valor === null || valor === undefined) return 'Q 0.00';
+    return new Intl.NumberFormat('es-GT', {
+      style: 'currency',
+      currency: 'GTQ',
+      minimumFractionDigits: 2
+    }).format(parseFloat(valor));
+  };
+
+  // Función para formatear fechas
+  const formatearFecha = (fecha) => {
+    if (!fecha) return '';
+    return new Date(fecha).toLocaleDateString('es-GT', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   return (
     <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} >
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" color="primary" fontWeight={600}> 
           Cotizaciones
         </Typography>
@@ -94,25 +118,32 @@ const CotizacionesList = () => {
               <TableCell>ID</TableCell>
               <TableCell>Cliente</TableCell>
               <TableCell>Fecha</TableCell>
-              <TableCell>Total</TableCell>
+              <TableCell align="right">Total</TableCell>
+              <TableCell>Estado</TableCell>
               <TableCell>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {cotizaciones.map((cotizacion) => (
-              <TableRow key={cotizacion.id}>
-                <TableCell>{cotizacion.id}</TableCell>
-                <TableCell>{cotizacion.cliente?.nombre}</TableCell>
-                <TableCell>{new Date(cotizacion.fecha).toLocaleDateString()}</TableCell>
-                <TableCell>${cotizacion.total.toFixed(2)}</TableCell>
+              <TableRow key={cotizacion.id_cotizacion}>
+                <TableCell>{cotizacion.id_cotizacion}</TableCell>
+                <TableCell>{`${cotizacion.cliente?.nombre || ''} ${cotizacion.cliente?.apellido || ''}`}</TableCell>
+                <TableCell>{formatearFecha(cotizacion.fecha_cotizacion)}</TableCell>
+                <TableCell align="right">{formatearMoneda(cotizacion.total)}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => navigate(`/cotizaciones/editar/${cotizacion.id}`)}>
+                  <Chip 
+                    label={cotizacion.estado} 
+                    color={cotizacion.estado === 'activo' ? 'success' : 'default'}
+                  />
+                </TableCell>
+                <TableCell>
+                  <IconButton onClick={() => navigate(`/cotizaciones/editar/${cotizacion.id_cotizacion}`)}>
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleGeneratePDF(cotizacion.id)}>
+                  <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizacion)}>
                     <PictureAsPdfIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(cotizacion.id)}>
+                  <IconButton onClick={() => handleDelete(cotizacion.id_cotizacion)}>
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
