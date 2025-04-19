@@ -18,13 +18,15 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  useTheme
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { getMaterials } from '../../services/materialService';
 
 const ExportPreviewDialog = ({ open, onClose, data, onExportExcel, onExportPDF }) => {
+  const theme = useTheme();
   const [materials, setMaterials] = useState([]);
   const [selectedMaterial, setSelectedMaterial] = useState('');
   const [filteredData, setFilteredData] = useState([]);
@@ -123,89 +125,146 @@ const ExportPreviewDialog = ({ open, onClose, data, onExportExcel, onExportPDF }
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
 
+  const selectStyles = {
+    '& .MuiSelect-select': {
+      color: theme.palette.text.primary,
+      backgroundColor: theme.palette.background.paper,
+    },
+    '& .MuiOutlinedInput-notchedOutline': {
+      borderColor: theme.palette.divider,
+    },
+    '&:hover .MuiOutlinedInput-notchedOutline': {
+      borderColor: theme.palette.primary.main,
+    },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+      borderColor: theme.palette.primary.main,
+    },
+    '& .MuiSelect-icon': {
+      color: theme.palette.text.primary,
+    }
+  };
+
+  const menuProps = {
+    PaperProps: {
+      style: {
+        maxHeight: 300,
+        marginTop: 8,
+        backgroundColor: theme.palette.background.paper,
+        color: theme.palette.text.primary,
+        border: `1px solid ${theme.palette.divider}`,
+      }
+    },
+    MenuListProps: {
+      style: {
+        padding: 0,
+      }
+    }
+  };
+
+  const menuItemStyles = {
+    '&.MuiMenuItem-root': {
+      color: theme.palette.text.primary,
+      '&:hover': {
+        backgroundColor: theme.palette.action.hover,
+      },
+      '&.Mui-selected': {
+        backgroundColor: theme.palette.action.selected,
+        '&:hover': {
+          backgroundColor: theme.palette.action.selected,
+        }
+      }
+    }
+  };
+
   return (
     <Dialog 
       open={open} 
       onClose={onClose}
-      maxWidth="lg"
+      maxWidth="xl"
       fullWidth
+      PaperProps={{
+        style: {
+          backgroundColor: theme.palette.background.paper,
+          minHeight: '80vh',
+        }
+      }}
     >
-      <DialogTitle>
-        <Typography variant="h6" component="div">
+      <DialogTitle sx={{ pb: 3 }}>
+        <Typography variant="h5" component="div" color="textPrimary" fontWeight="500">
           Vista Previa de Exportación
         </Typography>
       </DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Material</InputLabel>
+      <DialogContent sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, marginTop: 2 }}>
+          <FormControl sx={{ minWidth: 250 }}>
+            <InputLabel sx={{ color: theme.palette.text.primary, backgroundColor: theme.palette.background.paper, px: 1 }}>
+              Material
+            </InputLabel>
             <Select
               value={selectedMaterial}
               onChange={handleMaterialChange}
               label="Material"
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                    marginTop: 15  // Aumentado a 15 para que sea consistente con los otros
-                  }
-                }
-              }}
+              sx={selectStyles}
+              MenuProps={menuProps}
             >
-              <MenuItem value="">
+              <MenuItem value="" sx={menuItemStyles}>
                 <em>Todos</em>
               </MenuItem>
               {materials.map((material) => (
-                <MenuItem key={material.id_material} value={material.id_material}>
+                <MenuItem 
+                  key={material.id_material} 
+                  value={material.id_material}
+                  sx={menuItemStyles}
+                >
                   {material.nombre}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
           
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Mes</InputLabel>
+          <FormControl sx={{ minWidth: 180 }}>
+            <InputLabel sx={{ color: theme.palette.text.primary, backgroundColor: theme.palette.background.paper, px: 1 }}>
+              Mes
+            </InputLabel>
             <Select
               value={selectedMonth}
               onChange={handleMonthChange}
               label="Mes"
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                    marginTop: 15  // Aumentado a 15 para que sea consistente
-                  }
-                }
-              }}
+              sx={selectStyles}
+              MenuProps={menuProps}
             >
-              <MenuItem value="">
+              <MenuItem value="" sx={menuItemStyles}>
                 <em>Todos</em>
               </MenuItem>
               {months.map((month) => (
-                <MenuItem key={month.value} value={month.value}>
+                <MenuItem 
+                  key={month.value} 
+                  value={month.value}
+                  sx={menuItemStyles}
+                >
                   {month.label}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
           
-          <FormControl sx={{ minWidth: 120 }}>
-            <InputLabel>Año</InputLabel>
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel sx={{ color: theme.palette.text.primary, backgroundColor: theme.palette.background.paper, px: 1 }}>
+              Año
+            </InputLabel>
             <Select
               value={selectedYear}
               onChange={handleYearChange}
               label="Año"
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                    marginTop: 15  // Aumentado de 5 a 15 para bajar más el menú
-                  }
-                }
-              }}
+              sx={selectStyles}
+              MenuProps={menuProps}
             >
               {years.map((year) => (
-                <MenuItem key={year} value={year}>
+                <MenuItem 
+                  key={year} 
+                  value={year}
+                  sx={menuItemStyles}
+                >
                   {year}
                 </MenuItem>
               ))}
@@ -216,32 +275,62 @@ const ExportPreviewDialog = ({ open, onClose, data, onExportExcel, onExportPDF }
             variant="contained" 
             color="primary"
             onClick={handleApplyFilters}
-            sx={{ height: 56 }}
+            sx={{ 
+              height: 56,
+              px: 4,
+              fontSize: '1rem'
+            }}
           >
             APLICAR FILTROS
           </Button>
         </Box>
 
         {filteredData && filteredData.length > 0 ? (
-          <TableContainer component={Paper} sx={{ maxHeight: 440 }}>
+          <TableContainer 
+            component={Paper} 
+            sx={{ 
+              maxHeight: '55vh',
+              mb: 2,
+              '& .MuiTableCell-root': {
+                px: 3,
+                py: 2,
+                fontSize: '0.95rem'
+              },
+              '& .MuiTableCell-head': {
+                fontWeight: 600,
+                backgroundColor: theme.palette.primary.main,
+                color: theme.palette.common.white
+              }
+            }}
+          >
             <Table stickyHeader aria-label="tabla de vista previa">
               <TableHead>
                 <TableRow>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Código</TableCell>
-                  <TableCell>Material</TableCell>
-                  <TableCell>Tipo</TableCell>
-                  <TableCell>Cantidad</TableCell>
-                  <TableCell>Stock Actual</TableCell>
-                  <TableCell>Stock Mínimo</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell>Empleado</TableCell>
-                  <TableCell>Comentario</TableCell>
+                  <TableCell width="10%">Fecha</TableCell>
+                  <TableCell width="8%">Código</TableCell>
+                  <TableCell width="15%">Material</TableCell>
+                  <TableCell width="10%">Tipo</TableCell>
+                  <TableCell width="8%">Cantidad</TableCell>
+                  <TableCell width="10%">Stock Actual</TableCell>
+                  <TableCell width="10%">Stock Mínimo</TableCell>
+                  <TableCell width="8%">Estado</TableCell>
+                  <TableCell width="13%">Empleado</TableCell>
+                  <TableCell width="18%">Comentario</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredData.map((item, index) => (
-                  <TableRow key={index}>
+                  <TableRow 
+                    key={index}
+                    sx={{
+                      '&:nth-of-type(odd)': {
+                        backgroundColor: theme.palette.action.hover,
+                      },
+                      '&:hover': {
+                        backgroundColor: theme.palette.action.selected,
+                      }
+                    }}
+                  >
                     <TableCell>{new Date(item.fecha).toLocaleDateString()}</TableCell>
                     <TableCell>{item.codigo}</TableCell>
                     <TableCell>{item.nombre}</TableCell>
@@ -256,6 +345,7 @@ const ExportPreviewDialog = ({ open, onClose, data, onExportExcel, onExportPDF }
                             : 'error'
                         }
                         size="small"
+                        sx={{ minWidth: 80 }}
                       />
                     </TableCell>
                     <TableCell>{item.cantidad || '-'}</TableCell>
@@ -274,39 +364,50 @@ const ExportPreviewDialog = ({ open, onClose, data, onExportExcel, onExportPDF }
             </Table>
           </TableContainer>
         ) : (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body1">No hay datos para mostrar</Typography>
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="h6">No hay datos para mostrar</Typography>
           </Box>
         )}
         
         <Box sx={{ mt: 2, textAlign: 'right' }}>
-          <Typography variant="body2">
+          <Typography variant="h6" color="primary">
             Total de registros: {filteredData.length}
           </Typography>
         </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ p: 3, backgroundColor: theme.palette.background.paper, borderTop: `1px solid ${theme.palette.divider}` }}>
         <Button 
           onClick={onClose} 
-          color="inherit"
+          sx={{ 
+            color: theme.palette.text.primary,
+            px: 3,
+            py: 1
+          }}
         >
           CERRAR
         </Button>
-        <Button 
-          onClick={() => onExportExcel(filteredData)} 
+        <Button
+          onClick={() => onExportExcel(filteredData)}
           startIcon={<FileDownloadIcon />}
-          variant="contained" 
+          variant="contained"
           color="primary"
-          disabled={!filteredData || filteredData.length === 0}
+          sx={{ 
+            mr: 2,
+            px: 3,
+            py: 1
+          }}
         >
           EXPORTAR A EXCEL
         </Button>
-        <Button 
-          onClick={() => onExportPDF(filteredData)} 
+        <Button
+          onClick={() => onExportPDF(filteredData)}
           startIcon={<PictureAsPdfIcon />}
-          variant="contained" 
+          variant="contained"
           color="secondary"
-          disabled={!filteredData || filteredData.length === 0}
+          sx={{ 
+            px: 3,
+            py: 1
+          }}
         >
           EXPORTAR A PDF
         </Button>

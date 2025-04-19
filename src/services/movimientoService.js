@@ -1,7 +1,7 @@
 import api from './api';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // Get all movimientos
 export const getMovimientos = async () => {
@@ -85,47 +85,41 @@ export const exportToExcel = (data, fileName = 'movimientos.xlsx') => {
 // Añadir o modificar la función exportToPDF
 export const exportToPDF = (data) => {
   try {
-    // Create a new document with landscape orientation
-    const doc = new jsPDF('landscape');
-    
-    // Add title
-    doc.setFontSize(18);
-    doc.text('Reporte de Movimientos', 14, 22);
-    
-    // Add generation date
-    doc.setFontSize(11);
-    doc.text(`Fecha de generación: ${new Date().toLocaleDateString()}`, 14, 30);
-    
-    // Create a simple table manually
-    const startY = 40;
-    const cellWidth = 30;
-    const cellHeight = 10;
-    const margin = 10;
-    
-    // Headers
-    doc.setFillColor(41, 128, 185);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    
-    const headers = ["Fecha", "Código", "Material", "Tipo", "Cantidad", "Stock Actual", "Stock Mínimo", "Empleado", "Comentario"];
-    headers.forEach((header, i) => {
-      doc.rect(margin + (i * cellWidth), startY, cellWidth, cellHeight, 'F');
-      doc.text(header, margin + 5 + (i * cellWidth), startY + 7);
+    // Crear un nuevo documento con orientación horizontal
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
     });
     
-    // Data rows
-    let y = startY + cellHeight;
-    doc.setTextColor(0, 0, 0);
+    // Configurar fuentes y colores
+    doc.setFont('helvetica');
     
-    data.forEach((item, rowIndex) => {
-      // Alternate row colors
-      if (rowIndex % 2 === 0) {
-        doc.setFillColor(240, 240, 240);
-      } else {
-        doc.setFillColor(255, 255, 255);
-      }
-      
-      const rowData = [
+    // Añadir título
+    doc.setFontSize(18);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Reporte de Movimientos', 15, 20);
+    
+    // Añadir fecha de generación
+    doc.setFontSize(11);
+    doc.text(`Fecha de generación: ${new Date().toLocaleDateString()}`, 15, 30);
+
+    // Configurar la tabla usando autoTable
+    autoTable(doc, {
+      startY: 35,
+      head: [[
+        'Fecha',
+        'Código',
+        'Material',
+        'Tipo',
+        'Cantidad',
+        'Stock Actual',
+        'Stock Mínimo',
+        'Estado',
+        'Empleado',
+        'Comentario'
+      ]],
+      body: data.map(item => [
         new Date(item.fecha).toLocaleDateString(),
         item.codigo || '',
         item.nombre || '',
@@ -133,31 +127,61 @@ export const exportToPDF = (data) => {
         item.cantidad || '-',
         item.Stock_actual || '0',
         item.Stock_minimo || '0',
+        item.estado || '-',
         item.empleado ? `${item.empleado.nombre} ${item.empleado.apellido}` : 'N/A',
         item.comentario || '-'
-      ];
-      
-      rowData.forEach((cell, i) => {
-        doc.rect(margin + (i * cellWidth), y, cellWidth, cellHeight, 'F');
-        doc.text(String(cell).substring(0, 15), margin + 5 + (i * cellWidth), y + 7);
-      });
-      
-      y += cellHeight;
-      
-      // Add new page if needed
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
+      ]),
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: [200, 200, 200],
+        lineWidth: 0.1,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontSize: 10,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      bodyStyles: {
+        textColor: 50,
+        fontSize: 9,
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },  // Fecha
+        1: { cellWidth: 20 },  // Código
+        2: { cellWidth: 40 },  // Material
+        3: { cellWidth: 20 },  // Tipo
+        4: { cellWidth: 20 },  // Cantidad
+        5: { cellWidth: 25 },  // Stock Actual
+        6: { cellWidth: 25 },  // Stock Mínimo
+        7: { cellWidth: 20 },  // Estado
+        8: { cellWidth: 35 },  // Empleado
+        9: { cellWidth: 40 }   // Comentario
+      },
+      margin: { top: 35, right: 15, bottom: 15, left: 15 },
+      didDrawPage: function(data) {
+        // Agregar número de página
+        doc.setFontSize(8);
+        doc.text(
+          `Página ${doc.internal.getCurrentPageInfo().pageNumber} de ${doc.internal.getNumberOfPages()}`,
+          doc.internal.pageSize.width - 20, 
+          doc.internal.pageSize.height - 10
+        );
       }
     });
-    
-    // Save the PDF
-    doc.save(`movimientos_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+
+    // Guardar el PDF
+    const fileName = `movimientos_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
+    doc.save(fileName);
     
     return true;
   } catch (error) {
     console.error('Error en exportToPDF:', error);
-    alert(`Error al exportar a PDF: ${error.message}`);
     throw error;
   }
 };
