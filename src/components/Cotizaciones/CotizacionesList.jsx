@@ -32,6 +32,7 @@ const CotizacionesList = () => {
   const cargarCotizaciones = async () => {
     try {
       const data = await getCotizaciones();
+      console.log('Cotizaciones cargadas con usuarios:', data);
       setCotizaciones(data);
     } catch (error) {
       console.error('Error al cargar cotizaciones:', error);
@@ -118,7 +119,8 @@ const CotizacionesList = () => {
               <TableCell>ID</TableCell>
               <TableCell>Cliente</TableCell>
               <TableCell>Fecha</TableCell>
-              <TableCell align="right">Total</TableCell>
+              <TableCell>Creado por</TableCell> {/* Nueva columna */}
+              <TableCell>Total</TableCell>
               <TableCell>Estado</TableCell>
               <TableCell>Acciones</TableCell>
             </TableRow>
@@ -129,7 +131,8 @@ const CotizacionesList = () => {
                 <TableCell>{cotizacion.id_cotizacion}</TableCell>
                 <TableCell>{`${cotizacion.cliente?.nombre || ''} ${cotizacion.cliente?.apellido || ''}`}</TableCell>
                 <TableCell>{formatearFecha(cotizacion.fecha_cotizacion)}</TableCell>
-                <TableCell align="right">{formatearMoneda(cotizacion.total)}</TableCell>
+                <TableCell>{cotizacion.usuario_creacion_nombre || 'Usuario desconocido'}</TableCell>
+                <TableCell>{formatearMoneda(cotizacion.total)}</TableCell>
                 <TableCell>
                   <Chip 
                     label={cotizacion.estado} 

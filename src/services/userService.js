@@ -25,14 +25,15 @@ export const getUsers = async () => {
 // Obtener un usuario por ID
 export const getUserById = async (id) => {
   try {
-    const response = await api.get(`/usuario/${id}`);
+    const response = await api.get(`/usuarios/${id}`);
     return response.data;
   } catch (error) {
-    console.error(`Error al obtener usuario con ID ${id}:`, error);
+    console.error('Error al obtener usuario:', error);
     throw error;
   }
 };
 
+// Otros métodos del servicio de usuario que puedas necesitar
 // Actualizar un usuario
 export const updateUser = async (id, updateUserDto) => {
   try {

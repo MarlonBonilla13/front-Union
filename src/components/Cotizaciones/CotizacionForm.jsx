@@ -30,6 +30,9 @@ import Swal from 'sweetalert2';
 import CircularProgress from '@mui/material/CircularProgress';
 import { toast } from 'react-hot-toast';
 
+// Importamos el servicio de usuario
+import { getUserById } from '../../services/userService';
+
 const CotizacionForm = ({ isNew = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -44,7 +47,7 @@ const CotizacionForm = ({ isNew = false }) => {
     direccion: '',
     telefono: '',
     fecha_cotizacion: new Date().toISOString().split('T')[0],
-    validez: 30, // Valor por defecto de 30 días
+    validez: 0, // Valor por defecto de 30 días
     items: [],
     observaciones: '',
     subtotal: 0,
@@ -167,7 +170,8 @@ const CotizacionForm = ({ isNew = false }) => {
             materialId: materialId,
             cantidad: parseInt(detalle.cantidad),
             precio: parseFloat(detalle.precio_unitario),
-            subtotal: parseFloat(detalle.subtotal)
+            subtotal: parseFloat(detalle.subtotal),
+            costo_mano_obra: parseFloat(detalle.costo_mano_obra || 0) // Make sure to include costo_mano_obra in each item
           });
         } catch (error) {
           console.error('Error al procesar detalle:', error);
@@ -189,7 +193,9 @@ const CotizacionForm = ({ isNew = false }) => {
         console.log('Actualizando formData con:', {
           validez: cotizacion.validez,
           items: items,
-          costo_mano_obra: costoManoObra
+          costo_mano_obra: costoManoObra,
+          usuario_creacion: cotizacion.usuario_creacion,
+          usuario_creacion_nombre: usuarioCreador ? `${usuarioCreador.nombre} ${usuarioCreador.apellido}` : 'Usuario desconocido'
         });
         
         return {
@@ -199,7 +205,7 @@ const CotizacionForm = ({ isNew = false }) => {
           direccion: clienteInfo?.direccion || '',
           telefono: clienteInfo?.telefono || '',
           fecha_cotizacion: cotizacion.fecha_cotizacion ? new Date(cotizacion.fecha_cotizacion).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          validez: parseInt(cotizacion.validez) || 30,
+          validez: parseInt(cotizacion.validez) || 0,
           items: items, // Set the processed items
           observaciones: cotizacion.observaciones || '',
           subtotal: parseFloat(cotizacion.subtotal) || 0,
@@ -207,7 +213,9 @@ const CotizacionForm = ({ isNew = false }) => {
           impuestos: parseFloat(cotizacion.impuestos) || 0,
           total: parseFloat(cotizacion.total) || 0,
           estado: cotizacion.estado === "activo", // Convert string to boolean
-          costo_mano_obra: costoManoObra // Set the extracted labor cost
+          costo_mano_obra: costoManoObra, // Set the extracted labor cost
+          usuario_creacion: cotizacion.usuario_creacion,
+          usuario_creacion_nombre: usuarioCreador ? `${usuarioCreador.nombre} ${usuarioCreador.apellido}` : 'Usuario desconocido'
         };
       });
 
@@ -311,19 +319,33 @@ const CotizacionForm = ({ isNew = false }) => {
   };
 
   const handleManoObraChange = (e) => {
-    const costoManoObra = parseFloat(e.target.value) || 0;
-    // Use functional update to ensure calculations are based on the latest state
-    setFormData(prev => {
-      const totales = calcularTotales(prev.items, prev.descuento, costoManoObra);
-      return {
-        ...prev,
-        costo_mano_obra: costoManoObra, // Update the cost first
-        ...totales // Then update calculated totals based on the new cost
-      };
-    });
-    setHasChanges(true);
-  };
+      const costoManoObra = parseFloat(e.target.value) || 0;
+      console.log('handleManoObraChange - nuevo valor:', costoManoObra);
+      
+      // Update all items with the new mano de obra value
+      const updatedItems = formData.items.map(item => ({
+        ...item,
+        costo_mano_obra: costoManoObra
+      }));
+      
+      // Use functional update to ensure calculations are based on the latest state
+      setFormData(prev => {
+        const totales = calcularTotales(updatedItems, prev.descuento, costoManoObra);
+        console.log('handleManoObraChange - nuevos totales:', totales);
+        
+        return {
+          ...prev,
+          items: updatedItems, // Update all items with the new cost
+          costo_mano_obra: costoManoObra, // Update the cost first
+          ...totales // Then update calculated totals based on the new cost
+        };
+      });
+      console.log('Después de setFormData en handleManoObraChange - valor:', costoManoObra); // Nuevo log
+      setHasChanges(true);
+    };
 
+  // En handleSubmit, agrega más logs
+  // Make sure this function is defined before handleSubmit
   const validarFormulario = () => {
     const errores = {};
     
@@ -335,11 +357,6 @@ const CotizacionForm = ({ isNew = false }) => {
     // Validación de fecha
     if (!formData.fecha_cotizacion) {
       errores.fecha_cotizacion = 'La fecha es requerida';
-    }
-
-    // Validación de validez
-    if (formData.validez <= 0) {
-      errores.validez = 'La validez debe ser mayor a 0 días';
     }
 
     // Validación de items
@@ -377,14 +394,27 @@ const CotizacionForm = ({ isNew = false }) => {
       return;
     }
 
+    // Asegurarnos de que el costo_mano_obra sea un número válido
+    const costoManoObra = parseFloat(formData.costo_mano_obra || 0);
+    console.log('Costo mano de obra a enviar (formData original):', formData.costo_mano_obra);
+    console.log('Costo mano de obra a enviar (parseado):', costoManoObra);
+
     // Preparar los items con el formato correcto según la base de datos
-    const items = formData.items.map(item => ({
-      id_material: parseInt(item.materialId),
-      cantidad: parseInt(item.cantidad),
-      precio_unitario: parseFloat(item.precio),
-      subtotal: parseFloat(item.subtotal),
-      costo_mano_obra: parseFloat(formData.costo_mano_obra || 0) // Usamos el valor global
-    }));
+    const items = formData.items.map(item => {
+      // Asegurarnos de que el costo_mano_obra sea un número válido para cada item
+      const itemCostoManoObra = costoManoObra;
+      console.log(`Item para material ${item.materialId} - costo_mano_obra asignado:`, itemCostoManoObra);
+      
+      return {
+        id_material: parseInt(item.materialId),
+        cantidad: parseInt(item.cantidad),
+        precio_unitario: parseFloat(item.precio),
+        subtotal: parseFloat(item.subtotal),
+        costo_mano_obra: itemCostoManoObra // Usar el valor global parseado y verificado
+      };
+    });
+
+    console.log('Items a enviar con costo_mano_obra:', JSON.stringify(items, null, 2));
 
     // Estructura de la cotización según la base de datos
     const cotizacionData = {
@@ -397,11 +427,13 @@ const CotizacionForm = ({ isNew = false }) => {
       total: parseFloat(formData.total),
       observaciones: formData.observaciones || '',
       usuario_creacion: 1,
+      // Removing costo_mano_obra from the top level object
       items
     };
 
     setLoading(true);
     let intentos = 0;
+    
     const maxIntentos = 3;
 
     while (intentos < maxIntentos) {
@@ -577,6 +609,7 @@ const CotizacionForm = ({ isNew = false }) => {
                 <TableRow>
                   <TableCell>Material</TableCell>
                   <TableCell>Cantidad</TableCell>
+                  <TableCell>Stock Disponible</TableCell>
                   <TableCell>Precio Unitario</TableCell>
                   <TableCell>Subtotal</TableCell>
                   <TableCell>Acciones</TableCell>
@@ -623,9 +656,11 @@ const CotizacionForm = ({ isNew = false }) => {
                                     No img
                                   </Box>
                                 )}
-                                <Typography>
-                                  {material.nombre}
-                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                  <Typography>
+                                    {material.nombre}
+                                  </Typography>
+                                </Box>
                               </Box>
                             </MenuItem>
                           ))}
@@ -639,6 +674,19 @@ const CotizacionForm = ({ isNew = false }) => {
                         onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)}
                         inputProps={{ min: 1 }}
                       />
+                    </TableCell>
+                    <TableCell>
+                      {item.materialId ? 
+                        (() => {
+                          const material = materiales.find(m => m.id_material == item.materialId);
+                          return material ? 
+                            <Typography 
+                              color={material.stock_actual >= item.cantidad ? 'success.main' : 'error.main'}
+                              fontWeight={500}
+                            >
+                              {material.stock_actual || 0}
+                            </Typography> : 'N/A';
+                        })() : 'N/A'}
                     </TableCell>
                     <TableCell>
                       {formatearMoneda(item.precio || 0)}

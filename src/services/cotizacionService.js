@@ -36,8 +36,20 @@ export const createCotizacion = async (cotizacionData) => {
 export const getCotizaciones = async () => {
   try {
     const response = await api.get('/cotizaciones');
-    return response.data;
+    
+    // Map cotizaciones to include user information from usuario_info
+    const cotizacionesConUsuario = response.data.map(cotizacion => {
+      return {
+        ...cotizacion,
+        usuario_creacion_nombre: cotizacion.usuario_info ? 
+          `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 
+          'Usuario desconocido'
+      };
+    });
+    
+    return cotizacionesConUsuario;
   } catch (error) {
+    console.error('Error al obtener cotizaciones:', error);
     throw error;
   }
 };
@@ -85,134 +97,46 @@ export const getCotizacionById = async (id) => {
 
 export const updateCotizacion = async (id, cotizacionData) => {
   try {
-    // Extraer los items y costo_mano_obra antes de enviar la cotización
-    const { items, costo_mano_obra, ...cotizacionBasica } = cotizacionData;
+    // Extraer los items antes de enviar la cotización
+    const { items, ...cotizacionBasica } = cotizacionData;
     
-    console.log('Actualizando cotización ID:', id);
-    console.log('Datos a enviar:', cotizacionBasica);
-    console.log('Items a actualizar:', items);
+    // Log para depuración
+    console.log('updateCotizacion - datos a enviar:', {
+      id,
+      cotizacionBasica,
+      items
+    });
     
-    // Asegurarnos de que el costo_mano_obra sea un número válido y esté disponible
-    const costoManoObra = parseFloat(costo_mano_obra || 0);
-    console.log('Costo mano de obra a guardar:', costoManoObra);
-    
-    // Actualizar la cotización básica (sin incluir costo_mano_obra)
+    // Actualizar la cotización básica con PATCH
     const response = await api.patch(`/cotizaciones/${id}`, cotizacionBasica);
-
-    // Si hay items, actualizar los detalles
+    
+    // Si hay items, actualizarlos uno por uno
     if (items && items.length > 0) {
-      // Obtener los detalles existentes
-      const detallesExistentes = await api.get(`/detalle-cotizacion/cotizacion/${id}`);
-      console.log('Detalles existentes:', detallesExistentes.data);
+      try {
+        // Primero eliminar los detalles existentes usando el nuevo endpoint
+        console.log('Eliminando detalles existentes para la cotización:', id);
+        await api.delete(`/detalle-cotizacion/cotizacion/${id}`);
+        console.log('Detalles eliminados correctamente');
+      } catch (deleteError) {
+        console.error('Error al eliminar detalles existentes:', deleteError);
+        throw new Error(`No se pudieron eliminar los detalles existentes: ${deleteError.message}`);
+      }
       
-      // Crear un mapa de los detalles existentes por posición
-      const detallesExistentesMap = {};
-      if (detallesExistentes.data && detallesExistentes.data.length > 0) {
-        detallesExistentes.data.forEach((detalle, index) => {
-          detallesExistentesMap[index] = detalle;
+      // Luego crear los nuevos detalles
+      for (const item of items) {
+        console.log(`Enviando detalle para material ${item.id_material} con costo_mano_obra:`, item.costo_mano_obra);
+        
+        // Crear el detalle de la cotización con id_cotizacion como número
+        await api.post(`/detalle-cotizacion`, {
+          ...item,
+          id_cotizacion: parseInt(id)
         });
       }
-      
-      // Para cada item nuevo, actualizar o crear un detalle
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        
-        // Verificar que tenemos todos los datos necesarios
-        const materialId = item.materialId || item.id_material;
-        
-        if (!materialId) {
-          console.error('Item sin ID de material:', item);
-          continue;
-        }
-        
-        // Comprobar diferentes propiedades posibles para el precio
-        const precio = item.precio || item.precio_unitario;
-        
-        // Preparar el detalle con los datos actualizados
-        const detalleActualizado = {
-          id_cotizacion: Number(id),
-          id_material: Number(materialId),
-          cantidad: Number(item.cantidad || 1),
-          precio_unitario: Number(precio || 0),
-          subtotal: Number(item.subtotal || 0),
-          costo_mano_obra: costoManoObra // Usar el mismo valor para todos los detalles
-        };
-        
-        console.log('Detalle actualizado a enviar:', JSON.stringify(detalleActualizado));
-        
-        // Si hay un detalle existente en esta posición, actualizarlo
-        if (detallesExistentesMap[i]) {
-          const detalleExistente = detallesExistentesMap[i];
-          console.log(`Actualizando detalle existente ${detalleExistente.id_detalle}:`, JSON.stringify(detalleActualizado));
-          
-          try {
-            // Actualizar el detalle existente
-            await api.put(`/detalle-cotizacion/${detalleExistente.id_detalle}`, {
-              ...detalleActualizado,
-              id_detalle: detalleExistente.id_detalle
-            });
-            console.log(`Detalle ${detalleExistente.id_detalle} actualizado correctamente`);
-          } catch (updateError) {
-            console.error(`Error al actualizar detalle ${detalleExistente.id_detalle}:`, updateError);
-            
-            // Si falla la actualización, intentar eliminar y recrear
-            try {
-              await api.delete(`/detalle-cotizacion/${detalleExistente.id_detalle}`);
-              const nuevoDetalle = await api.post('/detalle-cotizacion', detalleActualizado);
-              console.log('Detalle recreado exitosamente:', nuevoDetalle.data);
-            } catch (recreateError) {
-              console.error('Error al recrear detalle:', recreateError);
-            }
-          }
-        } else {
-          // Si no hay un detalle existente en esta posición, crear uno nuevo
-          console.log('Creando nuevo detalle:', JSON.stringify(detalleActualizado));
-          
-          try {
-            const nuevoDetalle = await api.post('/detalle-cotizacion', detalleActualizado);
-            console.log('Detalle creado exitosamente:', nuevoDetalle.data);
-          } catch (createError) {
-            console.error('Error al crear nuevo detalle:', createError);
-          }
-        }
-      }
-      
-      // Si hay más detalles existentes que items nuevos, eliminar los sobrantes
-      if (detallesExistentes.data && detallesExistentes.data.length > items.length) {
-        for (let i = items.length; i < detallesExistentes.data.length; i++) {
-          const detalleAEliminar = detallesExistentes.data[i];
-          console.log(`Eliminando detalle sobrante ${detalleAEliminar.id_detalle}`);
-          
-          try {
-            await api.delete(`/detalle-cotizacion/${detalleAEliminar.id_detalle}`);
-            console.log(`Detalle sobrante ${detalleAEliminar.id_detalle} eliminado`);
-          } catch (deleteError) {
-            console.error(`Error al eliminar detalle sobrante ${detalleAEliminar.id_detalle}:`, deleteError);
-          }
-        }
-      }
-    } else {
-      // Si no hay items, eliminar todos los detalles existentes
-      const detallesExistentes = await api.get(`/detalle-cotizacion/cotizacion/${id}`);
-      if (detallesExistentes.data && detallesExistentes.data.length > 0) {
-        for (const detalle of detallesExistentes.data) {
-          try {
-            await api.delete(`/detalle-cotizacion/${detalle.id_detalle}`);
-            console.log(`Detalle ${detalle.id_detalle} eliminado porque no hay items`);
-          } catch (deleteError) {
-            console.error(`Error al eliminar detalle ${detalle.id_detalle}:`, deleteError);
-          }
-        }
-      }
     }
-
-    // Verificar que los detalles se hayan actualizado correctamente
-    const detallesActualizados = await api.get(`/detalle-cotizacion/cotizacion/${id}`);
-    console.log('Detalles después de actualizar:', detallesActualizados.data);
-
+    
     return response.data;
   } catch (error) {
-    console.error('Error en updateCotizacion:', error.response?.data || error);
+    console.error('Error en updateCotizacion:', error);
     throw error;
   }
 };
