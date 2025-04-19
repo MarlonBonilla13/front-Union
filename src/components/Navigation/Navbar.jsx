@@ -37,28 +37,16 @@ const Navbar = () => {
       roles: ['admin', 'user']
     },
     {
-      text: 'Lista de Materiales',
-      icon: <ListAltIcon />,
-      path: '/materiales',
-      roles: ['admin', 'user']
-    },
-    {
       text: 'Nuevo Material',
       icon: <AddBoxIcon />,
       path: '/materiales/nuevo',
       roles: ['admin']
     },
     {
-      text: 'Empleados',
-      icon: <GroupIcon />,
-      path: '/empleados',
-      roles: ['admin']
-    },
-    {
-      text: 'Nuevo Empleado',
-      icon: <AddBoxIcon />,
-      path: '/empleados/nuevo',
-      roles: ['admin']
+      text: 'Lista de Materiales',
+      icon: <ListAltIcon />,
+      path: '/materiales',
+      roles: ['admin', 'user']
     },
     {
       text: 'Movimientos',
@@ -66,14 +54,12 @@ const Navbar = () => {
       path: '/movimientos',
       roles: ['admin', 'user']
     },
-    // Añadimos la opción de Clientes al menú
     {
-      text: 'Clientes',
-      icon: <BusinessIcon />,
-      path: '/clientes',
+      text: 'Nueva Cotización',
+      icon: <AddBoxIcon />,
+      path: '/cotizaciones/nueva',
       roles: ['admin']
     },
-    // Add Cotizaciones menu items
     {
       text: 'Cotizaciones',
       icon: <DescriptionIcon />,
@@ -81,9 +67,15 @@ const Navbar = () => {
       roles: ['admin' ]
     },
     {
-      text: 'Nueva Cotización',
+      text: 'Clientes',
+      icon: <BusinessIcon />,
+      path: '/clientes',
+      roles: ['admin']
+    },
+    {
+      text: 'Empleados',
       icon: <AddBoxIcon />,
-      path: '/cotizaciones/nueva',
+      path: '/empleados/nuevo',
       roles: ['admin']
     },
     {
