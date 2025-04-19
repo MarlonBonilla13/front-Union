@@ -123,7 +123,7 @@ const CotizacionForm = ({ isNew = false }) => {
       console.log('Iniciando carga de cotización:', id); // Debug
       const cotizacion = await getCotizacionById(id);
       console.log('Cotización completa:', cotizacion); // Debug detallado
-  
+    
       if (!cotizacion) {
         console.error('No se recibieron datos de la cotización');
         return;
@@ -195,7 +195,10 @@ const CotizacionForm = ({ isNew = false }) => {
           items: items,
           costo_mano_obra: costoManoObra,
           usuario_creacion: cotizacion.usuario_creacion,
-          usuario_creacion_nombre: usuarioCreador ? `${usuarioCreador.nombre} ${usuarioCreador.apellido}` : 'Usuario desconocido'
+          // Usar el usuario_info directamente de la cotización si existe
+          usuario_creacion_nombre: cotizacion.usuario_info ? 
+            `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 
+            'Usuario desconocido'
         });
         
         return {
@@ -215,7 +218,10 @@ const CotizacionForm = ({ isNew = false }) => {
           estado: cotizacion.estado === "activo", // Convert string to boolean
           costo_mano_obra: costoManoObra, // Set the extracted labor cost
           usuario_creacion: cotizacion.usuario_creacion,
-          usuario_creacion_nombre: usuarioCreador ? `${usuarioCreador.nombre} ${usuarioCreador.apellido}` : 'Usuario desconocido'
+          // Usar el usuario_info directamente de la cotización si existe
+          usuario_creacion_nombre: cotizacion.usuario_info ? 
+            `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 
+            'Usuario desconocido'
         };
       });
 
