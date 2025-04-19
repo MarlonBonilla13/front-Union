@@ -36,8 +36,10 @@ const EmpleadoForm = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [empleados, setEmpleados] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState('activos');
-  // In the initial state
-  const [formData, setFormData] = useState({
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  // Estado inicial del formulario
+  const initialFormState = {
     codigo_empleado: '',
     nombre: '',
     apellido: '',
@@ -45,9 +47,11 @@ const EmpleadoForm = () => {
     cargo: '',
     email: '',
     telefono: '',
-    fecha_ingreso: new Date().toISOString().slice(0, 10),
+    fecha_ingreso: new Date().toISOString().split('T')[0],
     estado: true
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
 
   // Función auxiliar para formatear fechas
   const formatDate = (date) => {
@@ -57,54 +61,17 @@ const EmpleadoForm = () => {
     return d.toISOString().split('T')[0];
   };
 
-  // In the initializeData function
-  const initializeData = async () => {
-    setIsLoading(true);
-    await loadEmpleados();
-    if (id) {
-      try {
-        const empleadoData = await getEmpleado(id);
-        setFormData({
-          ...empleadoData,
-          fecha_ingreso: formatDate(empleadoData.fecha_ingreso)
-        });
-      } catch (error) {
-        console.error('Error loading employee:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudo cargar la información del empleado'
-        });
-      }
-    }
-    setIsLoading(false);
+  // Función para limpiar el formulario
+  const resetForm = () => {
+    setFormData(initialFormState);
+    setIsEditMode(false);
   };
 
-  // In the form reset
-  <Button
-    type="button"
-    variant="outlined"
-    onClick={() => {
-      setFormData({
-        codigo_empleado: '',
-        nombre: '',
-        apellido: '',
-        departamento: '',
-        cargo: '',
-        email: '',
-        telefono: '',
-        fecha_ingreso: new Date().toISOString().slice(0, 10),
-        estado: true
-      });
-    }}
-  >
-    Limpiar
-  </Button>
+  // Función para cargar la lista de empleados
   const loadEmpleados = async () => {
     try {
       const data = await getEmpleados();
       if (Array.isArray(data)) {
-        // Asegurar que las fechas estén en el formato correcto
         const formattedData = data.map(emp => ({
           ...emp,
           fecha_ingreso: formatDate(emp.fecha_ingreso)
@@ -129,25 +96,35 @@ const EmpleadoForm = () => {
     }
   };
 
+  // Función para cargar los datos del empleado
+  const loadEmpleadoData = async (empleadoId) => {
+    try {
+      const empleadoData = await getEmpleado(empleadoId);
+      setFormData({
+        ...empleadoData,
+        fecha_ingreso: formatDate(empleadoData.fecha_ingreso)
+      });
+      setIsEditMode(true);
+    } catch (error) {
+      console.error('Error loading employee:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo cargar la información del empleado'
+      });
+      resetForm();
+    }
+  };
+
+  // Effect para cargar datos iniciales
   useEffect(() => {
     const initializeData = async () => {
       setIsLoading(true);
       await loadEmpleados();
       if (id) {
-        try {
-          const empleadoData = await getEmpleado(id);
-          setFormData({
-            ...empleadoData,
-            fecha_ingreso: formatDate(empleadoData.fecha_ingreso)
-          });
-        } catch (error) {
-          console.error('Error loading employee:', error);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'No se pudo cargar la información del empleado'
-          });
-        }
+        await loadEmpleadoData(id);
+      } else {
+        resetForm();
       }
       setIsLoading(false);
     };
@@ -158,17 +135,53 @@ const EmpleadoForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const formattedData = {
-        ...formData,
-        fecha_ingreso: formatDate(formData.fecha_ingreso)
+      // Validar campos requeridos
+      const camposRequeridos = ['codigo_empleado', 'nombre', 'apellido', 'departamento', 'cargo', 'fecha_ingreso'];
+      for (const campo of camposRequeridos) {
+        if (!formData[campo]) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: `El campo ${campo.replace('_', ' ')} es requerido`
+          });
+          return;
+        }
+      }
+
+      // Validar y formatear la fecha
+      let fechaIngreso;
+      try {
+        fechaIngreso = new Date(formData.fecha_ingreso);
+        if (isNaN(fechaIngreso.getTime())) {
+          throw new Error('Fecha inválida');
+        }
+      } catch (error) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'La fecha de ingreso no es válida'
+        });
+        return;
+      }
+
+      // Preparar datos para envío
+      const empleadoData = {
+        codigo_empleado: formData.codigo_empleado.trim(),
+        nombre: formData.nombre.trim(),
+        apellido: formData.apellido.trim(),
+        departamento: formData.departamento.trim(),
+        cargo: formData.cargo.trim(),
+        email: formData.email?.trim() || null,
+        telefono: formData.telefono?.trim() || null,
+        fecha_ingreso: fechaIngreso.toISOString().split('T')[0],
+        estado: formData.estado ?? true
       };
 
-      if (id) {
-        const numericId = parseInt(id);
-        if (isNaN(numericId)) {
-          throw new Error('ID inválido');
-        }
-        await updateEmpleado(numericId, formattedData);
+      console.log('Modo:', isEditMode ? 'Edición' : 'Creación');
+      console.log('Datos a enviar:', empleadoData);
+
+      if (isEditMode) {
+        await updateEmpleado(formData.id_empleado, empleadoData);
         await Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -177,7 +190,7 @@ const EmpleadoForm = () => {
           showConfirmButton: false
         });
       } else {
-        await createEmpleado(formattedData);
+        await createEmpleado(empleadoData);
         await Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -186,27 +199,16 @@ const EmpleadoForm = () => {
           showConfirmButton: false
         });
       }
-      
-      // Limpiar el formulario y recargar la lista
-      setFormData({
-        codigo_empleado: '',
-        nombre: '',
-        apellido: '',
-        departamento: '',
-        cargo: '',
-        email: '',
-        telefono: '',
-        fecha_ingreso: formatDate(new Date()),
-        estado: true
-      });
+
+      resetForm();
       await loadEmpleados();
-      
+
     } catch (error) {
-      console.error('Error al guardar:', error);
-      Swal.fire({
+      console.error('Error detallado:', error);
+      await Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: id ? 'No se pudo actualizar el empleado' : 'No se pudo registrar el empleado'
+        text: error.message || 'No se pudo procesar la solicitud'
       });
     }
   };
@@ -224,7 +226,14 @@ const EmpleadoForm = () => {
       console.error('ID de empleado no válido');
       return;
     }
-    setFormData(empleados.find(emp => emp.id_empleado === empleadoId) || formData);
+    const empleado = empleados.find(emp => emp.id_empleado === empleadoId);
+    if (empleado) {
+      setFormData({
+        ...empleado,
+        fecha_ingreso: formatDate(empleado.fecha_ingreso)
+      });
+      setIsEditMode(true);
+    }
   };
 
   const handleToggleEstado = async (id, nuevoEstado) => {
@@ -272,12 +281,22 @@ const EmpleadoForm = () => {
     !emp.estado
   );
 
+  // Asegurar que la fecha tenga un valor por defecto válido al cargar el componente
+  useEffect(() => {
+    if (!formData.fecha_ingreso) {
+      setFormData(prev => ({
+        ...prev,
+        fecha_ingreso: new Date().toISOString().split('T')[0]
+      }));
+    }
+  }, []);
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Formulario */}
       <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
         <Typography variant="h5" sx={{ fontWeight: 600, color: '#1976d2', mb: 3 }}>
-          {id ? 'Editar Empleado' : 'Nuevo Empleado'}
+          {isEditMode ? 'Editar Empleado' : 'Nuevo Empleado'}
         </Typography>
 
         {!isLoading && (
@@ -291,6 +310,10 @@ const EmpleadoForm = () => {
                   value={formData.codigo_empleado}
                   onChange={handleChange}
                   required
+                  disabled={isEditMode}
+                  InputProps={{
+                    readOnly: isEditMode,
+                  }}
                 />
               </Grid>
 
@@ -396,7 +419,7 @@ const EmpleadoForm = () => {
                         cargo: '',
                         email: '',
                         telefono: '',
-                        fecha_ingreso: new Date().toISOString().slice(0, 10),
+                        fecha_ingreso: new Date().toISOString().split('T')[0],
                         estado: true
                       });
                     }}
@@ -408,7 +431,7 @@ const EmpleadoForm = () => {
                     variant="contained"
                     startIcon={<SaveIcon />}
                   >
-                    {id ? 'Actualizar' : 'Guardar'}
+                    {isEditMode ? 'Actualizar' : 'Guardar'}
                   </Button>
                 </Box>
               </Grid>
