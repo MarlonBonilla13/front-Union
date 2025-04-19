@@ -19,9 +19,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  InputAdornment,  // Agregar esta importación
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';  // Agregar esta importación
 import { getClientes, getClienteById } from '../../services/clienteService';
 import { getMaterials, getMaterialById } from '../../services/materialService';
 import { createCotizacion, getCotizacionById, updateCotizacion } from '../../services/cotizacionService';
@@ -624,15 +626,62 @@ const CotizacionForm = ({ isNew = false }) => {
               <TableBody>
                 {formData?.items?.map((item, index) => (
                   <TableRow key={index}>
-                    <TableCell>
+
+                    <TableCell sx={{ minWidth: '300px', width: '30%' }}>
                       <FormControl fullWidth>
+                        <InputLabel>Material</InputLabel>
                         <Select
                           value={item.materialId || ''}
                           onChange={(e) => handleItemChange(index, 'materialId', e.target.value)}
+                          label="Material"
+                          MenuProps={{
+                            PaperProps: {
+                              style: {
+                                maxHeight: 300
+                              }
+                            }
+                          }}
                         >
-                          <MenuItem value="" disabled>Seleccione un material</MenuItem>
+                          <MenuItem value="" disabled>Seleccione un material</MenuItem>            
+                          {/* Campo de búsqueda */}
+                          <Box sx={{ p: 1, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>
+                            <TextField
+                              autoFocus
+                              placeholder="Buscar por nombre o código..."
+                              fullWidth
+                              variant="outlined"
+                              size="small"
+                              onChange={(e) => {
+                                const searchText = e.target.value.toLowerCase();
+                                const filteredItems = document.querySelectorAll('.material-item');
+                                filteredItems.forEach(item => {
+                                  const itemText = item.getAttribute('data-search').toLowerCase();
+                                  if (itemText.includes(searchText)) {
+                                    item.style.display = '';
+                                  } else {
+                                    item.style.display = 'none';
+                                  }
+                                });
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <SearchIcon />
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          </Box>
+
+                          {/* Lista de materiales */}
                           {materiales?.map(material => (
-                            <MenuItem key={material.id_material} value={material.id_material}>
+                            <MenuItem 
+                              key={material.id_material} 
+                              value={material.id_material}
+                              className="material-item"
+                              data-search={`${material.nombre} ${material.codigo || ''}`}
+                            >
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 {material.imagen_url ? (
                                   <Box
@@ -663,8 +712,12 @@ const CotizacionForm = ({ isNew = false }) => {
                                   </Box>
                                 )}
                                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                                  <Typography>
-                                    {material.nombre}
+                                  <Typography>{material.nombre}</Typography>
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+                                  >
+                                    {material.codigo || 'Sin código'}
                                   </Typography>
                                 </Box>
                               </Box>
