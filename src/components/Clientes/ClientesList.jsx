@@ -207,7 +207,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
   
   // Add the toggle button in the Box component near the search field
   return (
-    <Paper elevation={3} sx={{ width: '100%', overflow: 'hidden' }}>
+    <Paper elevation={3} sx={{ width: '110%', overflow: 'hidden' }}>
       <Box sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" component="div">
