@@ -253,6 +253,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                   <TableCell>Teléfono</TableCell>
                   <TableCell>Correo</TableCell>
                   <TableCell>Tipo de cliente</TableCell>
+                  <TableCell>Dirección</TableCell>
                   <TableCell>Lugar</TableCell>
                   <TableCell>Fecha Registro</TableCell>
                   <TableCell>Última Actualización</TableCell>
@@ -310,6 +311,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                       <TableCell>{cliente.telefono}</TableCell>
                       <TableCell>{cliente.correo}</TableCell>
                       <TableCell>{cliente.tipo_cliente}</TableCell>
+                      <TableCell>{cliente.direccion}</TableCell>
                       <TableCell>{cliente.lugar}</TableCell>
                       <TableCell>
                         {cliente.fecha_registro ? 
