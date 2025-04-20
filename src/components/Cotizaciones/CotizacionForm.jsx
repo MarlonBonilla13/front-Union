@@ -49,7 +49,7 @@ const CotizacionForm = ({ isNew = false }) => {
     direccion: '',
     telefono: '',
     fecha_cotizacion: new Date().toISOString().split('T')[0],
-    validez: 0, // Valor por defecto de 30 días
+    validez: 0,
     items: [],
     observaciones: '',
     subtotal: 0,
@@ -57,7 +57,13 @@ const CotizacionForm = ({ isNew = false }) => {
     impuestos: 0,
     total: 0,
     estado: true,
-    costo_mano_obra: 0
+    costo_mano_obra: 0,
+    // New fields
+    asunto_cotizacion: '',
+    trabajo_realizar: '',
+    condiciones_adicionales: '',
+    tiempo_trabajo: '',
+    condicion_pago: ''
   });
 
   useEffect(() => {
@@ -192,35 +198,31 @@ const CotizacionForm = ({ isNew = false }) => {
   
       // Use functional update for setFormData directly
       setFormData(prevData => {
-        console.log('Actualizando formData con:', {
-          validez: cotizacion.validez,
-          items: items,
-          costo_mano_obra: costoManoObra,
-          usuario_creacion: cotizacion.usuario_creacion,
-          // Usar el usuario_info directamente de la cotización si existe
-          usuario_creacion_nombre: cotizacion.usuario_info ? 
-            `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 
-            'Usuario desconocido'
-        });
+        console.log('Actualizando formData con:', cotizacion);
         
         return {
-          ...prevData, // Keep any previous state not explicitly overwritten
+          ...prevData,
           clienteId: cotizacion.id_cliente.toString(),
           nombreComercial: clienteInfo?.nombre_comercial || '',
           direccion: clienteInfo?.direccion || '',
           telefono: clienteInfo?.telefono || '',
           fecha_cotizacion: cotizacion.fecha_cotizacion ? new Date(cotizacion.fecha_cotizacion).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           validez: parseInt(cotizacion.validez) || 0,
-          items: items, // Set the processed items
+          items: items,
           observaciones: cotizacion.observaciones || '',
           subtotal: parseFloat(cotizacion.subtotal) || 0,
           descuento: parseFloat(cotizacion.descuento) || 0,
           impuestos: parseFloat(cotizacion.impuestos) || 0,
           total: parseFloat(cotizacion.total) || 0,
-          estado: cotizacion.estado === "activo", // Convert string to boolean
-          costo_mano_obra: costoManoObra, // Set the extracted labor cost
+          estado: cotizacion.estado === "activo",
+          costo_mano_obra: costoManoObra,
           usuario_creacion: cotizacion.usuario_creacion,
-          // Usar el usuario_info directamente de la cotización si existe
+          // Add these fields from the cotizacion object
+          asunto_cotizacion: cotizacion.asunto_cotizacion || '',
+          trabajo_realizar: cotizacion.trabajo_realizar || '',
+          condiciones_adicionales: cotizacion.condiciones_adicionales || '',
+          tiempo_trabajo: cotizacion.tiempo_trabajo || '',
+          condicion_pago: cotizacion.condicion_pago || '',
           usuario_creacion_nombre: cotizacion.usuario_info ? 
             `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 
             'Usuario desconocido'
@@ -425,18 +427,24 @@ const CotizacionForm = ({ isNew = false }) => {
     console.log('Items a enviar con costo_mano_obra:', JSON.stringify(items, null, 2));
 
     // Estructura de la cotización según la base de datos
+    // Inside handleSubmit function, update the cotizacionData object
     const cotizacionData = {
-      id_cliente: parseInt(formData.clienteId),
-      validez: parseInt(formData.validez),
-      estado: "activo",
-      subtotal: parseFloat(formData.subtotal),
-      descuento: parseFloat(formData.descuento),
-      impuestos: parseFloat(formData.impuestos),
-      total: parseFloat(formData.total),
-      observaciones: formData.observaciones || '',
-      usuario_creacion: 1,
-      // Removing costo_mano_obra from the top level object
-      items
+    id_cliente: parseInt(formData.clienteId),
+    validez: parseInt(formData.validez),
+    estado: "activo",
+    subtotal: parseFloat(formData.subtotal),
+    descuento: parseFloat(formData.descuento),
+    impuestos: parseFloat(formData.impuestos),
+    total: parseFloat(formData.total),
+    observaciones: formData.observaciones || '',
+    // Add these fields to be saved
+    asunto_cotizacion: formData.asunto_cotizacion,
+    trabajo_realizar: formData.trabajo_realizar,
+    condiciones_adicionales: formData.condiciones_adicionales,
+    tiempo_trabajo: formData.tiempo_trabajo,
+    condicion_pago: formData.condicion_pago,
+    usuario_creacion: 1,
+    items
     };
 
     setLoading(true);
@@ -449,6 +457,8 @@ const CotizacionForm = ({ isNew = false }) => {
         let resultado;
         if (id) {
           resultado = await updateCotizacion(id, cotizacionData);
+          // Update the quotation's timestamp
+          cotizacionData.fecha_cotizacion = new Date().toISOString();
         } else {
           resultado = await createCotizacion(cotizacionData);
         }
@@ -460,7 +470,8 @@ const CotizacionForm = ({ isNew = false }) => {
           text: `Cotización ${id ? 'actualizada' : 'creada'} correctamente`,
           icon: 'success'
         });
-        navigate('/cotizaciones');
+        // Change sort parameter to descending order (newest first)
+        navigate(`/cotizaciones?sort=desc&t=${Date.now()}`);
         return;
       } catch (error) {
         intentos++;
@@ -787,6 +798,73 @@ const CotizacionForm = ({ isNew = false }) => {
             value={formData.observaciones}
             onChange={(e) => setFormData({...formData, observaciones: e.target.value})}
           />
+        </Grid>
+
+        {/* New Fields Section */}
+        <Grid item xs={12} md={8}>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Asunto de la Cotización"
+                name="asunto_cotizacion"
+                value={formData.asunto_cotizacion}
+                onChange={handleChange}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Trabajo a Realizar"
+                name="trabajo_realizar"
+                value={formData.trabajo_realizar}
+                onChange={handleChange}
+                multiline
+                rows={4}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Condiciones Adicionales"
+                name="condiciones_adicionales"
+                value={formData.condiciones_adicionales}
+                onChange={handleChange}
+                multiline
+                rows={3}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Tiempo de Trabajo"
+                name="tiempo_trabajo"
+                value={formData.tiempo_trabajo}
+                onChange={handleChange}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Condición de Pago</InputLabel>
+                <Select
+                  name="condicion_pago"
+                  value={formData.condicion_pago}
+                  onChange={handleChange}
+                  label="Condición de Pago"
+                  required
+                >
+                  <MenuItem value="Al crédito con efectivo">Al crédito </MenuItem>
+                  <MenuItem value="Al contado con efectivo">Al contado con efectivo</MenuItem>
+                  <MenuItem value="Al contado con tarjeta">Al contado con tarjeta</MenuItem>
+                  <MenuItem value="Transferencia Bancaria">Transferencia Bancaria</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
         </Grid>
 
         {/* Sección de totales */}
