@@ -1,4 +1,8 @@
 import api from './api';
+// Remove these imports as they're not needed in the service file
+// These should be in the component file instead
+// import { RestoreIcon } from '@material-ui/icons';
+// import { ToggleButtonGroup } from '@material-ui/core';
 
 export const createCotizacion = async (cotizacionData) => {
   try {
@@ -162,9 +166,20 @@ export const generatePDF = async (id) => {
   }
 };
 
+// Replace the deleteCotizacion function
 export const deleteCotizacion = async (id) => {
   try {
-    const response = await api.delete(`/cotizaciones/${id}`);
+    const response = await api.patch(`/cotizaciones/${id}`, { estado: 'inactivo' });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Replace the reactivateCotizacion function
+export const reactivateCotizacion = async (id) => {
+  try {
+    const response = await api.patch(`/cotizaciones/${id}`, { estado: 'activo' });
     return response.data;
   } catch (error) {
     throw error;
