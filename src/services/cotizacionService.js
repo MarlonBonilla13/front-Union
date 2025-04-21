@@ -63,23 +63,19 @@ export const getCotizaciones = async () => {
 
 export const getCotizacionById = async (id) => {
   try {
-    console.log('Obteniendo cotización con ID:', id); // Debug
+    console.log('Obteniendo cotización con ID:', id);
     const response = await api.get(`/cotizaciones/${id}`);
     const cotizacion = response.data;
     
-    console.log('Respuesta del servidor:', response); // Debug
-    console.log('Datos de cotización recibidos:', cotizacion); // Debug
+    // Get client information
+    if (cotizacion.id_cliente) {
+      const clienteResponse = await api.get(`/clientes/${cotizacion.id_cliente}`);
+      cotizacion.cliente = clienteResponse.data;
+    }
     
-    // Obtener los detalles de la cotización
+    // Get quotation details
     const detallesResponse = await api.get(`/detalle-cotizacion/cotizacion/${id}`);
-    const detalles = detallesResponse.data;
-    console.log('Detalles obtenidos directamente:', detalles); // Debug
-    
-    // Asignar los detalles a la cotización
-    cotizacion.detalles = detalles;
-    
-    // Asegurarnos de que los detalles tengan el formato correcto
-    cotizacion.detalles = cotizacion.detalles.map(detalle => ({
+    cotizacion.detalles = detallesResponse.data.map(detalle => ({
       ...detalle,
       id_material: parseInt(detalle.id_material),
       cantidad: parseInt(detalle.cantidad),
@@ -88,16 +84,10 @@ export const getCotizacionById = async (id) => {
       costo_mano_obra: parseFloat(detalle.costo_mano_obra || 0)
     }));
 
-    // Extraer el costo de mano de obra si existe en los detalles
-    if (cotizacion.detalles.length > 0) {
-      cotizacion.costo_mano_obra = parseFloat(cotizacion.detalles[0].costo_mano_obra || 0);
-    }
-
-    console.log('Cotización procesada:', cotizacion); // Debug
+    console.log('Cotización procesada completa:', cotizacion);
     return cotizacion;
   } catch (error) {
     console.error('Error en getCotizacionById:', error);
-    console.error('Detalles del error:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -150,208 +140,115 @@ export const updateCotizacion = async (id, cotizacionData) => {
 
 export const generatePDF = async (id) => {
   try {
-    // Obtener los datos de la cotización
     const cotizacion = await getCotizacionById(id);
     
-    // Crear un nuevo documento PDF
+    // Crear nuevo documento PDF
     const doc = new jsPDF();
-    
-    // Configurar la fuente
-    doc.setFont('helvetica');
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 20;
+    let y = margin;
 
-    // Título principal
+    // Título centrado
     doc.setFontSize(18);
-    doc.setTextColor(100, 149, 237); // Azul claro
-    doc.text('INDUSTRIA UNION: COTIZACIÓN', doc.internal.pageSize.width/2, 20, { align: 'center', fontStyle: 'bold' });
-    
-    let currentY = 30;
+    doc.setTextColor(0, 0, 0); // Cambiado a negro
+    doc.text('INDUSTRIA UNION: COTIZACIÓN', pageWidth/2, y, { align: 'center' });
+    y += 15; // Reducido el espacio después del título
 
-    // Información básica de la cotización con menos espacio
-    autoTable(doc, {
-      startY: currentY,
-      theme: 'plain',
-      styles: { fontSize: 10, cellPadding: 1 },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 35 },
-        1: { cellWidth: 50 }
-      },
-      body: [
-        ['No. Cotización:', `No ${cotizacion.id_cotizacion}`],
-        ['Fecha:', new Date(cotizacion.fecha_cotizacion).toLocaleDateString()],
-        ['Válida por:', `${cotizacion.validez} días`]
-      ],
-      didDrawPage: function(data) {
-        currentY = data.cursor.y + 5;
-      }
+    // Información básica - alineada a la izquierda
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Cotización No: ${cotizacion.id_cotizacion}`, margin, y);
+    y += 8;
+    doc.text(`Fecha: ${new Date(cotizacion.fecha_cotizacion).toLocaleDateString()}`, margin, y);
+    y += 8;
+    doc.text(`Válida por: ${cotizacion.validez} días`, margin, y);
+    y += 10; // Reducido el espacio antes de las secciones
+
+    // Secciones con fondo gris claro
+    const drawSection = (title, content) => {
+      // Encabezado gris
+      doc.setFillColor(220, 220, 220);
+      doc.rect(margin, y, pageWidth - 2*margin, 8, 'F');
+      doc.setFontSize(11);
+      doc.text(title, margin + 2, y + 6);
+      y += 12;
+
+      // Contenido
+      doc.setFontSize(10);
+      content();
+      y += 5;
+    };
+
+    // Sección de información del cliente
+    drawSection('INFORMACIÓN DEL CLIENTE', () => {
+      doc.text(`Nombre: ${cotizacion.cliente.nombre} ${cotizacion.cliente.apellido}`, margin, y);
+      y += 6;
+      doc.text(`Empresa: ${cotizacion.cliente.nombre_comercial}`, margin, y);
+      y += 6;
+      doc.text(`Dirección: ${cotizacion.cliente.direccion}`, margin, y);
+      y += 6;
+      doc.text(`Teléfono: ${cotizacion.cliente.telefono}`, margin, y);
+      y += 10;
     });
 
-    // Información del cliente
-    autoTable(doc, {
-      startY: currentY,
-      theme: 'grid',
-      styles: { fontSize: 10 },
-      headStyles: { 
-        fillColor: [100, 149, 237],
-        textColor: 255,
-        halign: 'left'
-      },
-      head: [['INFORMACIÓN DEL CLIENTE']],
-      body: [
-        ['Nombre:', cotizacion.detalle_cotizacion?.nombre || ''],
-        ['Empresa:', cotizacion.detalle_cotizacion?.empresa || ''],
-        ['Dirección:', cotizacion.detalle_cotizacion?.direccion || ''],
-        ['Teléfono:', cotizacion.detalle_cotizacion?.telefono || '']
-      ],
-      didDrawPage: function(data) {
-        currentY = data.cursor.y + 5;
-      }
-    });
-
-    // Detalles del trabajo
-    autoTable(doc, {
-      startY: currentY,
-      theme: 'grid',
-      styles: { fontSize: 10 },
-      headStyles: { 
-        fillColor: [100, 149, 237],
-        textColor: 255,
-        halign: 'left'
-      },
-      head: [['DETALLES DEL TRABAJO']],
-      body: [
-        ['Asunto:', cotizacion.asunto_cotizacion || ''],
-        ['Trabajo a realizar:', cotizacion.trabajo_realizar || '']
-      ],
-      didDrawPage: function(data) {
-        currentY = data.cursor.y + 5;
-      }
-    });
-
-    // Tabla de materiales y mano de obra
-    const materialesBody = cotizacion.detalles.map(detalle => [
-      detalle.material?.nombre || '',
-      detalle.cantidad,
-      `Q ${parseFloat(detalle.subtotal).toFixed(2)}`
-    ]);
-
-    // Agregar fila de mano de obra si existe
-    const manoDeObra = cotizacion.detalles.find(detalle => detalle.costo_mano_obra);
-    if (manoDeObra) {
-      materialesBody.push([
-        'MANO DE OBRA',
-        '1',
-        `Q ${parseFloat(manoDeObra.costo_mano_obra).toFixed(2)}`
-      ]);
-    }
-
-    autoTable(doc, {
-      startY: currentY,
-      theme: 'grid',
-      styles: { 
-        fontSize: 9,
-        lineColor: [200, 200, 200],
-        lineWidth: 0.1
-      },
-      headStyles: { 
-        fillColor: [100, 149, 237],
-        textColor: 255,
-        fontStyle: 'bold'
-      },
-      columnStyles: {
-        0: { cellWidth: 'auto' },
-        1: { cellWidth: 30, halign: 'center' },
-        2: { cellWidth: 40, halign: 'right' }
-      },
-      head: [['Material', 'Cantidad', 'Total']],
-      body: materialesBody,
-      didDrawPage: function(data) {
-        currentY = data.cursor.y;
-      }
-    });
-
-    // Totales con menos espacio
-    autoTable(doc, {
-      startY: currentY,
-      theme: 'plain',
-      styles: { fontSize: 10, cellPadding: 1 },
-      columnStyles: {
-        0: { cellWidth: 40 },
-        1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
-      },
-      body: [
-        ['Subtotal:', `Q ${parseFloat(cotizacion.subtotal).toFixed(2)}`],
-        [`Descuento (${cotizacion.descuento}%):`, `Q ${(cotizacion.subtotal * cotizacion.descuento / 100).toFixed(2)}`],
-        ['Total:', `Q ${parseFloat(cotizacion.total).toFixed(2)}`]
-      ],
-      margin: { left: 126 },
-      didDrawPage: function(data) {
-        currentY = data.cursor.y + 5;
-      }
-    });
-
-    // Condiciones adicionales
-    if (cotizacion.condiciones_adicionales) {
-      autoTable(doc, {
-        startY: currentY,
-        theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 2 },
-        headStyles: { 
-          fillColor: [100, 149, 237],
-          textColor: 255,
-          halign: 'left'
-        },
-        head: [['CONDICIONES ADICIONALES']],
-        body: [[cotizacion.condiciones_adicionales]],
-        didDrawPage: function(data) {
-          currentY = data.cursor.y + 5;
-        }
+    // Sección de detalles del trabajo
+    drawSection('DETALLES DEL TRABAJO', () => {
+      doc.text(`Asunto: ${cotizacion.asunto_cotizacion}`, margin, y);
+      y += 8;
+      doc.text('Trabajo a realizar:', margin, y);
+      y += 6;
+      
+      // Lista con guiones
+      cotizacion.trabajo_realizar.split('\n').forEach(trabajo => {
+        doc.text(`- ${trabajo.trim()}`, margin + 5, y);
+        y += 6;
       });
-    }
-
-    // Información de pago y tiempo con menos espacio
-    autoTable(doc, {
-      startY: currentY,
-      theme: 'plain',
-      styles: { fontSize: 10, cellPadding: 1 },
-      columnStyles: {
-        0: { cellWidth: 40 },
-        1: { cellWidth: 'auto' }
-      },
-      body: [
-        ['Tiempo de trabajo:', cotizacion.tiempo_trabajo],
-        ['Condición de pago:', cotizacion.condicion_pago]
-      ],
-      didDrawPage: function(data) {
-        currentY = data.cursor.y + 5;
-      }
     });
 
-    // Pie de página más compacto
+    // Sección de materiales y costos
+    drawSection('MATERIALES Y COSTOS', () => {
+      const colMaterial = margin;
+      const colCantidad = pageWidth - 80;
+      const colTotal = pageWidth - 35;
+
+      // Encabezados de la tabla
+      doc.text('Material', colMaterial, y);
+      doc.text('Cantidad', colCantidad, y);
+      doc.text('Total', colTotal, y);
+      y += 8;
+
+      // Filas de materiales
+      cotizacion.detalles.forEach(detalle => {
+        doc.text(detalle.material?.nombre || '', colMaterial, y);
+        doc.text(detalle.cantidad.toString(), colCantidad, y);
+        doc.text(`Q ${parseFloat(detalle.subtotal).toFixed(2)}`, colTotal, y);
+        y += 6;
+      });
+
+      // Solo mostrar el total final
+      y += 5;
+      doc.text(`Total: Q ${parseFloat(cotizacion.total).toFixed(2)}`, colTotal - 13, y);
+    });
+
+    // Sección de condiciones adicionales
+    drawSection('CONDICIONES ADICIONALES', () => {
+      doc.text(cotizacion.condiciones_adicionales, margin, y);
+      y += 15;
+      doc.text(`Tiempo de trabajo: ${cotizacion.tiempo_trabajo}`, margin, y);
+      y += 6;
+      doc.text(`Condición de pago: ${cotizacion.condicion_pago}`, margin, y);
+    });
+
+    // Pie de página
     doc.setFontSize(8);
-    doc.setTextColor(100, 149, 237);
-    const footerText = [
-      'METAL MECANICA, AUTOMATIZACIONES, DISEÑOS Y MONTAJES INDUSTRIALES',
-      'Manzana I lote 15 col. Sacramento 2 Palín, Escuintla',
-      'E-mail: joel—union@hotmail.com tel. 52 901245 - 32821499'
-    ];
-    
-    let footerY = doc.internal.pageSize.height - 20;
-    footerText.forEach(line => {
-      doc.text(line, doc.internal.pageSize.width / 2, footerY, { align: 'center' });
-      footerY += 4; // Reducido de 5 a 4 para más compacto
-    });
+    doc.setTextColor(128, 128, 128);
+    const footerY = doc.internal.pageSize.height - 15;
+    doc.text('METAL MECANICA, AUTOMATIZACIONES, DISEÑOS Y MONTAJES INDUSTRIALES', pageWidth/2, footerY, { align: 'center' });
+    doc.text('Manzana I lote 15 col. Sacramento 2 Palín, Escuintla', pageWidth/2, footerY + 4, { align: 'center' });
+    doc.text('E-mail: joel—union@hotmail.com tel. 52 901245 - 32821499', pageWidth/2, footerY + 8, { align: 'center' });
 
     // Descargar el PDF
-    const pdfBlob = doc.output('blob');
-    const url = window.URL.createObjectURL(pdfBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `cotizacion-${id}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    
+    doc.save(`cotizacion-${id}.pdf`);
     return true;
   } catch (error) {
     console.error('Error al generar PDF:', error);

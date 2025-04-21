@@ -182,21 +182,26 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
       </Box>
 
       <Grid container spacing={3}>
+        {/* Client Information */}
         <Grid item xs={12} md={6}>
           <Typography variant="subtitle1" gutterBottom>
-            Cliente
+            Información del Cliente
           </Typography>
-          <Typography>
-            {`${cotizacion.cliente.nombre} ${cotizacion.cliente.apellido}`}
+          <Typography variant="body1">
+            <strong>Nombre:</strong> {`${cotizacion.cliente?.nombre || ''} ${cotizacion.cliente?.apellido || ''}`}
           </Typography>
-          <Typography color="textSecondary">
-            {cotizacion.cliente.email}
+          <Typography variant="body1">
+            <strong>Empresa:</strong> {cotizacion.cliente?.nombre_comercial || ''}
           </Typography>
-          <Typography color="textSecondary">
-            {cotizacion.cliente.telefono}
+          <Typography variant="body1">
+            <strong>Dirección:</strong> {cotizacion.cliente?.direccion || ''}
+          </Typography>
+          <Typography variant="body1">
+            <strong>Teléfono:</strong> {cotizacion.cliente?.telefono || ''}
           </Typography>
         </Grid>
 
+        {/* Status and Dates */}
         <Grid item xs={12} md={6}>
           <Box display="flex" justifyContent="flex-end" alignItems="flex-start">
             <Box>
@@ -218,6 +223,29 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
           </Box>
         </Grid>
 
+        {/* Work Details */}
+        <Grid item xs={12}>
+          <Typography variant="subtitle1" gutterBottom>
+            Detalles del Trabajo
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Asunto:</strong> {cotizacion.asunto_cotizacion || ''}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Trabajo a realizar:</strong> {cotizacion.trabajo_realizar || ''}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Tiempo de trabajo:</strong> {cotizacion.tiempo_trabajo || ''} días
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Condición de pago:</strong> {cotizacion.condicion_pago || ''}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Condiciones adicionales:</strong> {cotizacion.condiciones_adicionales || ''}
+          </Typography>
+        </Grid>
+
+        {/* Materials Table */}
         <Grid item xs={12}>
           <Divider sx={{ my: 2 }} />
           <Typography variant="h6" gutterBottom>
@@ -237,13 +265,13 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
               <TableBody>
                 {cotizacion.detalles.map((detalle, index) => (
                   <TableRow key={index}>
-                    <TableCell>{detalle.material.nombre}</TableCell>
+                    <TableCell>{detalle.material?.nombre || ''}</TableCell>
                     <TableCell align="right">{detalle.cantidad}</TableCell>
                     <TableCell align="right">
-                      ${detalle.precio_unitario.toFixed(2)}
+                      Q {detalle.precio_unitario.toFixed(2)}
                     </TableCell>
                     <TableCell align="right">
-                      ${detalle.subtotal.toFixed(2)}
+                      Q {detalle.subtotal.toFixed(2)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -255,22 +283,20 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
             <Grid container spacing={2} justifyContent="flex-end">
               <Grid item xs={12} md={4}>
                 <Typography>
-                  Subtotal: ${cotizacion.subtotal.toFixed(2)}
+                  Subtotal: Q {cotizacion.subtotal.toFixed(2)}
                 </Typography>
                 <Typography>
-                  Descuento: ${cotizacion.descuento.toFixed(2)}
-                </Typography>
-                <Typography>
-                  IVA (12%): ${cotizacion.impuestos.toFixed(2)}
+                  Descuento ({cotizacion.descuento}%): Q {(cotizacion.subtotal * cotizacion.descuento / 100).toFixed(2)}
                 </Typography>
                 <Typography variant="h6">
-                  Total: ${cotizacion.total.toFixed(2)}
+                  Total: Q {cotizacion.total.toFixed(2)}
                 </Typography>
               </Grid>
             </Grid>
           </Box>
         </Grid>
 
+        {/* Observations if any */}
         {cotizacion.observaciones && (
           <Grid item xs={12}>
             <Typography variant="subtitle1" gutterBottom>
@@ -282,6 +308,7 @@ const CotizacionDetail = ({ cotizacionId, onConvertToVenta }) => {
           </Grid>
         )}
 
+        {/* History Timeline */}
         {cotizacion.historial && cotizacion.historial.length > 0 && (
           <Grid item xs={12}>
             <Divider sx={{ my: 2 }} />
