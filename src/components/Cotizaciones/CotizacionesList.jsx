@@ -104,10 +104,33 @@ const CotizacionesList = () => {
 
   const handleGeneratePDF = async (id) => {
     try {
+      // Mostrar indicador de carga
+      Swal.fire({
+        title: 'Generando PDF',
+        text: 'Por favor espere...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
       await generatePDF(id);
+      
+      // Cerrar el indicador de carga y mostrar éxito
+      Swal.fire({
+        title: '¡PDF Generado!',
+        text: 'El PDF se ha descargado correctamente',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
     } catch (error) {
       console.error('Error al generar PDF:', error);
-      Swal.fire('Error', 'No se pudo generar el PDF', 'error');
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudo generar el PDF. Por favor intente nuevamente.',
+        icon: 'error'
+      });
     }
   };
 
