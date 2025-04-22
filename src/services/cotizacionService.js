@@ -162,6 +162,8 @@ export const generatePDF = async (id) => {
     doc.text(`Fecha: ${new Date(cotizacion.fecha_cotizacion).toLocaleDateString()}`, margin, y);
     y += 8;
     doc.text(`Válida por: ${cotizacion.validez} días`, margin, y);
+    y += 8;
+    doc.text(`Creado por: ${cotizacion.usuario_info ? `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 'Usuario desconocido'}`, margin, y);
     y += 10; // Reducido el espacio antes de las secciones
 
     // Secciones con fondo gris claro
@@ -209,7 +211,7 @@ export const generatePDF = async (id) => {
     drawSection('MATERIALES Y COSTOS', () => {
       const colMaterial = margin;
       const colCantidad = pageWidth - 80;
-      const colTotal = pageWidth - 35;
+      const colTotal = pageWidth - 40;
 
       // Encabezados de la tabla
       doc.text('Material', colMaterial, y);
@@ -225,9 +227,14 @@ export const generatePDF = async (id) => {
         y += 6;
       });
 
-      // Solo mostrar el total final
-      y += 5;
-      doc.text(`Total: Q ${parseFloat(cotizacion.total).toFixed(2)}`, colTotal - 13, y);
+      // Agregar línea de mano de obra
+      y += 1;
+      doc.text('MANO DE OBRA:', colMaterial, y);
+      doc.text(`Q ${parseFloat(cotizacion.detalles[0]?.costo_mano_obra || 0).toFixed(2)}`, colTotal, y);
+      y += 7;
+
+      // Total final
+      doc.text(`Total: Q ${parseFloat(cotizacion.total).toFixed(2)}`, colTotal - 10, y);
     });
 
     // Sección de condiciones adicionales
