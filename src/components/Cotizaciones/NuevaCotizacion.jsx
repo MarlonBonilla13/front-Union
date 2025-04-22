@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
-import CotizacionForm from './cotizacionform';  // Updated import with correct casing
+import CotizacionForm from './CotizacionForm.jsx'
 
 const NuevaCotizacion = () => {
   return (
