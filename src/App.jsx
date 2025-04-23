@@ -19,6 +19,7 @@ import CotizacionesList from './components/Cotizaciones/CotizacionesList';
 import NuevaCotizacion from './components/Cotizaciones/NuevaCotizacion';
 import CotizacionForm from './components/Cotizaciones/CotizacionForm';
 import { Toaster } from 'react-hot-toast';
+import Proveedores from './components/Proveedores/Proveedores';
 
 function App() {
   return (
@@ -144,6 +145,16 @@ function App() {
                             element={
                               <ProtectedRoute roles={['admin']}>
                                 <CotizacionForm />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/proveedores" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <Box sx={{ pt: 8, px: 2 }}>  {/* Add padding top to account for navbar */}
+                                  <Proveedores />
+                                </Box>
                               </ProtectedRoute>
                             } 
                           />

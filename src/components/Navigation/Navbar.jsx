@@ -23,6 +23,8 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import { useAuth } from '../../contexts/AuthContext';
 import { logout } from '../../services/authService';
 import Swal from 'sweetalert2';
+// Add this import with your other icon imports
+import InventoryIcon from '@mui/icons-material/Inventory';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -82,6 +84,12 @@ const Navbar = () => {
       text: 'Usuarios',
       icon: <PeopleIcon />,
       path: '/usuarios',
+      roles: ['admin']
+    },
+    {
+      text: 'Proveedores',
+      icon: <InventoryIcon />,
+      path: '/proveedores',
       roles: ['admin']
     }
   ];
