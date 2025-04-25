@@ -3,12 +3,13 @@ import {
   Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, Button, Typography, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, FormControlLabel, Switch,
-  MenuItem, Chip, CircularProgress
+  MenuItem, Chip, Avatar, Input, CircularProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RestoreIcon from '@mui/icons-material/Restore';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import Swal from 'sweetalert2';
 import * as proveedorService from '../../services/proveedorService';
 
@@ -25,6 +26,7 @@ const Proveedores = () => {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [proveedor, setProveedor] = useState({
     ruc: '',
     nombre: '',
@@ -34,7 +36,8 @@ const Proveedores = () => {
     direccion: '',
     tipo_proveedor: '',
     estado: true,
-    notas: ''
+    notas: '',
+    imagen_url: null
   });
 
   useEffect(() => {
@@ -45,8 +48,10 @@ const Proveedores = () => {
     try {
       setLoading(true);
       const data = await proveedorService.getProveedores();
+      console.log('Proveedores cargados:', data);
       setProveedores(data);
     } catch (error) {
+      console.error('Error al cargar proveedores:', error);
       Swal.fire({
         title: 'Error',
         text: 'No se pudieron cargar los proveedores',
@@ -59,6 +64,7 @@ const Proveedores = () => {
 
   const handleClickOpen = () => {
     setEditando(false);
+    setSelectedFile(null);
     setProveedor({
       ruc: '',
       nombre: '',
@@ -68,9 +74,33 @@ const Proveedores = () => {
       direccion: '',
       tipo_proveedor: '',
       estado: true,
-      notas: ''
+      notas: '',
+      imagen_url: null
     });
     setOpen(true);
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleImageUpload = async (proveedorId) => {
+    if (selectedFile) {
+      try {
+        await proveedorService.uploadProveedorImage(proveedorId, selectedFile);
+        await fetchProveedores(); // Recargar para obtener la nueva URL de la imagen
+      } catch (error) {
+        console.error('Error al subir la imagen:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'No se pudo subir la imagen',
+          icon: 'error'
+        });
+      }
+    }
   };
 
   const handleEdit = (proveedorToEdit) => {
@@ -93,12 +123,17 @@ const Proveedores = () => {
 
   const handleSubmit = async () => {
     try {
+      let response;
       if (editando) {
-        await proveedorService.updateProveedor(proveedor.id_proveedores, proveedor);
+        response = await proveedorService.updateProveedor(proveedor.id_proveedores, proveedor);
       } else {
-        await proveedorService.createProveedor(proveedor);
+        response = await proveedorService.createProveedor(proveedor);
       }
-      
+
+      if (selectedFile) {
+        await handleImageUpload(response.id_proveedores);
+      }
+
       await fetchProveedores();
       handleClose();
       
@@ -167,14 +202,20 @@ const Proveedores = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: 'calc(100vh - 100px)',
+        mt: 8 
+      }}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 3, mt: 8 }}> {/* Add margin top */}
+    <Box sx={{ p: 3, mt: 8 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
           Gestión de Proveedores
@@ -194,6 +235,7 @@ const Proveedores = () => {
           <TableHead>
             <TableRow sx={{ backgroundColor: '#1976d2' }}>
               <TableCell sx={{ color: 'white' }}>RUC</TableCell>
+              <TableCell sx={{ color: 'white', width: 100 }}>Logo</TableCell>
               <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
               <TableCell sx={{ color: 'white' }}>Contacto</TableCell>
               <TableCell sx={{ color: 'white' }}>Teléfono</TableCell>
@@ -207,6 +249,38 @@ const Proveedores = () => {
             {proveedores.map((prov) => (
               <TableRow key={prov.id_proveedores}>
                 <TableCell>{prov.ruc}</TableCell>
+                <TableCell>
+                  {prov.imagen_url ? (
+                    <Box
+                      component="img"
+                      src={prov.imagen_url}
+                      alt={prov.nombre}
+                      onError={(e) => {
+                        console.error('Error al cargar imagen:', prov.imagen_url);
+                        e.target.src = '';
+                        e.target.alt = prov.nombre.charAt(0);
+                      }}
+                      sx={{
+                        width: 50,
+                        height: 50,
+                        objectFit: 'contain',
+                        borderRadius: 1,
+                        border: '1px solid #e0e0e0'
+                      }}
+                    />
+                  ) : (
+                    <Avatar
+                      sx={{
+                        width: 50,
+                        height: 50,
+                        bgcolor: '#1976d2'
+                      }}
+                      variant="rounded"
+                    >
+                      {prov.nombre.charAt(0)}
+                    </Avatar>
+                  )}
+                </TableCell>
                 <TableCell>{prov.nombre}</TableCell>
                 <TableCell>{prov.contacto}</TableCell>
                 <TableCell>{prov.telefono}</TableCell>
@@ -257,6 +331,57 @@ const Proveedores = () => {
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)', mt: 2 }}>
+            <Box sx={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+              {(selectedFile || proveedor.imagen_url) ? (
+                <Box
+                  component="img"
+                  src={selectedFile ? URL.createObjectURL(selectedFile) : proveedor.imagen_url}
+                  alt={proveedor.nombre || 'Logo preview'}
+                  onError={(e) => {
+                    console.error('Error al cargar imagen en preview:', e);
+                    e.target.style.display = 'none';
+                  }}
+                  sx={{
+                    width: 150,
+                    height: 150,
+                    objectFit: 'contain',
+                    borderRadius: 1,
+                    border: '1px solid #e0e0e0',
+                    mb: 2
+                  }}
+                />
+              ) : (
+                <Avatar
+                  sx={{
+                    width: 150,
+                    height: 150,
+                    bgcolor: '#1976d2',
+                    mb: 2
+                  }}
+                  variant="rounded"
+                >
+                  <AddPhotoAlternateIcon sx={{ fontSize: 60 }} />
+                </Avatar>
+              )}
+              <Input
+                type="file"
+                onChange={handleFileChange}
+                sx={{ display: 'none' }}
+                id="logo-upload"
+                accept="image/*"
+              />
+              <label htmlFor="logo-upload">
+                <Button
+                  component="span"
+                  startIcon={<AddPhotoAlternateIcon />}
+                  variant="outlined"
+                  size="small"
+                >
+                  {editando ? 'Cambiar Logo' : 'Subir Logo'}
+                </Button>
+              </label>
+            </Box>
+
             <TextField
               name="ruc"
               label="RUC"
