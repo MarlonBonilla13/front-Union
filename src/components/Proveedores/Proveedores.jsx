@@ -3,7 +3,7 @@ import {
   Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, Button, Typography, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, FormControlLabel, Switch,
-  MenuItem, Chip, Avatar, Input, CircularProgress, Tabs, Tab
+  MenuItem, Chip, Avatar, Input, CircularProgress, Tabs, Tab, Card, CardContent
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -252,132 +252,161 @@ const Proveedores = () => {
 
   return (
     <Box sx={{ p: 3, mt: 8 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
-          Gestión de Proveedores
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleClickOpen}
-          sx={{ backgroundColor: '#1976d2' }}
-        >
-          Nuevo Proveedor
-        </Button>
-      </Box>
+      <Card sx={{ width: '100%', boxShadow: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" component="h2" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
+              Lista de Proveedores
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleClickOpen}
+              sx={{ backgroundColor: '#1976d2' }}
+            >
+              Nuevo Proveedor
+            </Button>
+          </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          sx={{
-            '& .MuiTab-root': { 
-              color: 'text.secondary',
-              '&.Mui-selected': { color: '#1976d2' }
-            },
-            '& .MuiTabs-indicator': { backgroundColor: '#1976d2' }
-          }}
-        >
-          <Tab label="ACTIVOS" value="ACTIVOS" />
-          <Tab label="INACTIVOS" value="INACTIVOS" />
-          <Tab label="TODOS" value="TODOS" />
-        </Tabs>
-      </Box>
+          <Box sx={{ mb: 2 }}>
+            <Tabs
+              value={tabValue}
+              onChange={handleTabChange}
+              sx={{
+                '& .MuiTab-root': {
+                  minWidth: 'auto',
+                  px: 2,
+                  py: 1,
+                  backgroundColor: '#f5f5f5',
+                  '&.Mui-selected': {
+                    backgroundColor: '#fff',
+                    color: '#1976d2'
+                  }
+                },
+                '& .MuiTabs-indicator': { display: 'none' }
+              }}
+            >
+              <Tab 
+                label="ACTIVOS" 
+                value="ACTIVOS"
+                sx={{ 
+                  borderTopLeftRadius: 4,
+                  borderBottomLeftRadius: 4,
+                  mr: 1
+                }}
+              />
+              <Tab 
+                label="INACTIVOS" 
+                value="INACTIVOS"
+                sx={{ mr: 1 }}
+              />
+              <Tab 
+                label="TODOS" 
+                value="TODOS"
+                sx={{ 
+                  borderTopRightRadius: 4,
+                  borderBottomRightRadius: 4
+                }}
+              />
+            </Tabs>
+          </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: '#1976d2' }}>
-              <TableCell sx={{ color: 'white' }}>RUC</TableCell>
-              <TableCell sx={{ color: 'white', width: 100 }}>Logo</TableCell>
-              <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
-              <TableCell sx={{ color: 'white' }}>Contacto</TableCell>
-              <TableCell sx={{ color: 'white' }}>Teléfono</TableCell>
-              <TableCell sx={{ color: 'white' }}>Correo</TableCell>
-              <TableCell sx={{ color: 'white' }}>Tipo</TableCell>
-              <TableCell sx={{ color: 'white' }}>Estado</TableCell>
-              <TableCell sx={{ color: 'white' }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {getFilteredProveedores().map((prov) => (
-              <TableRow key={prov.id_proveedores}>
-                <TableCell>{prov.ruc}</TableCell>
-                <TableCell>
-                  {prov.imagen_url ? (
-                    <Box
-                      component="img"
-                      src={prov.imagen_url}
-                      alt={prov.nombre}
-                      onError={(e) => {
-                        console.error('Error al cargar imagen:', prov.imagen_url);
-                        e.target.src = '';
-                        e.target.alt = prov.nombre.charAt(0);
-                      }}
-                      sx={{
-                        width: 50,
-                        height: 50,
-                        objectFit: 'contain',
-                        borderRadius: 1,
-                        border: '1px solid #e0e0e0'
-                      }}
-                    />
-                  ) : (
-                    <Avatar
-                      sx={{
-                        width: 50,
-                        height: 50,
-                        bgcolor: '#1976d2'
-                      }}
-                      variant="rounded"
-                    >
-                      {prov.nombre.charAt(0)}
-                    </Avatar>
-                  )}
-                </TableCell>
-                <TableCell>{prov.nombre}</TableCell>
-                <TableCell>{prov.contacto}</TableCell>
-                <TableCell>{prov.telefono}</TableCell>
-                <TableCell>{prov.correo}</TableCell>
-                <TableCell>{prov.tipo_proveedor}</TableCell>
-                <TableCell>
-                  <Chip 
-                    label={prov.estado ? "Activo" : "Inactivo"}
-                    color={prov.estado ? "success" : "error"}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleEdit(prov)}
-                    sx={{ color: '#1976d2' }}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  {prov.estado ? (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleDelete(prov.id_proveedores)}
-                      sx={{ color: '#d32f2f' }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  ) : (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleReactivate(prov.id_proveedores)}
-                      sx={{ color: '#2e7d32' }}
-                    >
-                      <RestoreIcon />
-                    </IconButton>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#1976d2' }}>
+                  <TableCell sx={{ color: 'white' }}>RUC</TableCell>
+                  <TableCell sx={{ color: 'white', width: 100 }}>Logo</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Contacto</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Teléfono</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Correo</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Tipo</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Estado</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {getFilteredProveedores().map((prov) => (
+                  <TableRow key={prov.id_proveedores}>
+                    <TableCell>{prov.ruc}</TableCell>
+                    <TableCell>
+                      {prov.imagen_url ? (
+                        <Box
+                          component="img"
+                          src={prov.imagen_url}
+                          alt={prov.nombre}
+                          onError={(e) => {
+                            console.error('Error al cargar imagen:', prov.imagen_url);
+                            e.target.src = '';
+                            e.target.alt = prov.nombre.charAt(0);
+                          }}
+                          sx={{
+                            width: 50,
+                            height: 50,
+                            objectFit: 'contain',
+                            borderRadius: 1,
+                            border: '1px solid #e0e0e0'
+                          }}
+                        />
+                      ) : (
+                        <Avatar
+                          sx={{
+                            width: 50,
+                            height: 50,
+                            bgcolor: '#1976d2'
+                          }}
+                          variant="rounded"
+                        >
+                          {prov.nombre.charAt(0)}
+                        </Avatar>
+                      )}
+                    </TableCell>
+                    <TableCell>{prov.nombre}</TableCell>
+                    <TableCell>{prov.contacto}</TableCell>
+                    <TableCell>{prov.telefono}</TableCell>
+                    <TableCell>{prov.correo}</TableCell>
+                    <TableCell>{prov.tipo_proveedor}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={prov.estado ? "Activo" : "Inactivo"}
+                        color={prov.estado ? "success" : "error"}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleEdit(prov)}
+                        sx={{ color: '#1976d2' }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      {prov.estado ? (
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleDelete(prov.id_proveedores)}
+                          sx={{ color: '#d32f2f' }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      ) : (
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleReactivate(prov.id_proveedores)}
+                          sx={{ color: '#2e7d32' }}
+                        >
+                          <RestoreIcon />
+                        </IconButton>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle sx={{ backgroundColor: '#1976d2', color: 'white' }}>
