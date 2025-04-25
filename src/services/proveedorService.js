@@ -94,16 +94,16 @@ export const updateProveedor = async (id, proveedor) => {
     // Remove properties that shouldn't be sent to the backend
     const { id_proveedores, fecha_registro, fecha_actualizacion, imagen_url, ...updateData } = proveedor;
     
-    // Ensure all fields are properly formatted
+    // Ensure all fields are properly formatted and maintain existing values
     const proveedorData = {
-      ruc: updateData.ruc?.trim(),
-      nombre: updateData.nombre?.trim(),
-      contacto: updateData.contacto?.trim(),
-      telefono: updateData.telefono?.trim(),
+      ruc: updateData.ruc?.trim() || '',
+      nombre: updateData.nombre?.trim() || '',
+      contacto: updateData.contacto?.trim() || '',
+      telefono: updateData.telefono?.trim() || '',
       correo: updateData.correo?.trim() || '',
       direccion: updateData.direccion?.trim() || '',
-      tipo_proveedor: updateData.tipo_proveedor,
-      estado: updateData.estado ?? true,
+      tipo_proveedor: updateData.tipo_proveedor || '',
+      estado: typeof updateData.estado === 'boolean' ? updateData.estado : true,
       notas: updateData.notas?.trim() || ''
     };
 

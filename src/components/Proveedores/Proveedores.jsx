@@ -3,7 +3,7 @@ import {
   Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, Button, Typography, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, FormControlLabel, Switch,
-  MenuItem, Chip, Avatar, Input, CircularProgress
+  MenuItem, Chip, Avatar, Input, CircularProgress, Tabs, Tab
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -27,6 +27,7 @@ const Proveedores = () => {
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [tabValue, setTabValue] = useState('ACTIVOS');
   const [proveedor, setProveedor] = useState({
     ruc: '',
     nombre: '',
@@ -43,6 +44,21 @@ const Proveedores = () => {
   useEffect(() => {
     fetchProveedores();
   }, []);
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  const getFilteredProveedores = () => {
+    switch (tabValue) {
+      case 'ACTIVOS':
+        return proveedores.filter(p => p.estado);
+      case 'INACTIVOS':
+        return proveedores.filter(p => !p.estado);
+      default:
+        return proveedores;
+    }
+  };
 
   const fetchProveedores = async () => {
     try {
@@ -153,30 +169,40 @@ const Proveedores = () => {
 
   const handleDelete = async (id) => {
     try {
+      const proveedorToUpdate = proveedores.find(p => p.id_proveedores === id);
+      if (!proveedorToUpdate) {
+        throw new Error('Proveedor no encontrado');
+      }
+
       const result = await Swal.fire({
         title: '¿Está seguro?',
-        text: "Esta acción no se puede revertir",
+        text: "El proveedor será marcado como inactivo",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'Sí, desactivar',
         cancelButtonText: 'Cancelar'
       });
 
       if (result.isConfirmed) {
-        await proveedorService.deleteProveedor(id);
+        await proveedorService.updateProveedor(id, {
+          ...proveedorToUpdate,
+          estado: false
+        });
+        
         await fetchProveedores();
         Swal.fire({
-          title: 'Eliminado',
-          text: 'El proveedor ha sido eliminado',
+          title: 'Desactivado',
+          text: 'El proveedor ha sido desactivado',
           icon: 'success'
         });
       }
     } catch (error) {
+      console.error('Error al desactivar proveedor:', error);
       Swal.fire({
         title: 'Error',
-        text: 'No se pudo eliminar el proveedor',
+        text: 'No se pudo desactivar el proveedor',
         icon: 'error'
       });
     }
@@ -184,7 +210,16 @@ const Proveedores = () => {
 
   const handleReactivate = async (id) => {
     try {
-      await proveedorService.reactivateProveedor(id);
+      const proveedorToUpdate = proveedores.find(p => p.id_proveedores === id);
+      if (!proveedorToUpdate) {
+        throw new Error('Proveedor no encontrado');
+      }
+
+      await proveedorService.updateProveedor(id, {
+        ...proveedorToUpdate,
+        estado: true
+      });
+      
       await fetchProveedores();
       Swal.fire({
         title: 'Reactivado',
@@ -192,6 +227,7 @@ const Proveedores = () => {
         icon: 'success'
       });
     } catch (error) {
+      console.error('Error al reactivar proveedor:', error);
       Swal.fire({
         title: 'Error',
         text: 'No se pudo reactivar el proveedor',
@@ -217,7 +253,7 @@ const Proveedores = () => {
   return (
     <Box sx={{ p: 3, mt: 8 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
           Gestión de Proveedores
         </Typography>
         <Button
@@ -228,6 +264,24 @@ const Proveedores = () => {
         >
           Nuevo Proveedor
         </Button>
+      </Box>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          sx={{
+            '& .MuiTab-root': { 
+              color: 'text.secondary',
+              '&.Mui-selected': { color: '#1976d2' }
+            },
+            '& .MuiTabs-indicator': { backgroundColor: '#1976d2' }
+          }}
+        >
+          <Tab label="ACTIVOS" value="ACTIVOS" />
+          <Tab label="INACTIVOS" value="INACTIVOS" />
+          <Tab label="TODOS" value="TODOS" />
+        </Tabs>
       </Box>
 
       <TableContainer component={Paper}>
@@ -246,7 +300,7 @@ const Proveedores = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {proveedores.map((prov) => (
+            {getFilteredProveedores().map((prov) => (
               <TableRow key={prov.id_proveedores}>
                 <TableCell>{prov.ruc}</TableCell>
                 <TableCell>
