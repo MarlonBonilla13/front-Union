@@ -204,22 +204,29 @@ const Proveedores = () => {
 
   const handleReactivate = async (id) => {
     try {
-      const proveedorToUpdate = proveedores.find(p => p.id_proveedores === id);
-      if (!proveedorToUpdate) {
-        throw new Error('Proveedor no encontrado');
-      }
+      const result = await Swal.fire({
+        title: '¿Está seguro?',
+        text: "El proveedor será reactivado",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#2e7d32',
+        cancelButtonColor: '#d32f2f',
+        confirmButtonText: 'Sí, reactivar',
+        cancelButtonText: 'Cancelar'
+      });
 
-      await proveedorService.updateProveedor(id, {
-        ...proveedorToUpdate,
-        estado: true
-      });
-      
-      await fetchProveedores();
-      Swal.fire({
-        title: 'Reactivado',
-        text: 'El proveedor ha sido reactivado',
-        icon: 'success'
-      });
+      if (result.isConfirmed) {
+        await proveedorService.updateProveedor(id, {
+          estado: true
+        });
+        
+        await fetchProveedores();
+        Swal.fire({
+          title: 'Reactivado',
+          text: 'El proveedor ha sido reactivado',
+          icon: 'success'
+        });
+      }
     } catch (error) {
       console.error('Error al reactivar proveedor:', error);
       Swal.fire({
