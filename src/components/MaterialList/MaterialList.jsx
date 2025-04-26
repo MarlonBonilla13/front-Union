@@ -347,16 +347,26 @@ const MaterialList = () => {
                   filteredMaterials.map((material) => (
                     <TableRow key={material.id_material}>
                       <TableCell>
-                        {material.imagen_url && (
-                          <img
-                            src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
+                        {material.imagen_url ? (
+                          <Box
+                            component="img"
+                            src={material.imagen_url}
                             alt={material.nombre}
-                            style={{
-                              width: '50px',
-                              height: '50px',
-                              objectFit: 'contain'
+                            onError={(e) => {
+                              console.error('Error al cargar imagen:', material.imagen_url);
+                              e.target.src = ''; // Limpiar la imagen en caso de error
+                              e.target.style.display = 'none';
+                            }}
+                            sx={{
+                              width: 50,
+                              height: 50,
+                              objectFit: 'contain',
+                              borderRadius: 1,
+                              border: '1px solid #e0e0e0'
                             }}
                           />
+                        ) : (
+                          <ImageIcon color="disabled" />
                         )}
                       </TableCell>
                       <TableCell>{material.codigo || 'N/A'}</TableCell>

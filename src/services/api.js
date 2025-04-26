@@ -1,11 +1,8 @@
 import axios from 'axios';
-
-const isProduction = window.location.hostname !== 'localhost';
+import { API_BASE_URL } from '../config/config';
 
 const api = axios.create({
-  baseURL: isProduction 
-    ? 'https://backend-union-production.up.railway.app'
-    : 'http://localhost:4001',
+  baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -23,7 +20,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     // Log URL being requested for debugging
-    if (config.url.includes('upload') || config.url.includes('clientes')) {
+    if (config.url.includes('upload') || config.url.includes('materiales')) {
       console.log('Request URL:', `${api.defaults.baseURL}${config.url}`);
       console.log('Request method:', config.method);
       console.log('Request headers:', config.headers);
