@@ -32,9 +32,6 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../../services/api'; // Add this import
 
-// Define the API base URL to match your backend
-const API_BASE_URL = 'http://localhost:4001';
-
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
     console.log('No hay ruta de imagen');
@@ -43,24 +40,12 @@ const getImageUrl = (imagePath) => {
   
   // Si la URL ya es absoluta (comienza con http)
   if (imagePath.startsWith('http')) {
-    // Extraer el nombre del archivo de la URL completa
-    const matches = imagePath.match(/\/uploads\/clientes\/(.*?)$/);
-    if (matches && matches[1]) {
-      const fileName = matches[1].replace(/^uploads\/clientes\//, '');
-      const url = `${API_BASE_URL}/uploads/clientes/${fileName}`;
-      console.log('URL procesada:', url);
-      return url;
-    }
     return imagePath;
   }
 
   // Si es una ruta relativa
-  const cleanPath = imagePath
-    .replace(/^\/+|\/+$/g, '')
-    .replace(/^uploads\/clientes\/uploads\/clientes\//, 'uploads/clientes/')
-    .replace(/^uploads\/clientes\//, '');
-  
-  const url = `${API_BASE_URL}/uploads/clientes/${cleanPath}`;
+  const cleanPath = imagePath.split('/').pop();
+  const url = `${api.defaults.baseURL}/uploads/clientes/${cleanPath}`;
   console.log('URL construida:', url);
   return url;
 };
