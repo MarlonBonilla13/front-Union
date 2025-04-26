@@ -6,7 +6,9 @@ const transformImageUrl = (material) => {
   if (material.imagen_url) {
     // Si la URL ya es absoluta (comienza con http:// o https://), la dejamos como está
     if (!material.imagen_url.startsWith('http')) {
-      material.imagen_url = `${api.defaults.baseURL}/uploads/materiales/${material.imagen_url}`;
+      // Limpiamos la ruta de cualquier duplicación
+      const cleanImageName = material.imagen_url.replace(/^(uploads\/)?materiales\/(uploads\/)?materiales\//, '');
+      material.imagen_url = `${api.defaults.baseURL}/uploads/materiales/${cleanImageName}`;
     }
   }
   return material;
@@ -27,6 +29,7 @@ export const createMaterial = async (createMaterialDto) => {
 export const getMaterials = async () => {
   try {
     const response = await api.get('/materiales');
+    // Transformar las URLs de las imágenes para todos los materiales
     return response.data.map(material => transformImageUrl(material));
   } catch (error) {
     console.error("Error al obtener materiales:", error);
