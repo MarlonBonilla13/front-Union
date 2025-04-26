@@ -1,20 +1,27 @@
 import api from './api';
 
+// Función auxiliar para transformar URLs de imágenes
+const transformImageUrl = (proveedor) => {
+  if (proveedor.imagen_url) {
+    // Si la URL ya es absoluta (comienza con http:// o https://), la dejamos como está
+    if (!proveedor.imagen_url.startsWith('http')) {
+      // Extraer solo el nombre del archivo
+      const fileName = proveedor.imagen_url.split('/').pop();
+      // Construir la URL completa
+      proveedor.imagen_url = `${api.defaults.baseURL}/uploads/proveedores/${fileName}`;
+      
+      // Log para debugging
+      console.log('URL de imagen transformada:', proveedor.imagen_url);
+    }
+  }
+  return proveedor;
+};
+
 // Get all providers with proper image URLs
 export const getProveedores = async () => {
   try {
     const response = await api.get('/proveedores');
-    // Transform image URLs for all providers
-    const proveedoresWithImages = response.data.map(proveedor => {
-      // Limpiar la ruta de la imagen eliminando duplicados
-      const cleanImagePath = proveedor.imagen_url?.replace(/^(uploads\/)?proveedores\//, '');
-      
-      return {
-        ...proveedor,
-        imagen_url: cleanImagePath ? `${api.defaults.baseURL}/uploads/proveedores/${cleanImagePath}` : null
-      };
-    });
-    return proveedoresWithImages;
+    return response.data.map(proveedor => transformImageUrl(proveedor));
   } catch (error) {
     console.error('Error al obtener proveedores:', error);
     throw error;
@@ -22,27 +29,21 @@ export const getProveedores = async () => {
 };
 
 // Upload provider logo
-export const uploadProveedorImage = async (id, file) => {
+export const uploadProveedorImage = async (id, imageFile) => {
   try {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', imageFile);
 
-    const response = await api.post(`/proveedores/${id}/imagen`, formData, {
+    const response = await api.post(`/proveedores/upload/${id}`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 30000,
-      responseType: 'json'
+        'Content-Type': 'multipart/form-data'
+      }
     });
     
-    // Limpiar el nombre del archivo
-    const cleanFilename = response.data.filename?.replace(/^(uploads\/)?proveedores\//, '');
-    // Construct and return the full image URL
-    const imageUrl = `${api.defaults.baseURL}/uploads/proveedores/${cleanFilename}`;
-    return { ...response.data, imageUrl };
+    return transformImageUrl(response.data);
   } catch (error) {
-    console.error('Detailed upload error:', error.response?.data || error.message);
-    throw error;
+    console.error('Error al subir la imagen:', error);
+    throw new Error('No se pudo subir la imagen. Por favor, intente nuevamente.');
   }
 };
 
@@ -50,69 +51,29 @@ export const uploadProveedorImage = async (id, file) => {
 export const getProveedorById = async (id) => {
   try {
     const response = await api.get(`/proveedores/${id}`);
-    const proveedor = response.data;
-    
-    // Ensure the image URL is properly constructed
-    if (proveedor.imagen_url) {
-      // Limpiar la ruta de la imagen
-      const cleanImagePath = proveedor.imagen_url.replace(/^(uploads\/)?proveedores\//, '');
-      proveedor.imagen_url = `${api.defaults.baseURL}/uploads/proveedores/${cleanImagePath}`;
-    }
-    
-    return proveedor;
+    return transformImageUrl(response.data);
   } catch (error) {
-    console.error('Error fetching provider:', error);
+    console.error(`Error al obtener proveedor con ID ${id}:`, error);
     throw error;
   }
 };
 
-export const createProveedor = async (proveedor) => {
+export const createProveedor = async (proveedorData) => {
   try {
-    // Ensure all required fields are present
-    const proveedorData = {
-      ruc: proveedor.ruc,
-      nombre: proveedor.nombre,
-      contacto: proveedor.contacto,
-      telefono: proveedor.telefono,
-      correo: proveedor.correo || '',
-      direccion: proveedor.direccion || '',
-      tipo_proveedor: proveedor.tipo_proveedor,
-      estado: proveedor.estado,
-      notas: proveedor.notas || ''
-    };
-
     const response = await api.post('/proveedores', proveedorData);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
-    console.error('Error creating proveedor:', error.response?.data || error.message);
+    console.error('Error al crear proveedor:', error);
     throw error;
   }
 };
 
-export const updateProveedor = async (id, proveedor) => {
+export const updateProveedor = async (id, proveedorData) => {
   try {
-    // Remove properties that shouldn't be sent to the backend
-    const { id_proveedores, fecha_registro, fecha_actualizacion, imagen_url, ...updateData } = proveedor;
-    
-    // Ensure all fields are properly formatted and maintain existing values
-    const proveedorData = {
-      ruc: updateData.ruc?.trim() || '',
-      nombre: updateData.nombre?.trim() || '',
-      contacto: updateData.contacto?.trim() || '',
-      telefono: updateData.telefono?.trim() || '',
-      correo: updateData.correo?.trim() || '',
-      direccion: updateData.direccion?.trim() || '',
-      tipo_proveedor: updateData.tipo_proveedor || '',
-      estado: typeof updateData.estado === 'boolean' ? updateData.estado : true,
-      notas: updateData.notas?.trim() || ''
-    };
-
-    console.log('Updating proveedor with data:', proveedorData); // Debug log
-
     const response = await api.patch(`/proveedores/${id}`, proveedorData);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
-    console.error('Error updating proveedor:', error.response?.data || error.message);
+    console.error(`Error al actualizar proveedor con ID ${id}:`, error);
     throw error;
   }
 };
@@ -120,17 +81,21 @@ export const updateProveedor = async (id, proveedor) => {
 export const deleteProveedor = async (id) => {
   try {
     const response = await api.delete(`/proveedores/${id}`);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
+    console.error(`Error al eliminar proveedor con ID ${id}:`, error);
     throw error;
   }
 };
 
 export const reactivateProveedor = async (id) => {
   try {
-    const response = await api.patch(`/proveedores/${id}`, { estado: true });
-    return response.data;
+    const response = await api.patch(`/proveedores/${id}`, {
+      estado: true
+    });
+    return transformImageUrl(response.data);
   } catch (error) {
+    console.error(`Error al reactivar proveedor con ID ${id}:`, error);
     throw error;
   }
 };
