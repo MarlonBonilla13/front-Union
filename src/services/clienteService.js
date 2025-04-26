@@ -1,15 +1,27 @@
 import api from './api';
 
+// Función auxiliar para transformar URLs de imágenes
+const transformImageUrl = (cliente) => {
+  if (cliente.imagen_url) {
+    // Si la URL ya es absoluta (comienza con http:// o https://), la dejamos como está
+    if (!cliente.imagen_url.startsWith('http')) {
+      // Extraer solo el nombre del archivo
+      const fileName = cliente.imagen_url.split('/').pop();
+      // Construir la URL completa
+      cliente.imagen_url = `${api.defaults.baseURL}/uploads/clientes/${fileName}`;
+      
+      // Log para debugging
+      console.log('URL de imagen transformada:', cliente.imagen_url);
+    }
+  }
+  return cliente;
+};
+
 // Obtener todos los clientes
 export const getClientes = async () => {
   try {
     const response = await api.get('/clientes');
-    // Transform image URLs for all clients
-    const clientesWithImages = response.data.map(cliente => ({
-      ...cliente,
-      imagen_url: cliente.imagen_url ? `${api.defaults.baseURL}/uploads/clientes/${cliente.imagen_url}` : null
-    }));
-    return clientesWithImages;
+    return response.data.map(cliente => transformImageUrl(cliente));
   } catch (error) {
     console.error('Error al obtener clientes:', error);
     throw error;
@@ -21,22 +33,17 @@ export const uploadClienteLogo = async (clienteId, imageFile) => {
     const formData = new FormData();
     formData.append('file', imageFile);
 
-    console.log('Uploading file:', imageFile); // Debug log
-    console.log('FormData contents:', formData); // Debug log
-
     const response = await api.post(`/clientes/upload/${clienteId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      // Add timeout and response type
       timeout: 30000,
       responseType: 'json'
     });
     
-    console.log('Upload response:', response.data); // Debug log
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
-    console.error('Detailed upload error:', error.response?.data || error.message);
+    console.error('Error al subir el logo:', error);
     if (error.response?.status === 413) {
       throw new Error('El archivo es demasiado grande');
     } else if (error.response?.data?.message) {
@@ -50,17 +57,9 @@ export const uploadClienteLogo = async (clienteId, imageFile) => {
 export const getClienteById = async (id) => {
   try {
     const response = await api.get(`/clientes/${id}`);
-    const cliente = response.data;
-    
-    // Ensure the image URL is properly constructed
-    if (cliente.imagen_url) {
-      cliente.imagen_url = `${api.defaults.baseURL}/uploads/clientes/${cliente.imagen_url}`;
-      console.log('Full image URL:', cliente.imagen_url);
-    }
-    
-    return cliente;
+    return transformImageUrl(response.data);
   } catch (error) {
-    console.error('Error fetching client:', error);
+    console.error('Error al obtener cliente:', error);
     throw error;
   }
 };
@@ -83,7 +82,7 @@ export const createCliente = async (clienteData) => {
     };
 
     const response = await api.post('/clientes', clienteDto);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error al crear cliente:', error);
     throw error;
@@ -97,7 +96,7 @@ export const updateCliente = async (id, clienteData) => {
     const { id_cliente, fecha_registro, fecha_actualizacion, imagen_url, ...updateData } = clienteData;
     
     const response = await api.patch(`/clientes/${id}`, updateData);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al actualizar cliente con ID ${id}:`, error);
     throw error;
@@ -108,7 +107,7 @@ export const updateCliente = async (id, clienteData) => {
 export const deleteCliente = async (id) => {
   try {
     const response = await api.delete(`/clientes/${id}`);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al eliminar cliente con ID ${id}:`, error);
     throw error;
@@ -121,7 +120,7 @@ export const cambiarEstadoCliente = async (clienteId, estado) => {
     const response = await api.patch(`/clientes/${clienteId}`, {
       estado: estado
     });
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error al cambiar estado del cliente:', error);
     throw error;
