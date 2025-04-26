@@ -202,30 +202,15 @@ const MovimientosList = () => {
   };
 
   const handleMaterialChange = (event) => {
-    const selectedId = event.target.value;
-    setSelectedMaterial(selectedId);
+    const materialId = event.target.value;
+    setSelectedMaterial(materialId);
     
-    const material = materials.find(m => m.id_material === selectedId);
+    // Encontrar el material seleccionado y actualizar los stocks
+    const material = materials.find(m => m.id_material === materialId);
     if (material) {
-      const currentStock = material.stock_actual || material.Stock_actual;
-      const minStock = material.stock_minimo || material.Stock_minimo;
-      
-      setStockActual(currentStock);
-      setStockMinimo(minStock);
-      
-      // Check if stock is low and show alert
-      if (currentStock <= minStock) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Material Bajo',
-          text: `¡Alerta! El material "${material.nombre}" tiene stock insuficiente.\nStock Actual: ${currentStock}\nStock Mínimo: ${minStock}`,
-          confirmButtonColor: '#f0ad4e',
-          confirmButtonText: 'Entendido'
-        });
-      }
-    } else {
-      setStockActual(0);
-      setStockMinimo(0);
+      setStockActual(material.stock_actual);
+      setStockMinimo(material.stock_minimo);
+      checkStockLevels(material);
     }
   };
 
@@ -751,7 +736,16 @@ const MovimientosList = () => {
                 <InputLabel>Seleccionar Material</InputLabel>
                 <Select
                   value={solicitudMaterial}
-                  onChange={(e) => setSolicitudMaterial(e.target.value)}
+                  onChange={(e) => {
+                    setSolicitudMaterial(e.target.value);
+                    // Actualizar los stocks cuando se selecciona un material
+                    const material = materials.find(m => m.id_material === e.target.value);
+                    if (material) {
+                      setStockActual(material.stock_actual);
+                      setStockMinimo(material.stock_minimo);
+                      checkStockLevels(material);
+                    }
+                  }}
                   label="Seleccionar Material"
                 >
                   <MenuItem value="" sx={{ fontStyle: 'italic' }}>
@@ -802,6 +796,30 @@ const MovimientosList = () => {
               />
             </Grid>
 
+            <Grid item xs={12} md={1}>
+              <TextField
+                label="Stock Actual"
+                value={stockActual}
+                disabled
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={1}>
+              <TextField
+                label="Stock Mínimo"
+                value={stockMinimo}
+                disabled
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                }}
+              />
+            </Grid>
+
             <Grid item xs={12} md={2}>
               <FormControl fullWidth>
                 <InputLabel>Departamento</InputLabel>
@@ -810,8 +828,10 @@ const MovimientosList = () => {
                   onChange={(e) => setDepartamentoSolicitud(e.target.value)}
                   label="Departamento"
                 >
-                  <MenuItem value="Produccion">Producción</MenuItem>
                   <MenuItem value="Almacen">Almacén</MenuItem>
+                  <MenuItem value="Produccion">Producción</MenuItem>
+                  <MenuItem value="Calidad">Calidad</MenuItem>
+                  <MenuItem value="Mantenimiento">Mantenimiento</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
