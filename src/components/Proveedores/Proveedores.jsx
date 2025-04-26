@@ -169,11 +169,6 @@ const Proveedores = () => {
 
   const handleDelete = async (id) => {
     try {
-      const proveedorToUpdate = proveedores.find(p => p.id_proveedores === id);
-      if (!proveedorToUpdate) {
-        throw new Error('Proveedor no encontrado');
-      }
-
       const result = await Swal.fire({
         title: '¿Está seguro?',
         text: "El proveedor será marcado como inactivo",
@@ -187,7 +182,6 @@ const Proveedores = () => {
 
       if (result.isConfirmed) {
         await proveedorService.updateProveedor(id, {
-          ...proveedorToUpdate,
           estado: false
         });
         
