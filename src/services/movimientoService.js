@@ -3,11 +3,28 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Función auxiliar para transformar URLs de imágenes de materiales
+const transformImageUrl = (movimiento) => {
+  if (movimiento.material?.imagen_url) {
+    // Si la URL ya es absoluta (comienza con http:// o https://), la dejamos como está
+    if (!movimiento.material.imagen_url.startsWith('http')) {
+      // Extraer solo el nombre del archivo
+      const fileName = movimiento.material.imagen_url.split('/').pop();
+      // Construir la URL completa
+      movimiento.material.imagen_url = `${api.defaults.baseURL}/uploads/materiales/${fileName}`;
+      
+      // Log para debugging
+      console.log('URL de imagen transformada en movimiento:', movimiento.material.imagen_url);
+    }
+  }
+  return movimiento;
+};
+
 // Get all movimientos
 export const getMovimientos = async () => {
   try {
     const response = await api.get('/movimientos');
-    return response.data;
+    return response.data.map(movimiento => transformImageUrl(movimiento));
   } catch (error) {
     console.error('Error fetching movimientos:', error);
     throw error;
@@ -18,7 +35,7 @@ export const getMovimientos = async () => {
 export const createMovimiento = async (movimientoData) => {
   try {
     const response = await api.post('/movimientos', movimientoData);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error creating movimiento:', error);
     throw error;
@@ -32,7 +49,7 @@ export const updateMovimientoEstado = async (id, estado) => {
     
     // Use a more specific endpoint for updating estado
     const response = await api.put(`/movimientos/estado/${id}`, { estado });
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error updating movimiento estado:', error);
     throw error;

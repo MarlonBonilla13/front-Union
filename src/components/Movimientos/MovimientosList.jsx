@@ -926,7 +926,27 @@ const MovimientosList = () => {
                     <TableRow key={movimiento.id_movimiento}>
                       <TableCell>{new Date(movimiento.fecha).toLocaleDateString()}</TableCell>
                       <TableCell>{movimiento.codigo}</TableCell>
-                      <TableCell>{movimiento.nombre}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          {movimiento.material?.imagen_url && (
+                            <img
+                              src={movimiento.material.imagen_url}
+                              alt={movimiento.nombre}
+                              style={{ 
+                                width: 40, 
+                                height: 40, 
+                                objectFit: 'contain',
+                                borderRadius: '4px'
+                              }}
+                              onError={(e) => {
+                                console.error('Error al cargar imagen:', e.target.src);
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          )}
+                          <span>{movimiento.nombre}</span>
+                        </Box>
+                      </TableCell>
                       <TableCell>
                         <Chip
                           label={movimiento.tipo_movimiento}
