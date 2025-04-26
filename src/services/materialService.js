@@ -6,9 +6,13 @@ const transformImageUrl = (material) => {
   if (material.imagen_url) {
     // Si la URL ya es absoluta (comienza con http:// o https://), la dejamos como está
     if (!material.imagen_url.startsWith('http')) {
-      // Limpiamos la ruta de cualquier duplicación
-      const cleanImageName = material.imagen_url.replace(/^(uploads\/)?materiales\/(uploads\/)?materiales\//, '');
-      material.imagen_url = `${api.defaults.baseURL}/uploads/materiales/${cleanImageName}`;
+      // Extraer solo el nombre del archivo
+      const fileName = material.imagen_url.split('/').pop();
+      // Construir la URL completa
+      material.imagen_url = `${api.defaults.baseURL}/uploads/materiales/${fileName}`;
+      
+      // Log para debugging
+      console.log('URL de imagen transformada:', material.imagen_url);
     }
   }
   return material;

@@ -236,6 +236,16 @@ const MaterialList = () => {
     }
   };
 
+  const handleImageError = (e, material) => {
+    console.error('Error al cargar imagen:', {
+      url: material.imagen_url,
+      materialId: material.id_material,
+      materialNombre: material.nombre
+    });
+    e.target.style.display = 'none';
+    e.target.nextSibling.style.display = 'block'; // Mostrar el icono de fallback
+  };
+
   // Modificar el return para incluir el botón de filtro y la lógica de mostrar inactivos
   return (
     <Box component="main" sx={{ flexGrow: 1, backgroundColor: '#f5f5f5', minHeight: '100vh', p: 3 }}>
@@ -348,23 +358,31 @@ const MaterialList = () => {
                     <TableRow key={material.id_material}>
                       <TableCell>
                         {material.imagen_url ? (
-                          <Box
-                            component="img"
-                            src={material.imagen_url}
-                            alt={material.nombre}
-                            onError={(e) => {
-                              console.error('Error al cargar imagen:', material.imagen_url);
-                              e.target.src = ''; // Limpiar la imagen en caso de error
-                              e.target.style.display = 'none';
-                            }}
-                            sx={{
-                              width: 50,
-                              height: 50,
-                              objectFit: 'contain',
-                              borderRadius: 1,
-                              border: '1px solid #e0e0e0'
-                            }}
-                          />
+                          <Box sx={{ position: 'relative', width: 50, height: 50 }}>
+                            <Box
+                              component="img"
+                              src={material.imagen_url}
+                              alt={material.nombre}
+                              onError={(e) => handleImageError(e, material)}
+                              sx={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'contain',
+                                borderRadius: 1,
+                                border: '1px solid #e0e0e0'
+                              }}
+                            />
+                            <ImageIcon 
+                              color="disabled" 
+                              sx={{ 
+                                display: 'none',
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)'
+                              }} 
+                            />
+                          </Box>
                         ) : (
                           <ImageIcon color="disabled" />
                         )}
