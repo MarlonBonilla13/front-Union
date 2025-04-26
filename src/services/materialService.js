@@ -1,11 +1,22 @@
 // src/services/materialService.js
 import api from './api'; // Asegúrate de importar la instancia de axios
 
+// Función auxiliar para transformar URLs de imágenes
+const transformImageUrl = (material) => {
+  if (material.imagen_url) {
+    // Si la URL ya es absoluta (comienza con http:// o https://), la dejamos como está
+    if (!material.imagen_url.startsWith('http')) {
+      material.imagen_url = `${api.defaults.baseURL}/uploads/materiales/${material.imagen_url}`;
+    }
+  }
+  return material;
+};
+
 // Crear un nuevo material
 export const createMaterial = async (createMaterialDto) => {
   try {
     const response = await api.post('/materiales', createMaterialDto); // Asegúrate de usar '/materiales' si esa es la ruta correcta en NestJS
-    return response.data; // Devuelve la respuesta del servidor
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error("Error al crear material:", error);
     throw error;
@@ -16,7 +27,7 @@ export const createMaterial = async (createMaterialDto) => {
 export const getMaterials = async () => {
   try {
     const response = await api.get('/materiales');
-    return response.data;
+    return response.data.map(material => transformImageUrl(material));
   } catch (error) {
     console.error("Error al obtener materiales:", error);
     throw error;
@@ -27,7 +38,7 @@ export const getMaterials = async () => {
 export const getMaterialById = async (id) => {
   try {
     const response = await api.get(`/materiales/${id}`);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al obtener material con ID ${id}:`, error);
     throw error;
@@ -38,7 +49,7 @@ export const getMaterialById = async (id) => {
 export const updateMaterial = async (id, updateMaterialDto) => {
   try {
     const response = await api.patch(`/materiales/${id}`, updateMaterialDto);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al actualizar material con ID ${id}:`, error);
     throw error;
@@ -49,7 +60,7 @@ export const updateMaterial = async (id, updateMaterialDto) => {
 export const deleteMaterial = async (id) => {
   try {
     const response = await api.delete(`/materiales/${id}`);
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al eliminar material con ID ${id}:`, error);
     if (error.response && error.response.status === 404) {
@@ -66,7 +77,7 @@ export const deleteMaterial = async (id) => {
 export const getInactiveMaterials = async () => {
   try {
     const response = await api.get('/materiales/all/inactive');
-    return response.data;
+    return response.data.map(material => transformImageUrl(material));
   } catch (error) {
     console.error('Error al obtener materiales inactivos:', error);
     throw error;
@@ -82,7 +93,7 @@ export const reactivateMaterial = async (id) => {
     if (!response.data) {
       throw new Error('No se recibió respuesta del servidor');
     }
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al reactivar material con ID ${id}:`, error);
     if (error.response) {
@@ -108,7 +119,7 @@ export const uploadMaterialImage = async (id, imageFile) => {
       }
     });
     
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error al subir la imagen:', error);
     throw new Error('No se pudo subir la imagen. Por favor, intente nuevamente.');
@@ -124,7 +135,7 @@ export const updateMaterialStock = async (materialId, newStock) => {
       stock_actual: newStock
     });
     
-    return response.data;
+    return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al actualizar stock del material con ID ${materialId}:`, error);
     if (error.response && error.response.data && error.response.data.message) {
