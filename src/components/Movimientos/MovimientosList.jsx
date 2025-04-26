@@ -570,13 +570,17 @@ const MovimientosList = () => {
                     <MenuItem key={material.id_material} value={material.id_material} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       {material.imagen_url && (
                         <img
-                          src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
+                          src={material.imagen_url}
                           alt={material.nombre}
                           style={{ 
                             width: 40, 
                             height: 40, 
                             objectFit: 'contain',
                             borderRadius: '4px'
+                          }}
+                          onError={(e) => {
+                            console.error('Error al cargar imagen:', e.target.src);
+                            e.target.style.display = 'none';
                           }}
                         />
                       )}
@@ -758,13 +762,17 @@ const MovimientosList = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         {material.imagen_url && (
                           <img
-                            src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
+                            src={material.imagen_url}
                             alt={material.nombre}
                             style={{ 
                               width: 40, 
                               height: 40, 
                               objectFit: 'contain',
                               borderRadius: '4px'
+                            }}
+                            onError={(e) => {
+                              console.error('Error al cargar imagen:', e.target.src);
+                              e.target.style.display = 'none';
                             }}
                           />
                         )}
