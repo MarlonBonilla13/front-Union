@@ -1,10 +1,15 @@
 import axios from 'axios';
 
+const isProduction = window.location.hostname !== 'localhost';
+
 const api = axios.create({
-  baseURL: 'http://localhost:4001',
+  baseURL: isProduction 
+    ? 'https://backend-union-production.up.railway.app'
+    : 'http://localhost:4001',
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
-  },
+  }
 });
 
 // Add a debug log to see the base URL
@@ -34,19 +39,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('Error en la petición:', error);
-    
-    if (error.response) {
-      if (error.response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-      }
-      // Devolver un mensaje de error más específico
-      const errorMessage = error.response.data.message || 'Error en la operación';
-      return Promise.reject(new Error(errorMessage));
-    }
-    return Promise.reject(new Error('Error de conexión con el servidor'));
+    console.error('Error en la petición:', error.response?.data || error.message);
+    throw error;
   }
 );
 
