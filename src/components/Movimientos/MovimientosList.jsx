@@ -830,8 +830,6 @@ const MovimientosList = () => {
                 >
                   <MenuItem value="Almacen">Almacén</MenuItem>
                   <MenuItem value="Produccion">Producción</MenuItem>
-                  <MenuItem value="Calidad">Calidad</MenuItem>
-                  <MenuItem value="Mantenimiento">Mantenimiento</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
