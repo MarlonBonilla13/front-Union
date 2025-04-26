@@ -75,6 +75,12 @@ const Navbar = () => {
       roles: ['admin']
     },
     {
+      text: 'Proveedores',
+      icon: <InventoryIcon />,
+      path: '/proveedores',
+      roles: ['admin']
+    },
+    {
       text: 'Empleados',
       icon: <AddBoxIcon />,
       path: '/empleados/nuevo',
@@ -84,12 +90,6 @@ const Navbar = () => {
       text: 'Usuarios',
       icon: <PeopleIcon />,
       path: '/usuarios',
-      roles: ['admin']
-    },
-    {
-      text: 'Proveedores',
-      icon: <InventoryIcon />,
-      path: '/proveedores',
       roles: ['admin']
     }
   ];

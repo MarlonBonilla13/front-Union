@@ -18,13 +18,11 @@ import {
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-// Add uploadClienteLogo to the imports
 import { createCliente, updateCliente, getClienteById, uploadClienteLogo } from '../../services/clienteService';
-// Remove notistack import
-// import { useSnackbar } from 'notistack';
-import Swal from 'sweetalert2'; // Import SweetAlert2 instead
+import Swal from 'sweetalert2';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { styled } from '@mui/material/styles';
+import api from '../../services/api';
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -38,8 +36,6 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
-const API_BASE_URL = 'http://localhost:4001';
-
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
     console.log('No hay ruta de imagen');
@@ -52,7 +48,7 @@ const getImageUrl = (imagePath) => {
     const matches = imagePath.match(/\/uploads\/clientes\/(.*?)$/);
     if (matches && matches[1]) {
       const fileName = matches[1].replace(/^uploads\/clientes\//, '');
-      const url = `${API_BASE_URL}/uploads/clientes/${fileName}`;
+      const url = `${api.defaults.baseURL}/uploads/clientes/${fileName}`;
       console.log('URL procesada:', url);
       return url;
     }
@@ -65,7 +61,7 @@ const getImageUrl = (imagePath) => {
     .replace(/^uploads\/clientes\/uploads\/clientes\//, 'uploads/clientes/')
     .replace(/^uploads\/clientes\//, '');
   
-  const url = `${API_BASE_URL}/uploads/clientes/${cleanPath}`;
+  const url = `${api.defaults.baseURL}/uploads/clientes/${cleanPath}`;
   console.log('URL construida:', url);
   return url;
 };
