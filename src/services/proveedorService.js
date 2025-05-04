@@ -88,21 +88,22 @@ export const createProveedor = async (proveedorData) => {
       throw new Error('El tipo de proveedor es requerido');
     }
 
-    // Crear objeto que coincida con el formato exitoso de Postman
+    // Enviar los datos exactamente como vienen, sin transformar el campo ruc
     const datosFormateados = {
-      ruc: proveedorData.ruc.trim(), // Usar ruc en minúsculas como en Postman
+      ...proveedorData,
+      ruc: proveedorData.ruc.trim(),
       nombre: proveedorData.nombre.trim(),
+      tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
       telefono: proveedorData.telefono?.trim() || '',
       correo: proveedorData.correo?.trim() || '',
       direccion: proveedorData.direccion?.trim() || '',
-      tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       estado: proveedorData.estado ?? true,
       notas: proveedorData.notas?.trim() || ''
     };
 
     // Log para debugging
-    console.log('Datos a enviar:', datosFormateados);
+    console.log('Datos a enviar al backend:', datosFormateados);
 
     // Primero crear el proveedor sin imagen
     const response = await api.post('/proveedores', datosFormateados);

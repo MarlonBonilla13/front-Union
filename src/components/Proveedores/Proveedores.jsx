@@ -38,7 +38,7 @@ const Proveedores = () => {
   const [tabValue, setTabValue] = useState('ACTIVOS');
   const [searchTerm, setSearchTerm] = useState('');
   const [proveedor, setProveedor] = useState({
-    ruc: '',  // Mantener como ruc para la base de datos
+    ruc: '',  // Asegurarnos de usar ruc en minúsculas
     nombre: '',
     contacto: '',
     telefono: '',
@@ -114,11 +114,8 @@ const Proveedores = () => {
   const handleClickOpen = () => {
     setEditando(false);
     setSelectedFile(null);
-    // Log para debugging
-    console.log('Inicializando nuevo proveedor');
-    
     setProveedor({
-      ruc: '',
+      ruc: '',  // Asegurarnos de usar ruc en minúsculas
       nombre: '',
       contacto: '',
       telefono: '',
@@ -175,17 +172,9 @@ const Proveedores = () => {
 
   const handleSubmit = async () => {
     try {
-      // Validación local del NIT/RUC
-      if (!proveedor.ruc?.trim()) {
-        throw new Error('El NIT es requerido');
-      }
-
       let response;
-      // Log para debugging
-      console.log('Datos del proveedor antes de formatear:', proveedor);
-
       const datosActualizados = {
-        ruc: proveedor.ruc.trim(),  // Asegurarnos de que el RUC se envía
+        ruc: proveedor.ruc?.trim() || '',  // Asegurarnos de usar ruc en minúsculas
         nombre: proveedor.nombre?.trim(),
         contacto: proveedor.contacto?.trim() || '',
         telefono: proveedor.telefono?.trim() || '',
@@ -193,12 +182,11 @@ const Proveedores = () => {
         direccion: proveedor.direccion?.trim() || '',
         tipo_proveedor: proveedor.tipo_proveedor?.trim(),
         estado: proveedor.estado ?? true,
-        notas: proveedor.notas?.trim() || '',
-        imagen_url: proveedor.imagen_url || ''
+        notas: proveedor.notas?.trim() || ''
       };
 
       // Log para debugging
-      console.log('Datos formateados a enviar:', datosActualizados);
+      console.log('Datos a enviar al servicio:', datosActualizados);
 
       if (editando) {
         response = await proveedorService.updateProveedor(proveedor.id_proveedores, datosActualizados);
