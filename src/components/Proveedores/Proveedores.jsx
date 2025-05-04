@@ -38,7 +38,7 @@ const Proveedores = () => {
   const [tabValue, setTabValue] = useState('ACTIVOS');
   const [searchTerm, setSearchTerm] = useState('');
   const [proveedor, setProveedor] = useState({
-    ruc: '',  // Mantener como ruc para consistencia con el backend
+    ruc: '',  // Mantener como ruc para la base de datos
     nombre: '',
     contacto: '',
     telefono: '',
@@ -88,7 +88,7 @@ const Proveedores = () => {
   const transformProveedorData = (data) => {
     return {
       ...data,
-      nit: data.ruc // Map RUC to NIT for display
+      ruc: data.ruc // Map RUC to NIT for display
     };
   };
 
@@ -115,7 +115,7 @@ const Proveedores = () => {
     setEditando(false);
     setSelectedFile(null);
     setProveedor({
-      ruc: '',  // Mantener como ruc para consistencia con el backend
+      ruc: '',  // Mantener como ruc para la base de datos
       nombre: '',
       contacto: '',
       telefono: '',
@@ -174,7 +174,7 @@ const Proveedores = () => {
     try {
       let response;
       const datosActualizados = {
-        ruc: proveedor.ruc || '',
+        ruc: proveedor.ruc?.trim() || '', // Mantener como ruc para la base de datos
         nombre: proveedor.nombre,
         contacto: proveedor.contacto || '',
         telefono: proveedor.telefono || '',
@@ -208,7 +208,7 @@ const Proveedores = () => {
       console.error('Error al procesar la operación:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Hubo un error al procesar la operación. Por favor, verifique que el NIT no esté duplicado y que todos los campos requeridos estén completos.',
+        text: error.message || 'Hubo un error al procesar la operación. Por favor, verifique que el NIT no esté duplicado y que todos los campos requeridos estén completos.',
         icon: 'error'
       });
     }
