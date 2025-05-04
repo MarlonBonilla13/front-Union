@@ -92,7 +92,7 @@ export const createProveedor = async (proveedorData) => {
     console.log('Datos recibidos:', proveedorData);
 
     const datosFormateados = {
-      Ruc: proveedorData.ruc.trim(), // Usar 'Ruc' como lo espera el DTO
+      RUC: proveedorData.ruc.trim(), // Usar RUC en mayúsculas como lo espera el backend
       nombre: proveedorData.nombre.trim(),
       tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
@@ -108,10 +108,18 @@ export const createProveedor = async (proveedorData) => {
     console.log('Datos formateados a enviar:', datosFormateados);
 
     const response = await api.post('/proveedores', datosFormateados);
+
+    // Log para debugging de la respuesta
+    console.log('Respuesta del servidor:', response.data);
+
     return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error al crear proveedor:', error);
-    console.error('Respuesta del servidor:', error.response?.data);
+    console.error('Detalles del error:', {
+      mensaje: error.message,
+      respuesta: error.response?.data,
+      estado: error.response?.status
+    });
     
     // Si es un error de validación local
     if (error.message.includes('requerido')) {
@@ -125,6 +133,11 @@ export const createProveedor = async (proveedorData) => {
         throw new Error(serverMessage[0]); // Tomamos el primer mensaje de error
       }
       throw new Error('Error en el formato de los datos. Por favor, verifique que el NIT no esté duplicado.');
+    }
+
+    // Si es un error 500 del servidor
+    if (error.response?.status === 500) {
+      throw new Error('Error interno del servidor. Por favor, intente nuevamente.');
     }
     
     // Para otros errores
