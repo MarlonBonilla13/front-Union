@@ -115,32 +115,39 @@ export const updateProveedor = async (id, proveedorData) => {
       return transformImageUrl(response.data);
     }
 
-    // Para actualizaciones completas, validamos y formateamos los campos requeridos
-    if (!proveedorData.ruc?.trim()) {
-      throw new Error('El RUC es requerido');
+    // Para actualizaciones completas, solo enviamos los campos que tienen valor
+    const datosActualizados = {};
+
+    // Solo incluimos los campos que tienen valor y han sido modificados
+    if (proveedorData.nombre?.trim()) {
+      datosActualizados.nombre = proveedorData.nombre.trim();
     }
-    if (!proveedorData.nombre?.trim()) {
-      throw new Error('El nombre es requerido');
+    if (proveedorData.tipo_proveedor?.trim()) {
+      datosActualizados.tipo_proveedor = proveedorData.tipo_proveedor.trim();
     }
-    if (!proveedorData.tipo_proveedor?.trim()) {
-      throw new Error('El tipo de proveedor es requerido');
+    if (proveedorData.contacto?.trim()) {
+      datosActualizados.contacto = proveedorData.contacto.trim();
+    }
+    if (proveedorData.telefono?.trim()) {
+      datosActualizados.telefono = proveedorData.telefono.trim();
+    }
+    if (proveedorData.correo?.trim()) {
+      datosActualizados.correo = proveedorData.correo.trim();
+    }
+    if (proveedorData.direccion?.trim()) {
+      datosActualizados.direccion = proveedorData.direccion.trim();
+    }
+    if (proveedorData.notas?.trim()) {
+      datosActualizados.notas = proveedorData.notas.trim();
+    }
+    if ('estado' in proveedorData) {
+      datosActualizados.estado = Boolean(proveedorData.estado);
+    }
+    if (proveedorData.imagen_url) {
+      datosActualizados.imagen_url = proveedorData.imagen_url;
     }
 
-    // Construimos el objeto con los datos actualizados
-    const datosActualizados = {
-      ruc: proveedorData.ruc.trim(),
-      nombre: proveedorData.nombre.trim(),
-      tipo_proveedor: proveedorData.tipo_proveedor.trim(),
-      estado: proveedorData.estado ?? true,
-      // Campos opcionales
-      contacto: proveedorData.contacto?.trim() || '',
-      telefono: proveedorData.telefono?.trim() || '',
-      correo: proveedorData.correo?.trim() || '',
-      direccion: proveedorData.direccion?.trim() || '',
-      notas: proveedorData.notas?.trim() || '',
-      imagen_url: proveedorData.imagen_url || null
-    };
-
+    // No incluimos el RUC en las actualizaciones
     console.log('Datos a enviar al servidor:', datosActualizados);
 
     const response = await api.patch(`/proveedores/${id}`, datosActualizados);
@@ -150,11 +157,6 @@ export const updateProveedor = async (id, proveedorData) => {
     return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al actualizar proveedor con ID ${id}:`, error);
-    
-    // Si es un error de validación personalizado, lo lanzamos directamente
-    if (error.message.includes('es requerido')) {
-      throw error;
-    }
     
     // Si es un error 400 del servidor
     if (error.response?.status === 400) {
