@@ -88,76 +88,41 @@ export const createProveedor = async (proveedorData) => {
       throw new Error('El tipo de proveedor es requerido');
     }
 
-    // Log para debugging de los datos recibidos
-    console.log('Datos recibidos:', proveedorData);
-
-    // Crear objeto con solo los campos permitidos por el DTO
+    // Crear objeto que coincida exactamente con el DTO
     const datosFormateados = {
-      ruc: proveedorData.ruc.trim(), // Enviar como ruc en minúscula
-      Ruc: proveedorData.ruc.trim(), // También enviar como Ruc por si acaso
+      Ruc: proveedorData.ruc.trim(), // Debe ser exactamente 'Ruc' como en el DTO
       nombre: proveedorData.nombre.trim(),
-      tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
       telefono: proveedorData.telefono?.trim() || '',
       correo: proveedorData.correo?.trim() || '',
       direccion: proveedorData.direccion?.trim() || '',
-      estado: proveedorData.estado ?? true,
-      notas: proveedorData.notas?.trim() || ''
+      tipo_proveedor: proveedorData.tipo_proveedor.trim(),
+      estado: proveedorData.estado ?? true
     };
 
-    // Solo agregar imagen_url si existe y no es vacía
-    if (proveedorData.imagen_url && proveedorData.imagen_url.trim() !== '') {
-      datosFormateados.imagen_url = proveedorData.imagen_url;
+    // Solo agregar campos opcionales si tienen valor
+    if (proveedorData.notas?.trim()) {
+      datosFormateados.notas = proveedorData.notas.trim();
+    }
+    if (proveedorData.imagen_url?.trim()) {
+      datosFormateados.imagen_url = proveedorData.imagen_url.trim();
     }
 
-    // Log para debugging de los datos formateados
-    console.log('Datos formateados a enviar:', datosFormateados);
+    // Log para debugging
+    console.log('Datos a enviar:', datosFormateados);
 
-    // Log de la URL y método
-    console.log('Enviando POST a:', api.defaults.baseURL + '/proveedores');
-
-    const response = await api.post('/proveedores', datosFormateados, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    // Log para debugging de la respuesta
-    console.log('Respuesta del servidor:', response.data);
-
+    const response = await api.post('/proveedores', datosFormateados);
     return transformImageUrl(response.data);
   } catch (error) {
-    // Log detallado del error
     console.error('Error completo:', error);
-    console.error('Detalles del error:', {
-      mensaje: error.message,
-      respuesta: error.response?.data,
-      estado: error.response?.status,
-      headers: error.response?.headers,
-      config: error.config
-    });
+    console.error('Datos que causaron el error:', error.config?.data);
     
-    // Si es un error de validación local
-    if (error.message.includes('requerido')) {
-      throw error;
-    }
-    
-    // Si es un error 400 del servidor
     if (error.response?.status === 400) {
-      const serverMessage = error.response.data?.message;
-      if (Array.isArray(serverMessage)) {
-        throw new Error(serverMessage[0]); // Tomamos el primer mensaje de error
-      }
-      throw new Error('Error en el formato de los datos. Por favor, verifique que el NIT no esté duplicado.');
-    }
-
-    // Si es un error 500 del servidor
-    if (error.response?.status === 500) {
-      throw new Error('Error interno del servidor. Por favor, intente nuevamente.');
+      const mensaje = error.response.data?.message;
+      throw new Error(Array.isArray(mensaje) ? mensaje[0] : mensaje || 'Error en el formato de los datos');
     }
     
-    // Para otros errores
-    throw new Error(`Error al crear el proveedor: ${error.message}`);
+    throw new Error('Error al crear el proveedor. Por favor, intente nuevamente.');
   }
 };
 
