@@ -77,27 +77,54 @@ export const getProveedorById = async (id) => {
 
 export const createProveedor = async (proveedorData) => {
   try {
+    // Validar campos requeridos
+    if (!proveedorData.nit?.trim()) {
+      throw new Error('El NIT es requerido');
+    }
+    if (!proveedorData.nombre?.trim()) {
+      throw new Error('El nombre es requerido');
+    }
+    if (!proveedorData.tipo_proveedor?.trim()) {
+      throw new Error('El tipo de proveedor es requerido');
+    }
+
     const datosFormateados = {
-      ruc: proveedorData.ruc?.trim() || '', // Keep using RUC internally
-      nombre: proveedorData.nombre?.trim() || '',
+      ruc: proveedorData.nit.trim(), // Convertimos NIT a RUC para el backend
+      nombre: proveedorData.nombre.trim(),
+      tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
       telefono: proveedorData.telefono?.trim() || '',
       correo: proveedorData.correo?.trim() || '',
       direccion: proveedorData.direccion?.trim() || '',
-      tipo_proveedor: proveedorData.tipo_proveedor?.trim() || '',
-      estado: Boolean(proveedorData.estado),
+      estado: proveedorData.estado ?? true, // Por defecto activo si no se especifica
       notas: proveedorData.notas?.trim() || '',
       imagen_url: proveedorData.imagen_url || ''
     };
+
+    // Log para debugging
+    console.log('Datos formateados a enviar:', datosFormateados);
 
     const response = await api.post('/proveedores', datosFormateados);
     return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error al crear proveedor:', error);
-    if (error.response?.status === 400) {
-      throw new Error('Error en el formato de los datos. Por favor, verifique que el RUC no esté duplicado.');
+    
+    // Si es un error de validación local
+    if (error.message.includes('requerido')) {
+      throw error;
     }
-    throw error;
+    
+    // Si es un error 400 del servidor
+    if (error.response?.status === 400) {
+      const serverMessage = error.response.data?.message;
+      if (Array.isArray(serverMessage)) {
+        throw new Error(serverMessage[0]); // Tomamos el primer mensaje de error
+      }
+      throw new Error('Error en el formato de los datos. Por favor, verifique que el NIT no esté duplicado.');
+    }
+    
+    // Para otros errores
+    throw new Error('Error al crear el proveedor. Por favor, intente nuevamente.');
   }
 };
 
