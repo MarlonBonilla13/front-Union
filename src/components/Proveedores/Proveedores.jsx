@@ -175,7 +175,7 @@ const Proveedores = () => {
 
   const handleSubmit = async () => {
     try {
-      // Validación local del NIT
+      // Validación local del NIT/RUC
       if (!proveedor.ruc?.trim()) {
         throw new Error('El NIT es requerido');
       }

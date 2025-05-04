@@ -89,7 +89,7 @@ export const createProveedor = async (proveedorData) => {
     }
 
     const datosFormateados = {
-      Ruc: proveedorData.ruc.trim(), // Cambiado a Ruc con mayúscula para coincidir con el DTO
+      ruc: proveedorData.ruc.trim(), // Mantener como ruc en minúscula
       nombre: proveedorData.nombre.trim(),
       tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
