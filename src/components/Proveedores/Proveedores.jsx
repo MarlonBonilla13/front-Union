@@ -114,8 +114,11 @@ const Proveedores = () => {
   const handleClickOpen = () => {
     setEditando(false);
     setSelectedFile(null);
+    // Log para debugging
+    console.log('Inicializando nuevo proveedor');
+    
     setProveedor({
-      ruc: '',  // Mantener como ruc para la base de datos
+      ruc: '',
       nombre: '',
       contacto: '',
       telefono: '',
@@ -172,19 +175,30 @@ const Proveedores = () => {
 
   const handleSubmit = async () => {
     try {
+      // Validación local del NIT
+      if (!proveedor.ruc?.trim()) {
+        throw new Error('El NIT es requerido');
+      }
+
       let response;
+      // Log para debugging
+      console.log('Datos del proveedor antes de formatear:', proveedor);
+
       const datosActualizados = {
-        ruc: proveedor.ruc?.trim() || '', // Mantener como ruc para la base de datos
-        nombre: proveedor.nombre,
-        contacto: proveedor.contacto || '',
-        telefono: proveedor.telefono || '',
-        correo: proveedor.correo || '',
-        direccion: proveedor.direccion || '',
-        tipo_proveedor: proveedor.tipo_proveedor,
-        estado: proveedor.estado,
-        notas: proveedor.notas || '',
+        ruc: proveedor.ruc.trim(),  // Asegurarnos de que el RUC se envía
+        nombre: proveedor.nombre?.trim(),
+        contacto: proveedor.contacto?.trim() || '',
+        telefono: proveedor.telefono?.trim() || '',
+        correo: proveedor.correo?.trim() || '',
+        direccion: proveedor.direccion?.trim() || '',
+        tipo_proveedor: proveedor.tipo_proveedor?.trim(),
+        estado: proveedor.estado ?? true,
+        notas: proveedor.notas?.trim() || '',
         imagen_url: proveedor.imagen_url || ''
       };
+
+      // Log para debugging
+      console.log('Datos formateados a enviar:', datosActualizados);
 
       if (editando) {
         response = await proveedorService.updateProveedor(proveedor.id_proveedores, datosActualizados);
