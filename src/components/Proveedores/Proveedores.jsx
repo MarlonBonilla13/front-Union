@@ -25,6 +25,8 @@ const tiposProveedor = [
   'Otro'
 ];
 
+const API_URL = 'https://backend-union-production.up.railway.app';
+
 const Proveedores = () => {
   const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -318,6 +320,12 @@ const Proveedores = () => {
     }
   };
 
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    return `${API_URL}${imagePath}`;
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -432,17 +440,20 @@ const Proveedores = () => {
                     <TableCell>
                       {prov.imagen_url ? (
                         <Avatar 
-                          src={prov.imagen_url} 
+                          src={getImageUrl(prov.imagen_url)} 
                           alt={prov.nombre}
                           onError={(e) => {
                             console.error('Error al cargar avatar:', e);
                             e.target.src = '';
                           }}
+                          sx={{ width: 40, height: 40 }}
                         >
                           {prov.nombre.charAt(0)}
                         </Avatar>
                       ) : (
-                        <Avatar>{prov.nombre.charAt(0)}</Avatar>
+                        <Avatar sx={{ width: 40, height: 40, bgcolor: '#1976d2' }}>
+                          {prov.nombre.charAt(0)}
+                        </Avatar>
                       )}
                     </TableCell>
                     <TableCell>{prov.nombre}</TableCell>
@@ -489,13 +500,11 @@ const Proveedores = () => {
               {(selectedFile || proveedor.imagen_url) ? (
                 <Box
                   component="img"
-                  src={selectedFile ? URL.createObjectURL(selectedFile) : proveedor.imagen_url}
+                  src={selectedFile ? URL.createObjectURL(selectedFile) : getImageUrl(proveedor.imagen_url)}
                   alt={proveedor.nombre || 'Logo preview'}
                   onError={(e) => {
                     console.error('Error al cargar imagen:', e);
-                    e.target.src = ''; // Set empty src to show the fallback avatar
                     e.target.style.display = 'none';
-                    // You might want to show a fallback image or avatar here
                   }}
                   sx={{
                     width: 150,
@@ -635,7 +644,5 @@ const Proveedores = () => {
     </Box>
   );
 };
-
-
 
 export default Proveedores;
