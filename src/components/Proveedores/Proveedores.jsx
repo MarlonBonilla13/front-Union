@@ -7,6 +7,8 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import InputAdornment from '@mui/material/InputAdornment';
+// Remove this duplicate import
+// import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -109,7 +111,7 @@ const Proveedores = () => {
     setEditando(false);
     setSelectedFile(null);
     setProveedor({
-      nit: '',
+      ruc: '', // Changed from nit to ruc to match the data model
       nombre: '',
       contacto: '',
       telefono: '',
@@ -424,7 +426,53 @@ const Proveedores = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {getFilteredProveedores().map((prov) => (<TableRow key={prov.id_proveedores}><TableCell>{prov.ruc || 'N/A'}</TableCell><TableCell>{prov.imagen_url ? (<Avatar src={prov.imagen_url} alt={prov.nombre} />) : (<Avatar>{prov.nombre.charAt(0)}</Avatar>)}</TableCell><TableCell>{prov.nombre}</TableCell><TableCell>{prov.contacto}</TableCell><TableCell>{prov.telefono}</TableCell><TableCell>{prov.correo}</TableCell><TableCell>{prov.tipo_proveedor}</TableCell><TableCell><Chip label={prov.estado ? "Activo" : "Inactivo"} color={prov.estado ? "success" : "error"} size="small" /></TableCell><TableCell><IconButton size="small" onClick={() => handleEdit(prov)} sx={{ color: '#1976d2' }}><EditIcon /></IconButton>{prov.estado ? (<IconButton size="small" onClick={() => handleDelete(prov.id_proveedores)} sx={{ color: '#d32f2f' }}><DeleteIcon /></IconButton>) : (<IconButton size="small" onClick={() => handleReactivate(prov.id_proveedores)} sx={{ color: '#2e7d32' }}><RestoreIcon /></IconButton>)}</TableCell></TableRow>))}
+                {getFilteredProveedores().map((prov) => (
+                  <TableRow key={prov.id_proveedores}>
+                    <TableCell>{prov.ruc || 'N/A'}</TableCell>
+                    <TableCell>
+                      {prov.imagen_url ? (
+                        <Avatar 
+                          src={prov.imagen_url} 
+                          alt={prov.nombre}
+                          onError={(e) => {
+                            console.error('Error al cargar avatar:', e);
+                            e.target.src = '';
+                          }}
+                        >
+                          {prov.nombre.charAt(0)}
+                        </Avatar>
+                      ) : (
+                        <Avatar>{prov.nombre.charAt(0)}</Avatar>
+                      )}
+                    </TableCell>
+                    <TableCell>{prov.nombre}</TableCell>
+                    <TableCell>{prov.contacto}</TableCell>
+                    <TableCell>{prov.telefono}</TableCell>
+                    <TableCell>{prov.correo}</TableCell>
+                    <TableCell>{prov.tipo_proveedor}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={prov.estado ? "Activo" : "Inactivo"} 
+                        color={prov.estado ? "success" : "error"} 
+                        size="small" 
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton size="small" onClick={() => handleEdit(prov)} sx={{ color: '#1976d2' }}>
+                        <EditIcon />
+                      </IconButton>
+                      {prov.estado ? (
+                        <IconButton size="small" onClick={() => handleDelete(prov.id_proveedores)} sx={{ color: '#d32f2f' }}>
+                          <DeleteIcon />
+                        </IconButton>
+                      ) : (
+                        <IconButton size="small" onClick={() => handleReactivate(prov.id_proveedores)} sx={{ color: '#2e7d32' }}>
+                          <RestoreIcon />
+                        </IconButton>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -444,8 +492,10 @@ const Proveedores = () => {
                   src={selectedFile ? URL.createObjectURL(selectedFile) : proveedor.imagen_url}
                   alt={proveedor.nombre || 'Logo preview'}
                   onError={(e) => {
-                    console.error('Error al cargar imagen en preview:', e);
+                    console.error('Error al cargar imagen:', e);
+                    e.target.src = ''; // Set empty src to show the fallback avatar
                     e.target.style.display = 'none';
+                    // You might want to show a fallback image or avatar here
                   }}
                   sx={{
                     width: 150,
@@ -585,6 +635,7 @@ const Proveedores = () => {
     </Box>
   );
 };
+
 
 
 export default Proveedores;
