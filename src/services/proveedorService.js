@@ -91,8 +91,9 @@ export const createProveedor = async (proveedorData) => {
     // Log para debugging de los datos recibidos
     console.log('Datos recibidos:', proveedorData);
 
+    // Crear objeto con solo los campos permitidos por el DTO
     const datosFormateados = {
-      RUC: proveedorData.ruc.trim(), // Usar RUC en mayúsculas como lo espera el backend
+      Ruc: String(proveedorData.ruc.trim()), // Asegurar que sea string y usar Ruc
       nombre: proveedorData.nombre.trim(),
       tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
@@ -100,9 +101,13 @@ export const createProveedor = async (proveedorData) => {
       correo: proveedorData.correo?.trim() || '',
       direccion: proveedorData.direccion?.trim() || '',
       estado: proveedorData.estado ?? true,
-      notas: proveedorData.notas?.trim() || '',
-      imagen_url: proveedorData.imagen_url || ''
+      notas: proveedorData.notas?.trim() || ''
     };
+
+    // Solo agregar imagen_url si existe
+    if (proveedorData.imagen_url) {
+      datosFormateados.imagen_url = proveedorData.imagen_url;
+    }
 
     // Log para debugging de los datos formateados
     console.log('Datos formateados a enviar:', datosFormateados);
