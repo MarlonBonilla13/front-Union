@@ -228,26 +228,10 @@ const Proveedores = () => {
       });
 
       if (result.isConfirmed) {
-        const proveedorActual = proveedores.find(p => p.id_proveedores === id);
-        if (!proveedorActual) {
-          throw new Error('Proveedor no encontrado');
-        }
-
-        // Asegurar que enviamos el campo como ruc
+        // Solo enviar el cambio de estado
         const datosActualizados = {
-          ruc: proveedorActual.ruc,  // Usar el campo ruc directamente
-          nombre: proveedorActual.nombre,
-          tipo_proveedor: proveedorActual.tipo_proveedor,
-          estado: false,
-          contacto: proveedorActual.contacto || '',
-          telefono: proveedorActual.telefono || '',
-          correo: proveedorActual.correo || '',
-          direccion: proveedorActual.direccion || '',
-          notas: proveedorActual.notas || '',
-          imagen_url: proveedorActual.imagen_url || null
+          estado: false
         };
-
-        console.log('Datos a enviar:', datosActualizados); // Para debugging
 
         await proveedorService.updateProveedor(id, datosActualizados);
         await fetchProveedores();
@@ -263,7 +247,7 @@ const Proveedores = () => {
       console.error('Error al desactivar proveedor:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Error al desactivar el proveedor. Por favor, verifique los datos e intente nuevamente.',
+        text: 'Error al desactivar el proveedor. Por favor, intente nuevamente.',
         icon: 'error'
       });
     }
@@ -283,26 +267,10 @@ const Proveedores = () => {
       });
 
       if (result.isConfirmed) {
-        const proveedorActual = proveedores.find(p => p.id_proveedores === id);
-        if (!proveedorActual) {
-          throw new Error('Proveedor no encontrado');
-        }
-
-        // Asegurar que enviamos el campo como ruc
+        // Solo enviar el cambio de estado
         const datosActualizados = {
-          ruc: proveedorActual.ruc,  // Usar el campo ruc directamente
-          nombre: proveedorActual.nombre,
-          tipo_proveedor: proveedorActual.tipo_proveedor,
-          estado: true,
-          contacto: proveedorActual.contacto || '',
-          telefono: proveedorActual.telefono || '',
-          correo: proveedorActual.correo || '',
-          direccion: proveedorActual.direccion || '',
-          notas: proveedorActual.notas || '',
-          imagen_url: proveedorActual.imagen_url || null
+          estado: true
         };
-
-        console.log('Datos a enviar:', datosActualizados); // Para debugging
 
         await proveedorService.updateProveedor(id, datosActualizados);
         await fetchProveedores();
@@ -318,7 +286,7 @@ const Proveedores = () => {
       console.error('Error al reactivar proveedor:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Error al reactivar el proveedor. Por favor, verifique los datos e intente nuevamente.',
+        text: 'Error al reactivar el proveedor. Por favor, intente nuevamente.',
         icon: 'error'
       });
     }
