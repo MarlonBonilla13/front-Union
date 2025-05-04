@@ -103,12 +103,22 @@ export const createProveedor = async (proveedorData) => {
 
 export const updateProveedor = async (id, proveedorData) => {
   try {
-    // Asegurarse de que los datos están en el formato correcto
-    const datosFormateados = {
-      ...proveedorData,
-      ruc: proveedorData.ruc?.trim() || '', // Cambiado de nit a ruc
-      nombre: proveedorData.nombre?.trim() || '',
+    // Si solo estamos actualizando el estado, enviamos solo ese campo
+    if (Object.keys(proveedorData).length === 1 && 'estado' in proveedorData) {
+      const response = await api.patch(`/proveedores/${id}`, {
+        estado: Boolean(proveedorData.estado)
+      });
       
+      if (!response.data) {
+        throw new Error('No se recibió respuesta del servidor');
+      }
+      return transformImageUrl(response.data);
+    }
+
+    // Para actualizaciones completas, formateamos todos los campos
+    const datosFormateados = {
+      ruc: proveedorData.ruc?.trim() || '',
+      nombre: proveedorData.nombre?.trim() || '',
       contacto: proveedorData.contacto?.trim() || '',
       telefono: proveedorData.telefono?.trim() || '',
       correo: proveedorData.correo?.trim() || '',
@@ -127,7 +137,7 @@ export const updateProveedor = async (id, proveedorData) => {
   } catch (error) {
     console.error(`Error al actualizar proveedor con ID ${id}:`, error);
     if (error.response?.status === 400) {
-      throw new Error('Error en el formato de los datos. Por favor, verifique que el NIT no esté duplicado y que todos los campos requeridos estén completos.');
+      throw new Error('Error al actualizar el proveedor. Por favor, intente nuevamente.');
     }
     throw new Error('No se pudo actualizar el proveedor. Por favor, intente nuevamente.');
   }
@@ -139,36 +149,6 @@ export const deleteProveedor = async (id) => {
     return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al eliminar proveedor con ID ${id}:`, error);
-    throw error;
-  }
-};
-
-export const reactivateProveedor = async (id) => {
-  try {
-    const response = await api.patch(`/proveedores/${id}`, {
-      estado: true
-    });
-    return transformImageUrl(response.data);
-  } catch (error) {
-    console.error(`Error al reactivar proveedor con ID ${id}:`, error);
-    throw error;
-  }
-};
-
-export const uploadProveedorLogo = async (proveedorId, imageFile) => {
-  try {
-    const formData = new FormData();
-    formData.append('file', imageFile);
-
-    const response = await api.post(`/proveedores/upload/${proveedorId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 30000,
-      responseType: 'json'
-    });
-    return response.data;
-  } catch (error) {
     throw error;
   }
 };
