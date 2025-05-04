@@ -25,7 +25,9 @@ const tiposProveedor = [
   'Otro'
 ];
 
-const API_URL = 'https://backend-union-production.up.railway.app';
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://backend-union-production.up.railway.app'
+  : 'http://localhost:4001';
 
 const Proveedores = () => {
   const [proveedores, setProveedores] = useState([]);
@@ -322,8 +324,17 @@ const Proveedores = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    if (imagePath.startsWith('http')) return imagePath;
-    return `${API_URL}${imagePath}`;
+    
+    // Si ya es una URL completa, asegurarse de que use HTTPS en producción
+    if (imagePath.startsWith('http')) {
+      if (process.env.NODE_ENV === 'production') {
+        return imagePath.replace('http://', 'https://');
+      }
+      return imagePath;
+    }
+
+    // Si es una ruta relativa, construir la URL completa
+    return `${API_URL}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
   if (loading) {
