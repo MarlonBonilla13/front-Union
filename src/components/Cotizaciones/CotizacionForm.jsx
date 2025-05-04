@@ -694,32 +694,31 @@ const CotizacionForm = ({ isNew = false }) => {
                               data-search={`${material.nombre} ${material.codigo || ''}`}
                             >
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                {material.imagen_url ? (
-                                  <Box
-                                    component="img"
-                                    src={`${API_IMAGE_URL}${material.imagen_url.split('/').pop()}`}
-                                    alt={material.nombre}
-                                    sx={{
-                                      width: 40,
-                                      height: 40,
-                                      objectFit: 'contain',
-                                      borderRadius: 1
+                                {material && material.imagen_url ? (
+                                  <img 
+                                    src={getMaterialImageUrl(material.imagen_url)}
+                                    alt={material ? material.nombre : 'Material'}
+                                    style={{ 
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'contain'
+                                    }}
+                                    onError={(e) => {
+                                      console.error('Error loading image:', e.target.src);
+                                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjOTA5MDkwIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6bTAtMTNhMiAyIDAgMTAwIDQgMiAyIDAgMDAwLTR6Ii8+PC9zdmc+';
+                                      e.target.onerror = null;
                                     }}
                                   />
                                 ) : (
-                                  <Box
-                                    sx={{
-                                      width: 40,
-                                      height: 40,
-                                      bgcolor: 'grey.200',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      borderRadius: 1,
-                                      fontSize: '0.75rem'
-                                    }}
-                                  >
-                                    No img
+                                  <Box sx={{ 
+                                    width: '100%', 
+                                    height: '100%', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    color: '#909090'
+                                  }}>
+                                    Sin imagen
                                   </Box>
                                 )}
                                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -969,7 +968,10 @@ export default CotizacionForm;
 
 
 const getMaterialImageUrl = (imagePath) => {
-  if (!imagePath) return null;
+  if (!imagePath) {
+    console.log('No image path provided');
+    return null;
+  }
   
   // If it's already an absolute URL
   if (imagePath.startsWith('http')) {
@@ -980,7 +982,7 @@ const getMaterialImageUrl = (imagePath) => {
   return `${API_IMAGE_URL}/uploads/materials/${imagePath}`;
 };
 
-// Use it in your component where you render material images
+// Modify the image rendering part
 <TableCell>
   <Box sx={{ 
     width: '50px', 
@@ -993,10 +995,10 @@ const getMaterialImageUrl = (imagePath) => {
     padding: '2px',
     backgroundColor: '#f5f5f5'
   }}>
-    {material.imagen_url ? (
+    {material && material.imagen_url ? (
       <img 
         src={getMaterialImageUrl(material.imagen_url)}
-        alt={`${material.nombre}`}
+        alt={material ? material.nombre : 'Material'}
         style={{ 
           width: '100%',
           height: '100%',
