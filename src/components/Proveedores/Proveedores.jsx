@@ -316,7 +316,7 @@ const Proveedores = () => {
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#1976d2' }}>
-                  <TableCell sx={{ color: 'white' }}>RUC</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Nit</TableCell>
                   <TableCell sx={{ color: 'white', width: 100 }}>Logo</TableCell>
                   <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
                   <TableCell sx={{ color: 'white' }}>Contacto</TableCell>

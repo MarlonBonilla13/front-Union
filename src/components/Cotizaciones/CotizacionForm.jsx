@@ -966,3 +966,59 @@ const CotizacionForm = ({ isNew = false }) => {
 };
 
 export default CotizacionForm;
+
+
+const getMaterialImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  
+  // Si la URL ya es absoluta
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+
+  // Construir la URL correcta para las imágenes de materiales
+  return `${API_IMAGE_URL}/uploads/materials/${imagePath}`;
+};
+
+// En la parte donde se renderiza la lista de materiales
+<TableCell>
+  <Box sx={{ 
+    width: '50px', 
+    height: '50px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    padding: '2px',
+    backgroundColor: '#f5f5f5'
+  }}>
+    {material.imagen_url ? (
+      <img 
+        src={getMaterialImageUrl(material.imagen_url)}
+        alt={`Imagen de ${material.nombre}`}
+        style={{ 
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain'
+        }}
+        onError={(e) => {
+          console.error('Error cargando imagen:', e.target.src);
+          e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjOTA5MDkwIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6bTAtMTNhMiAyIDAgMTAwIDQgMiAyIDAgMDAwLTR6Ii8+PC9zdmc+';
+          e.target.onerror = null;
+        }}
+      />
+    ) : (
+      <Box sx={{ 
+        width: '100%', 
+        height: '100%', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        color: '#909090'
+      }}>
+        Sin imagen
+      </Box>
+    )}
+  </Box>
+</TableCell>
