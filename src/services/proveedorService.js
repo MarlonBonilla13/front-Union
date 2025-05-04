@@ -88,31 +88,39 @@ export const createProveedor = async (proveedorData) => {
       throw new Error('El tipo de proveedor es requerido');
     }
 
-    // Crear objeto que coincida exactamente con el DTO
+    // Crear objeto que coincida con el formato exitoso de Postman
     const datosFormateados = {
-      Ruc: proveedorData.ruc.trim(), // Debe ser exactamente 'Ruc' como en el DTO
+      ruc: proveedorData.ruc.trim(), // Usar ruc en minúsculas como en Postman
       nombre: proveedorData.nombre.trim(),
       contacto: proveedorData.contacto?.trim() || '',
       telefono: proveedorData.telefono?.trim() || '',
       correo: proveedorData.correo?.trim() || '',
       direccion: proveedorData.direccion?.trim() || '',
       tipo_proveedor: proveedorData.tipo_proveedor.trim(),
-      estado: proveedorData.estado ?? true
+      estado: proveedorData.estado ?? true,
+      notas: proveedorData.notas?.trim() || ''
     };
-
-    // Solo agregar campos opcionales si tienen valor
-    if (proveedorData.notas?.trim()) {
-      datosFormateados.notas = proveedorData.notas.trim();
-    }
-    if (proveedorData.imagen_url?.trim()) {
-      datosFormateados.imagen_url = proveedorData.imagen_url.trim();
-    }
 
     // Log para debugging
     console.log('Datos a enviar:', datosFormateados);
 
+    // Primero crear el proveedor sin imagen
     const response = await api.post('/proveedores', datosFormateados);
-    return transformImageUrl(response.data);
+    const proveedorCreado = response.data;
+
+    // Si hay imagen seleccionada, subirla después de crear el proveedor
+    if (proveedorData.imagen_url) {
+      try {
+        const proveedorConImagen = await uploadProveedorImage(proveedorCreado.id_proveedores, proveedorData.imagen_url);
+        return transformImageUrl(proveedorConImagen);
+      } catch (errorImagen) {
+        console.error('Error al subir la imagen:', errorImagen);
+        // Retornamos el proveedor aunque haya fallado la subida de imagen
+        return transformImageUrl(proveedorCreado);
+      }
+    }
+
+    return transformImageUrl(proveedorCreado);
   } catch (error) {
     console.error('Error completo:', error);
     console.error('Datos que causaron el error:', error.config?.data);
