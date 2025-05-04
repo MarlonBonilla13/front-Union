@@ -88,8 +88,11 @@ export const createProveedor = async (proveedorData) => {
       throw new Error('El tipo de proveedor es requerido');
     }
 
+    // Log para debugging de los datos recibidos
+    console.log('Datos recibidos:', proveedorData);
+
     const datosFormateados = {
-      ruc: proveedorData.ruc.trim(), // Mantener como ruc en minúscula
+      Ruc: proveedorData.ruc.trim(), // Usar 'Ruc' como lo espera el DTO
       nombre: proveedorData.nombre.trim(),
       tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
@@ -101,13 +104,14 @@ export const createProveedor = async (proveedorData) => {
       imagen_url: proveedorData.imagen_url || ''
     };
 
-    // Log para debugging
+    // Log para debugging de los datos formateados
     console.log('Datos formateados a enviar:', datosFormateados);
 
     const response = await api.post('/proveedores', datosFormateados);
     return transformImageUrl(response.data);
   } catch (error) {
     console.error('Error al crear proveedor:', error);
+    console.error('Respuesta del servidor:', error.response?.data);
     
     // Si es un error de validación local
     if (error.message.includes('requerido')) {
