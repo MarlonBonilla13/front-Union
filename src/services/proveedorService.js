@@ -93,7 +93,8 @@ export const createProveedor = async (proveedorData) => {
 
     // Crear objeto con solo los campos permitidos por el DTO
     const datosFormateados = {
-      Ruc: String(proveedorData.ruc.trim()), // Asegurar que sea string y usar Ruc
+      ruc: proveedorData.ruc.trim(), // Enviar como ruc en minúscula
+      Ruc: proveedorData.ruc.trim(), // También enviar como Ruc por si acaso
       nombre: proveedorData.nombre.trim(),
       tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
@@ -104,26 +105,36 @@ export const createProveedor = async (proveedorData) => {
       notas: proveedorData.notas?.trim() || ''
     };
 
-    // Solo agregar imagen_url si existe
-    if (proveedorData.imagen_url) {
+    // Solo agregar imagen_url si existe y no es vacía
+    if (proveedorData.imagen_url && proveedorData.imagen_url.trim() !== '') {
       datosFormateados.imagen_url = proveedorData.imagen_url;
     }
 
     // Log para debugging de los datos formateados
     console.log('Datos formateados a enviar:', datosFormateados);
 
-    const response = await api.post('/proveedores', datosFormateados);
+    // Log de la URL y método
+    console.log('Enviando POST a:', api.defaults.baseURL + '/proveedores');
+
+    const response = await api.post('/proveedores', datosFormateados, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
     // Log para debugging de la respuesta
     console.log('Respuesta del servidor:', response.data);
 
     return transformImageUrl(response.data);
   } catch (error) {
-    console.error('Error al crear proveedor:', error);
+    // Log detallado del error
+    console.error('Error completo:', error);
     console.error('Detalles del error:', {
       mensaje: error.message,
       respuesta: error.response?.data,
-      estado: error.response?.status
+      estado: error.response?.status,
+      headers: error.response?.headers,
+      config: error.config
     });
     
     // Si es un error de validación local
@@ -146,7 +157,7 @@ export const createProveedor = async (proveedorData) => {
     }
     
     // Para otros errores
-    throw new Error('Error al crear el proveedor. Por favor, intente nuevamente.');
+    throw new Error(`Error al crear el proveedor: ${error.message}`);
   }
 };
 
