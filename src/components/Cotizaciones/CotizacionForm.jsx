@@ -42,7 +42,23 @@ const CotizacionForm = ({ isNew = false }) => {
   const [materiales, setMateriales] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [clienteSeleccionado, setClienteSeleccionado] = useState(null); // Add this line
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+
+  const getMaterialImageUrl = (imagePath) => {
+    if (!imagePath) {
+      console.log('No image path provided');
+      return null;
+    }
+    
+    // If it's already an absolute URL
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    // Construct URL for relative paths using the API_IMAGE_URL constant
+    return `${API_IMAGE_URL}/uploads/materials/${imagePath}`;
+  };
+
   const [formData, setFormData] = useState({
     clienteId: '',
     nombreComercial: '',
@@ -293,16 +309,17 @@ const CotizacionForm = ({ isNew = false }) => {
     const item = updatedItems[index];
     
     if (field === 'materialId') {
-      const material = materiales.find(m => m.id_material == value);
+      const material = materiales?.find(m => m.id_material == value);
       console.log('Material seleccionado:', material);
       if (material) {
         item.materialId = value;
-        item.precio = material.precio_unitario;
+        item.precio = material.precio_unitario || 0;
+        item.cantidad = item.cantidad || 1;
         item.subtotal = item.precio * item.cantidad;
       }
     } else if (field === 'cantidad') {
       item.cantidad = Math.max(1, parseInt(value) || 0);
-      item.subtotal = item.precio * item.cantidad;
+      item.subtotal = (item.precio || 0) * item.cantidad;
     }
     
     updatedItems[index] = item;
@@ -694,41 +711,43 @@ const CotizacionForm = ({ isNew = false }) => {
                               data-search={`${material.nombre} ${material.codigo || ''}`}
                             >
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                {material && material.imagen_url ? (
-                                  <img 
-                                    src={getMaterialImageUrl(material.imagen_url)}
-                                    alt={material ? material.nombre : 'Material'}
-                                    style={{ 
-                                      width: '100%',
-                                      height: '100%',
-                                      objectFit: 'contain'
-                                    }}
-                                    onError={(e) => {
-                                      console.error('Error loading image:', e.target.src);
-                                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjOTA5MDkwIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6bTAtMTNhMiAyIDAgMTAwIDQgMiAyIDAgMDAwLTR6Ii8+PC9zdmc+';
-                                      e.target.onerror = null;
-                                    }}
-                                  />
-                                ) : (
+                                {material && material.imagen_url && (
                                   <Box sx={{ 
-                                    width: '100%', 
-                                    height: '100%', 
+                                    width: '40px', 
+                                    height: '40px', 
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     justifyContent: 'center',
-                                    color: '#909090'
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    padding: '2px',
+                                    backgroundColor: '#f5f5f5'
                                   }}>
-                                    Sin imagen
+                                    <img 
+                                      src={getMaterialImageUrl(material.imagen_url)}
+                                      alt={material.nombre || 'Material'}
+                                      style={{ 
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'contain'
+                                      }}
+                                      onError={(e) => {
+                                        console.error('Error loading image:', e.target.src);
+                                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjOTA5MDkwIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6bTAtMTNhMiAyIDAgMTAwIDQgMiAyIDAgMDAwLTR6Ii8+PC9zdmc+';
+                                        e.target.onerror = null;
+                                      }}
+                                    />
                                   </Box>
                                 )}
                                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                                  <Typography>{material.nombre}</Typography>
-                                  <Typography 
-                                    variant="caption" 
-                                    sx={{ color: 'text.secondary', fontStyle: 'italic' }}
-                                  >
-                                    {material.codigo || 'Sin código'}
+                                  <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>
+                                    {material.nombre}
                                   </Typography>
+                                  {material.codigo && (
+                                    <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                                      Código: {material.codigo}
+                                    </Typography>
+                                  )}
                                 </Box>
                               </Box>
                             </MenuItem>
@@ -747,10 +766,10 @@ const CotizacionForm = ({ isNew = false }) => {
                     <TableCell>
                       {item.materialId ? 
                         (() => {
-                          const material = materiales.find(m => m.id_material == item.materialId);
+                          const material = materiales?.find(m => m.id_material == item.materialId);
                           return material ? 
                             <Typography 
-                              color={material.stock_actual >= item.cantidad ? 'success.main' : 'error.main'}
+                              color={material.stock_actual >= (item.cantidad || 0) ? 'success.main' : 'error.main'}
                               fontWeight={500}
                             >
                               {material.stock_actual || 0}
@@ -965,62 +984,3 @@ const CotizacionForm = ({ isNew = false }) => {
 };
 
 export default CotizacionForm;
-
-
-const getMaterialImageUrl = (imagePath) => {
-  if (!imagePath) {
-    console.log('No image path provided');
-    return null;
-  }
-  
-  // If it's already an absolute URL
-  if (imagePath.startsWith('http')) {
-    return imagePath;
-  }
-  
-  // Construct URL for relative paths using the API_IMAGE_URL constant
-  return `${API_IMAGE_URL}/uploads/materials/${imagePath}`;
-};
-
-// Modify the image rendering part
-<TableCell>
-  <Box sx={{ 
-    width: '50px', 
-    height: '50px', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    padding: '2px',
-    backgroundColor: '#f5f5f5'
-  }}>
-    {material && material.imagen_url ? (
-      <img 
-        src={getMaterialImageUrl(material.imagen_url)}
-        alt={material ? material.nombre : 'Material'}
-        style={{ 
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain'
-        }}
-        onError={(e) => {
-          console.error('Error loading image:', e.target.src);
-          e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjOTA5MDkwIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6bTAtMTNhMiAyIDAgMTAwIDQgMiAyIDAgMDAwLTR6Ii8+PC9zdmc+';
-          e.target.onerror = null;
-        }}
-      />
-    ) : (
-      <Box sx={{ 
-        width: '100%', 
-        height: '100%', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        color: '#909090'
-      }}>
-        Sin imagen
-      </Box>
-    )}
-  </Box>
-</TableCell>
