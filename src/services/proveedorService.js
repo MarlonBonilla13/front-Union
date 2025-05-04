@@ -115,31 +115,55 @@ export const updateProveedor = async (id, proveedorData) => {
       return transformImageUrl(response.data);
     }
 
-    // Para actualizaciones completas, formateamos todos los campos
-    const datosFormateados = {
-      ruc: proveedorData.ruc?.trim() || '',
-      nombre: proveedorData.nombre?.trim() || '',
+    // Para actualizaciones completas, validamos y formateamos los campos requeridos
+    if (!proveedorData.ruc?.trim()) {
+      throw new Error('El RUC es requerido');
+    }
+    if (!proveedorData.nombre?.trim()) {
+      throw new Error('El nombre es requerido');
+    }
+    if (!proveedorData.tipo_proveedor?.trim()) {
+      throw new Error('El tipo de proveedor es requerido');
+    }
+
+    // Construimos el objeto con los datos actualizados
+    const datosActualizados = {
+      ruc: proveedorData.ruc.trim(),
+      nombre: proveedorData.nombre.trim(),
+      tipo_proveedor: proveedorData.tipo_proveedor.trim(),
+      estado: proveedorData.estado ?? true,
+      // Campos opcionales
       contacto: proveedorData.contacto?.trim() || '',
       telefono: proveedorData.telefono?.trim() || '',
       correo: proveedorData.correo?.trim() || '',
       direccion: proveedorData.direccion?.trim() || '',
-      tipo_proveedor: proveedorData.tipo_proveedor?.trim() || '',
-      estado: Boolean(proveedorData.estado),
       notas: proveedorData.notas?.trim() || '',
-      imagen_url: proveedorData.imagen_url || ''
+      imagen_url: proveedorData.imagen_url || null
     };
 
-    const response = await api.patch(`/proveedores/${id}`, datosFormateados);
+    console.log('Datos a enviar al servidor:', datosActualizados);
+
+    const response = await api.patch(`/proveedores/${id}`, datosActualizados);
     if (!response.data) {
       throw new Error('No se recibió respuesta del servidor');
     }
     return transformImageUrl(response.data);
   } catch (error) {
     console.error(`Error al actualizar proveedor con ID ${id}:`, error);
-    if (error.response?.status === 400) {
-      throw new Error('Error al actualizar el proveedor. Por favor, intente nuevamente.');
+    
+    // Si es un error de validación personalizado, lo lanzamos directamente
+    if (error.message.includes('es requerido')) {
+      throw error;
     }
-    throw new Error('No se pudo actualizar el proveedor. Por favor, intente nuevamente.');
+    
+    // Si es un error 400 del servidor
+    if (error.response?.status === 400) {
+      const errorMessage = error.response.data?.message || 'Error al actualizar el proveedor';
+      throw new Error(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
+    }
+    
+    // Para otros errores
+    throw new Error('Error al actualizar el proveedor. Por favor, intente nuevamente.');
   }
 };
 
