@@ -78,7 +78,7 @@ export const getProveedorById = async (id) => {
 export const createProveedor = async (proveedorData) => {
   try {
     // Validar campos requeridos
-    if (!proveedorData.nit?.trim()) {
+    if (!proveedorData.ruc?.trim()) {
       throw new Error('El NIT es requerido');
     }
     if (!proveedorData.nombre?.trim()) {
@@ -89,14 +89,14 @@ export const createProveedor = async (proveedorData) => {
     }
 
     const datosFormateados = {
-      ruc: proveedorData.nit.trim(), // Convertimos NIT a RUC para el backend
+      Ruc: proveedorData.ruc.trim(), // Cambiado a Ruc con mayúscula para coincidir con el DTO
       nombre: proveedorData.nombre.trim(),
       tipo_proveedor: proveedorData.tipo_proveedor.trim(),
       contacto: proveedorData.contacto?.trim() || '',
       telefono: proveedorData.telefono?.trim() || '',
       correo: proveedorData.correo?.trim() || '',
       direccion: proveedorData.direccion?.trim() || '',
-      estado: proveedorData.estado ?? true, // Por defecto activo si no se especifica
+      estado: proveedorData.estado ?? true,
       notas: proveedorData.notas?.trim() || '',
       imagen_url: proveedorData.imagen_url || ''
     };
