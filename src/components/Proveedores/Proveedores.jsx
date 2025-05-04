@@ -38,7 +38,7 @@ const Proveedores = () => {
   const [tabValue, setTabValue] = useState('ACTIVOS');
   const [searchTerm, setSearchTerm] = useState('');
   const [proveedor, setProveedor] = useState({
-    ruc: '', // Using ruc internally
+    ruc: '',  // Mantener como ruc para consistencia con el backend
     nombre: '',
     contacto: '',
     telefono: '',
@@ -115,7 +115,7 @@ const Proveedores = () => {
     setEditando(false);
     setSelectedFile(null);
     setProveedor({
-      ruc: '', // Changed from nit to ruc to match the data model
+      ruc: '',  // Mantener como ruc para consistencia con el backend
       nombre: '',
       contacto: '',
       telefono: '',
@@ -233,13 +233,12 @@ const Proveedores = () => {
           throw new Error('Proveedor no encontrado');
         }
 
-        // Asegurar que todos los campos requeridos estén presentes
+        // Asegurar que enviamos el campo como ruc
         const datosActualizados = {
-          ruc: proveedorActual.ruc || '',
-          nombre: proveedorActual.nombre || '',
-          tipo_proveedor: proveedorActual.tipo_proveedor || '',
+          ruc: proveedorActual.ruc,  // Usar el campo ruc directamente
+          nombre: proveedorActual.nombre,
+          tipo_proveedor: proveedorActual.tipo_proveedor,
           estado: false,
-          // Campos opcionales con valores por defecto
           contacto: proveedorActual.contacto || '',
           telefono: proveedorActual.telefono || '',
           correo: proveedorActual.correo || '',
@@ -247,6 +246,8 @@ const Proveedores = () => {
           notas: proveedorActual.notas || '',
           imagen_url: proveedorActual.imagen_url || null
         };
+
+        console.log('Datos a enviar:', datosActualizados); // Para debugging
 
         await proveedorService.updateProveedor(id, datosActualizados);
         await fetchProveedores();
@@ -262,7 +263,7 @@ const Proveedores = () => {
       console.error('Error al desactivar proveedor:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Error al desactivar el proveedor. Verifique que todos los campos requeridos estén completos.',
+        text: 'Error al desactivar el proveedor. Por favor, verifique los datos e intente nuevamente.',
         icon: 'error'
       });
     }
@@ -287,13 +288,12 @@ const Proveedores = () => {
           throw new Error('Proveedor no encontrado');
         }
 
-        // Asegurar que todos los campos requeridos estén presentes
+        // Asegurar que enviamos el campo como ruc
         const datosActualizados = {
-          ruc: proveedorActual.ruc || '',
-          nombre: proveedorActual.nombre || '',
-          tipo_proveedor: proveedorActual.tipo_proveedor || '',
+          ruc: proveedorActual.ruc,  // Usar el campo ruc directamente
+          nombre: proveedorActual.nombre,
+          tipo_proveedor: proveedorActual.tipo_proveedor,
           estado: true,
-          // Campos opcionales con valores por defecto
           contacto: proveedorActual.contacto || '',
           telefono: proveedorActual.telefono || '',
           correo: proveedorActual.correo || '',
@@ -301,6 +301,8 @@ const Proveedores = () => {
           notas: proveedorActual.notas || '',
           imagen_url: proveedorActual.imagen_url || null
         };
+
+        console.log('Datos a enviar:', datosActualizados); // Para debugging
 
         await proveedorService.updateProveedor(id, datosActualizados);
         await fetchProveedores();
@@ -316,7 +318,7 @@ const Proveedores = () => {
       console.error('Error al reactivar proveedor:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Error al reactivar el proveedor. Verifique que todos los campos requeridos estén completos.',
+        text: 'Error al reactivar el proveedor. Por favor, verifique los datos e intente nuevamente.',
         icon: 'error'
       });
     }
@@ -559,9 +561,9 @@ const Proveedores = () => {
             </Box>
 
             <TextField
-              name="ruc" // Cambiado de nit a ruc
-              label="NIT" // Mantener NIT en la etiqueta
-              value={proveedor.ruc || ''} // Cambiado de nit a ruc
+              name="ruc"
+              label="NIT"
+              value={proveedor.ruc || ''}
               onChange={handleChange}
               fullWidth
               required
