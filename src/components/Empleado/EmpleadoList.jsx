@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -11,12 +11,15 @@ import {
   TableRow,
   IconButton,
   Button,
-  Chip
+  Chip,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
 import { getEmpleados, deleteEmpleado } from '../../services/empleadoService';
 import Swal from 'sweetalert2';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -27,6 +30,7 @@ const EmpleadoList = () => {
   const navigate = useNavigate();
   const [empleados, setEmpleados] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState('activos');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadEmpleados = async () => {
     try {
@@ -86,12 +90,6 @@ const EmpleadoList = () => {
     }
   };
 
-  const handleFiltroChange = (event, nuevoFiltro) => {
-    if (nuevoFiltro !== null) {
-      setFiltroEstado(nuevoFiltro);
-    }
-  };
-
   const handleToggleEstado = async (id, nuevoEstado) => {
     try {
       const mensaje = nuevoEstado ? 'activar' : 'desactivar';
@@ -125,11 +123,25 @@ const EmpleadoList = () => {
     }
   };
 
-  const empleadosFiltrados = empleados.filter(emp => 
-    filtroEstado === 'todos' ? true : 
-    filtroEstado === 'activos' ? emp.estado : 
-    !emp.estado
-  );
+  const empleadosFiltrados = useMemo(() => {
+    return empleados.filter(emp => {
+      const matchEstado = 
+        filtroEstado === 'todos' ? true : 
+        filtroEstado === 'activos' ? emp.estado : 
+        !emp.estado;
+  
+      if (!matchEstado) return false;
+  
+      if (!searchTerm) return true;
+  
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        (emp.codigo_empleado?.toLowerCase() || '').includes(searchLower) ||
+        (emp.nombre?.toLowerCase() || '').includes(searchLower) ||
+        (emp.departamento?.toLowerCase() || '').includes(searchLower)
+      );
+    });
+  }, [empleados, filtroEstado, searchTerm]);
 
   useEffect(() => {
     loadEmpleados();
@@ -137,7 +149,7 @@ const EmpleadoList = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 600, color: '#1976d2' }}>
           Lista de Empleados
         </Typography>
@@ -150,23 +162,55 @@ const EmpleadoList = () => {
         </Button>
       </Box>
 
-      <Box sx={{ mb: 3 }}>
-        <ToggleButtonGroup
-          value={filtroEstado}
-          exclusive
-          onChange={handleFiltroChange}
-          aria-label="filtro de estado"
-        >
-          <ToggleButton value="activos">
-            Activos
-          </ToggleButton>
-          <ToggleButton value="inactivos">
-            Inactivos
-          </ToggleButton>
-          <ToggleButton value="todos">
-            Todos
-          </ToggleButton>
-        </ToggleButtonGroup>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Buscar por código, nombre o departamento..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="primary" />
+              </InputAdornment>
+            )
+          }}
+          sx={{ 
+            backgroundColor: 'white',
+            minWidth: '300px',
+            '& .MuiOutlinedInput-root': {
+              '&:hover fieldset': {
+                borderColor: 'primary.main',
+              },
+            },
+            boxShadow: 1,
+            borderRadius: 1
+          }}
+        />
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant={filtroEstado === 'activos' ? 'contained' : 'outlined'}
+            onClick={() => setFiltroEstado('activos')}
+            size="small"
+          >
+            ACTIVOS
+          </Button>
+          <Button
+            variant={filtroEstado === 'inactivos' ? 'contained' : 'outlined'}
+            onClick={() => setFiltroEstado('inactivos')}
+            size="small"
+          >
+            INACTIVOS
+          </Button>
+          <Button
+            variant={filtroEstado === 'todos' ? 'contained' : 'outlined'}
+            onClick={() => setFiltroEstado('todos')}
+            size="small"
+          >
+            TODOS
+          </Button>
+        </Box>
       </Box>
 
       <TableContainer component={Paper}>

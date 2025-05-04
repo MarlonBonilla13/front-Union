@@ -5,6 +5,8 @@ import {
   DialogContent, DialogActions, TextField, FormControlLabel, Switch,
   MenuItem, Chip, Avatar, Input, CircularProgress, Tabs, Tab, Card, CardContent
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import InputAdornment from '@mui/material/InputAdornment';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -28,8 +30,9 @@ const Proveedores = () => {
   const [editando, setEditando] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [tabValue, setTabValue] = useState('ACTIVOS');
+  const [searchTerm, setSearchTerm] = useState('');
   const [proveedor, setProveedor] = useState({
-    ruc: '',
+    ruc: '', // Using ruc internally
     nombre: '',
     contacto: '',
     telefono: '',
@@ -50,22 +53,46 @@ const Proveedores = () => {
   };
 
   const getFilteredProveedores = () => {
+    let filtered = proveedores;
+    
+    // Filter by status (active/inactive)
     switch (tabValue) {
       case 'ACTIVOS':
-        return proveedores.filter(p => p.estado);
+        filtered = filtered.filter(p => p.estado);
+        break;
       case 'INACTIVOS':
-        return proveedores.filter(p => !p.estado);
-      default:
-        return proveedores;
+        filtered = filtered.filter(p => !p.estado);
+        break;
     }
+
+    // Apply search filter if there's a search term
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(proveedor => 
+        (proveedor.ruc?.toLowerCase() || '').includes(searchLower) ||
+        (proveedor.nombre?.toLowerCase() || '').includes(searchLower) ||
+        (proveedor.contacto?.toLowerCase() || '').includes(searchLower)
+      );
+    }
+
+    return filtered;
+  };
+
+  // Add a data transformation function
+  const transformProveedorData = (data) => {
+    return {
+      ...data,
+      nit: data.ruc // Map RUC to NIT for display
+    };
   };
 
   const fetchProveedores = async () => {
     try {
       setLoading(true);
       const data = await proveedorService.getProveedores();
-      console.log('Proveedores cargados:', data);
-      setProveedores(data);
+      // Transform the data to include NIT
+      const transformedData = data.map(p => transformProveedorData(p));
+      setProveedores(transformedData);
     } catch (error) {
       console.error('Error al cargar proveedores:', error);
       Swal.fire({
@@ -82,7 +109,7 @@ const Proveedores = () => {
     setEditando(false);
     setSelectedFile(null);
     setProveedor({
-      ruc: '',
+      nit: '',
       nombre: '',
       contacto: '',
       telefono: '',
@@ -140,10 +167,23 @@ const Proveedores = () => {
   const handleSubmit = async () => {
     try {
       let response;
+      const datosActualizados = {
+        ruc: proveedor.ruc || '',
+        nombre: proveedor.nombre,
+        contacto: proveedor.contacto || '',
+        telefono: proveedor.telefono || '',
+        correo: proveedor.correo || '',
+        direccion: proveedor.direccion || '',
+        tipo_proveedor: proveedor.tipo_proveedor,
+        estado: proveedor.estado,
+        notas: proveedor.notas || '',
+        imagen_url: proveedor.imagen_url || ''
+      };
+
       if (editando) {
-        response = await proveedorService.updateProveedor(proveedor.id_proveedores, proveedor);
+        response = await proveedorService.updateProveedor(proveedor.id_proveedores, datosActualizados);
       } else {
-        response = await proveedorService.createProveedor(proveedor);
+        response = await proveedorService.createProveedor(datosActualizados);
       }
 
       if (selectedFile) {
@@ -159,9 +199,10 @@ const Proveedores = () => {
         icon: 'success'
       });
     } catch (error) {
+      console.error('Error al procesar la operación:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Hubo un error al procesar la operación',
+        text: 'Hubo un error al procesar la operación. Por favor, verifique que el NIT no esté duplicado y que todos los campos requeridos estén completos.',
         icon: 'error'
       });
     }
@@ -181,11 +222,30 @@ const Proveedores = () => {
       });
 
       if (result.isConfirmed) {
-        await proveedorService.updateProveedor(id, {
-          estado: false
-        });
-        
+        // Primero obtener el proveedor actual
+        const proveedorActual = proveedores.find(p => p.id_proveedores === id);
+        if (!proveedorActual) {
+          throw new Error('Proveedor no encontrado');
+        }
+
+        // Asegurarse de que todos los campos requeridos estén presentes
+        const datosActualizados = {
+          ruc: proveedorActual.ruc,
+          nombre: proveedorActual.nombre,
+          contacto: proveedorActual.contacto || '',
+          telefono: proveedorActual.telefono || '',
+          correo: proveedorActual.correo || '',
+          direccion: proveedorActual.direccion || '',
+          tipo_proveedor: proveedorActual.tipo_proveedor,
+          estado: false,
+          notas: proveedorActual.notas || '',
+          imagen_url: proveedorActual.imagen_url || ''
+        };
+
+        await proveedorService.updateProveedor(id, datosActualizados);
         await fetchProveedores();
+        setTabValue('INACTIVOS');
+        
         Swal.fire({
           title: 'Desactivado',
           text: 'El proveedor ha sido desactivado',
@@ -216,11 +276,30 @@ const Proveedores = () => {
       });
 
       if (result.isConfirmed) {
-        await proveedorService.updateProveedor(id, {
-          estado: true
-        });
-        
+        // Primero obtener el proveedor actual
+        const proveedorActual = proveedores.find(p => p.id_proveedores === id);
+        if (!proveedorActual) {
+          throw new Error('Proveedor no encontrado');
+        }
+
+        // Asegurarse de que todos los campos requeridos estén presentes
+        const datosActualizados = {
+          ruc: proveedorActual.ruc,
+          nombre: proveedorActual.nombre,
+          contacto: proveedorActual.contacto || '',
+          telefono: proveedorActual.telefono || '',
+          correo: proveedorActual.correo || '',
+          direccion: proveedorActual.direccion || '',
+          tipo_proveedor: proveedorActual.tipo_proveedor,
+          estado: true,
+          notas: proveedorActual.notas || '',
+          imagen_url: proveedorActual.imagen_url || ''
+        };
+
+        await proveedorService.updateProveedor(id, datosActualizados);
         await fetchProveedores();
+        setTabValue('ACTIVOS');
+        
         Swal.fire({
           title: 'Reactivado',
           text: 'El proveedor ha sido reactivado',
@@ -269,6 +348,23 @@ const Proveedores = () => {
             </Button>
           </Box>
 
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Buscar por NIT, nombre o contacto..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            sx={{ mb: 2 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+
           <Box sx={{ mb: 2 }}>
             <Tabs
               value={tabValue}
@@ -316,7 +412,7 @@ const Proveedores = () => {
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#1976d2' }}>
-                  <TableCell sx={{ color: 'white' }}>Nit</TableCell>
+                  <TableCell sx={{ color: 'white' }}>NIT</TableCell>
                   <TableCell sx={{ color: 'white', width: 100 }}>Logo</TableCell>
                   <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
                   <TableCell sx={{ color: 'white' }}>Contacto</TableCell>
@@ -328,81 +424,7 @@ const Proveedores = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {getFilteredProveedores().map((prov) => (
-                  <TableRow key={prov.id_proveedores}>
-                    <TableCell>{prov.ruc}</TableCell>
-                    <TableCell>
-                      {prov.imagen_url ? (
-                        <Box
-                          component="img"
-                          src={prov.imagen_url}
-                          alt={prov.nombre}
-                          onError={(e) => {
-                            console.error('Error al cargar imagen:', prov.imagen_url);
-                            e.target.src = '';
-                            e.target.alt = prov.nombre.charAt(0);
-                          }}
-                          sx={{
-                            width: 50,
-                            height: 50,
-                            objectFit: 'contain',
-                            borderRadius: 1,
-                            border: '1px solid #e0e0e0'
-                          }}
-                        />
-                      ) : (
-                        <Avatar
-                          sx={{
-                            width: 50,
-                            height: 50,
-                            bgcolor: '#1976d2'
-                          }}
-                          variant="rounded"
-                        >
-                          {prov.nombre.charAt(0)}
-                        </Avatar>
-                      )}
-                    </TableCell>
-                    <TableCell>{prov.nombre}</TableCell>
-                    <TableCell>{prov.contacto}</TableCell>
-                    <TableCell>{prov.telefono}</TableCell>
-                    <TableCell>{prov.correo}</TableCell>
-                    <TableCell>{prov.tipo_proveedor}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={prov.estado ? "Activo" : "Inactivo"}
-                        color={prov.estado ? "success" : "error"}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleEdit(prov)}
-                        sx={{ color: '#1976d2' }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      {prov.estado ? (
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleDelete(prov.id_proveedores)}
-                          sx={{ color: '#d32f2f' }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      ) : (
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleReactivate(prov.id_proveedores)}
-                          sx={{ color: '#2e7d32' }}
-                        >
-                          <RestoreIcon />
-                        </IconButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {getFilteredProveedores().map((prov) => (<TableRow key={prov.id_proveedores}><TableCell>{prov.ruc || 'N/A'}</TableCell><TableCell>{prov.imagen_url ? (<Avatar src={prov.imagen_url} alt={prov.nombre} />) : (<Avatar>{prov.nombre.charAt(0)}</Avatar>)}</TableCell><TableCell>{prov.nombre}</TableCell><TableCell>{prov.contacto}</TableCell><TableCell>{prov.telefono}</TableCell><TableCell>{prov.correo}</TableCell><TableCell>{prov.tipo_proveedor}</TableCell><TableCell><Chip label={prov.estado ? "Activo" : "Inactivo"} color={prov.estado ? "success" : "error"} size="small" /></TableCell><TableCell><IconButton size="small" onClick={() => handleEdit(prov)} sx={{ color: '#1976d2' }}><EditIcon /></IconButton>{prov.estado ? (<IconButton size="small" onClick={() => handleDelete(prov.id_proveedores)} sx={{ color: '#d32f2f' }}><DeleteIcon /></IconButton>) : (<IconButton size="small" onClick={() => handleReactivate(prov.id_proveedores)} sx={{ color: '#2e7d32' }}><RestoreIcon /></IconButton>)}</TableCell></TableRow>))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -467,12 +489,16 @@ const Proveedores = () => {
             </Box>
 
             <TextField
-              name="ruc"
-              label="RUC"
-              value={proveedor.ruc}
+              name="ruc" // Cambiado de nit a ruc
+              label="NIT" // Mantener NIT en la etiqueta
+              value={proveedor.ruc || ''} // Cambiado de nit a ruc
               onChange={handleChange}
               fullWidth
               required
+              margin="normal"
+              inputProps={{
+                maxLength: 20
+              }}
             />
             <TextField
               name="nombre"
@@ -559,5 +585,6 @@ const Proveedores = () => {
     </Box>
   );
 };
+
 
 export default Proveedores;

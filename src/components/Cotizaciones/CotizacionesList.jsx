@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -13,7 +13,11 @@ import {
   Typography,
   Chip,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
+  InputAdornment,
+  TextField,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
@@ -23,16 +27,17 @@ import AddIcon from '@mui/icons-material/Add';
 import Swal from 'sweetalert2';
 import RestoreIcon from '@mui/icons-material/Restore';
 import { getCotizaciones, deleteCotizacion, generatePDF, reactivateCotizacion } from '../../services/cotizacionService';
-// Remove this duplicate import
-// import { ToggleButtonGroup, ToggleButton } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 
 const CotizacionesList = () => {
   const navigate = useNavigate();
   const [cotizaciones, setCotizaciones] = useState([]);
-  // Change initial filter state to 'active'
-  const [filter, setFilter] = useState('active');
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tabValue, setTabValue] = useState('ACTIVAS');
+  // Eliminar esta línea:
+  // const [filter, setFilter] = useState('active');
 
-  // Add formatting functions
   const formatearFecha = (fecha) => {
     return new Date(fecha).toLocaleDateString('es-GT', {
       year: 'numeric',
@@ -48,12 +53,38 @@ const CotizacionesList = () => {
     }).format(valor);
   };
 
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  const filteredCotizaciones = useMemo(() => {
+    return cotizaciones.filter(cot => {
+      const searchLower = searchTerm.toLowerCase();
+      const clienteNombre = cot.cliente?.nombre?.toLowerCase() || '';
+      const clienteComercial = cot.cliente?.nombre_comercial?.toLowerCase() || '';
+      const id = cot.id_cotizacion?.toString() || '';
+      
+      const matchesSearch = 
+        clienteNombre.includes(searchLower) ||
+        clienteComercial.includes(searchLower) ||
+        id.includes(searchLower);
+
+      const matchesTab = 
+        (tabValue === 'ACTIVAS' && cot.estado) ||
+        (tabValue === 'INACTIVAS' && !cot.estado) ||
+        tabValue === 'TODAS';
+
+      return matchesSearch && matchesTab;
+    });
+  }, [cotizaciones, searchTerm, tabValue]);
+
   useEffect(() => {
-    cargarCotizaciones();
+    loadCotizaciones();
   }, []);
 
-  const cargarCotizaciones = async () => {
+  const loadCotizaciones = async () => {
     try {
+      setLoading(true);
       const data = await getCotizaciones();
       console.log('Cotizaciones cargadas con usuarios:', data);
       setCotizaciones(data);
@@ -64,6 +95,8 @@ const CotizacionesList = () => {
         text: 'No se pudieron cargar las cotizaciones',
         icon: 'error'
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,7 +115,7 @@ const CotizacionesList = () => {
     if (result.isConfirmed) {
       try {
         await deleteCotizacion(id);
-        await cargarCotizaciones();
+        await loadCotizaciones();
         Swal.fire('¡Desactivada!', 'La cotización ha sido desactivada.', 'success');
       } catch (error) {
         console.error('Error al desactivar:', error);
@@ -94,7 +127,7 @@ const CotizacionesList = () => {
   const handleReactivate = async (id) => {
     try {
       await reactivateCotizacion(id);
-      await cargarCotizaciones();
+      await loadCotizaciones();
       Swal.fire('¡Reactivada!', 'La cotización ha sido reactivada.', 'success');
     } catch (error) {
       console.error('Error al reactivar:', error);
@@ -104,7 +137,6 @@ const CotizacionesList = () => {
 
   const handleGeneratePDF = async (id) => {
     try {
-      // Mostrar indicador de carga
       Swal.fire({
         title: 'Generando PDF',
         text: 'Por favor espere...',
@@ -116,7 +148,6 @@ const CotizacionesList = () => {
 
       await generatePDF(id);
       
-      // Cerrar el indicador de carga y mostrar éxito
       Swal.fire({
         title: '¡PDF Generado!',
         text: 'El PDF se ha descargado correctamente',
@@ -134,19 +165,6 @@ const CotizacionesList = () => {
     }
   };
 
-  const filteredCotizaciones = cotizaciones
-    .sort((a, b) => {
-      // Sort active ones first
-      if (a.estado === 'activo' && b.estado !== 'activo') return -1;
-      if (a.estado !== 'activo' && b.estado === 'activo') return 1;
-      return 0;
-    })
-    .filter(cotizacion => {
-      if (filter === 'active') return cotizacion.estado === 'activo';
-      if (filter === 'inactive') return cotizacion.estado === 'inactivo';
-      return true; // 'all'
-    });
-
   return (
     <Box p={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -154,23 +172,6 @@ const CotizacionesList = () => {
           Cotizaciones
         </Typography>
         <Box display="flex" gap={2}>
-          <ToggleButtonGroup
-            value={filter}
-            exclusive
-            onChange={(e, newFilter) => setFilter(newFilter || filter)}
-            size="small"
-          >
-            
-            <ToggleButton value="active">
-              Activas
-            </ToggleButton>
-            <ToggleButton value="inactive">
-              Inactivas
-            </ToggleButton>
-            <ToggleButton value="all">
-              Todas
-            </ToggleButton>
-          </ToggleButtonGroup>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -180,6 +181,35 @@ const CotizacionesList = () => {
           </Button>
         </Box>
       </Box>
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Buscar por ID, cliente o nombre comercial..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            )
+          }}
+          size="small"
+          sx={{ backgroundColor: 'white', flex: 1 }}
+        />
+      </Box>
+
+      <Tabs
+        value={tabValue}
+        onChange={handleTabChange}
+        sx={{ mb: 2 }}
+      >
+        <Tab value="ACTIVAS" label="Activas" />
+        <Tab value="INACTIVAS" label="Inactivas" />
+        <Tab value="TODAS" label="Todas" />
+      </Tabs>
 
       <TableContainer component={Paper}>
         <Table>
@@ -206,30 +236,30 @@ const CotizacionesList = () => {
                 <TableCell>{formatearMoneda(cotizacion.total)}</TableCell>
                 <TableCell>
                   <Chip 
-                    label={cotizacion.estado} 
-                    color={cotizacion.estado === 'activo' ? 'success' : 'default'}
+                    label={cotizacion.estado ? 'Activa' : 'Inactiva'} 
+                    color={cotizacion.estado ? 'success' : 'error'}
                   />
                 </TableCell>
                 <TableCell>
-                  {cotizacion.estado === 'activo' ? (
+                  {cotizacion.estado ? (
                     <>
-                      <IconButton onClick={() => navigate(`/cotizaciones/editar/${cotizacion.id_cotizacion}`)}>
+                      <IconButton onClick={() => navigate(`/cotizaciones/editar/${cotizacion.id_cotizaciones}`)}>
                         <EditIcon />
                       </IconButton>
-                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizacion)}>
+                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizaciones)}>
                         <PictureAsPdfIcon />
                       </IconButton>
-                      <IconButton onClick={() => handleDelete(cotizacion.id_cotizacion)}>
+                      <IconButton onClick={() => handleDelete(cotizacion.id_cotizaciones)}>
                         <DeleteIcon />
                       </IconButton>
                     </>
                   ) : (
                     <>
-                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizacion)}>
+                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizaciones)}>
                         <PictureAsPdfIcon />
                       </IconButton>
                       <IconButton 
-                        onClick={() => handleReactivate(cotizacion.id_cotizacion)}
+                        onClick={() => handleReactivate(cotizacion.id_cotizaciones)}
                         color="primary"
                       >
                         <RestoreIcon />

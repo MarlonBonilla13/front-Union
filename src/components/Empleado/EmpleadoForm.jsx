@@ -29,6 +29,8 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { createEmpleado, getEmpleado, updateEmpleado, getEmpleados, deleteEmpleado } from '../../services/empleadoService';
 import Swal from 'sweetalert2';
+import SearchIcon from '@mui/icons-material/Search';
+import InputAdornment from '@mui/material/InputAdornment';
 
 const EmpleadoForm = () => {
   const { id } = useParams();
@@ -37,6 +39,7 @@ const EmpleadoForm = () => {
   const [empleados, setEmpleados] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState('activos');
   const [isEditMode, setIsEditMode] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Estado inicial del formulario
   const initialFormState = {
@@ -275,11 +278,20 @@ const EmpleadoForm = () => {
     }
   };
 
-  const empleadosFiltrados = empleados.filter(emp => 
-    filtroEstado === 'todos' ? true : 
-    filtroEstado === 'activos' ? emp.estado : 
-    !emp.estado
-  );
+  const empleadosFiltrados = empleados.filter(emp => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (emp.codigo_empleado?.toLowerCase() || '').includes(searchLower) ||
+      (emp.nombre?.toLowerCase() || '').includes(searchLower) ||
+      (emp.departamento?.toLowerCase() || '').includes(searchLower);
+
+    const matchesEstado = 
+      filtroEstado === 'todos' ? true : 
+      filtroEstado === 'activos' ? emp.estado : 
+      !emp.estado;
+
+    return matchesSearch && matchesEstado;
+  });
 
   // Asegurar que la fecha tenga un valor por defecto válido al cargar el componente
   useEffect(() => {
@@ -446,7 +458,23 @@ const EmpleadoForm = () => {
           Lista de Empleados
         </Typography>
 
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Buscar por código, nombre o departamento..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              )
+            }}
+            size="small"
+            sx={{ backgroundColor: 'white', flex: 1 }}
+          />
           <ToggleButtonGroup
             value={filtroEstado}
             exclusive
