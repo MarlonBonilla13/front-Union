@@ -323,7 +323,7 @@ const MaterialList = () => {
                   <TableCell>Descripción</TableCell>
                   <TableCell>Stock Actual</TableCell>
                   <TableCell>Stock Mínimo</TableCell>
-                  <TableCell>Estado Stock</TableCell> {/* New column */}
+                  <TableCell>Estado Stock</TableCell>
                   <TableCell>Unidad Medida</TableCell>
                   <TableCell>Precio Unitario</TableCell>
                   <TableCell>Estado</TableCell>
