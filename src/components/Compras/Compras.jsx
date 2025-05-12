@@ -17,13 +17,13 @@ import DetalleCompra from './DetalleCompra';
 import PagosCompra from './PagosCompra';
 
 const tiposPago = ['CONTADO', 'CREDITO'];
-const estadosCompra = ['NUEVO', 'USADO'];
+const estadosCompra = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
 
 const Compras = () => {
   const [compras, setCompras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);  // This is already defined
   const [selectedTab, setSelectedTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [proveedores, setProveedores] = useState([]);
@@ -36,7 +36,7 @@ const Compras = () => {
     fecha: new Date().toISOString().split('T')[0],
     numeroFactura: '',
     tipoPago: 'CONTADO',
-    estado: 'NUEVO',
+    estado: 'PENDIENTE', // Changed from 'NUEVO' to 'PENDIENTE'
     observaciones: '',
     total: 0
   });
@@ -45,6 +45,12 @@ const Compras = () => {
     const cargarDatos = async () => {
       try {
         setLoading(true);
+        // Check authentication first
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No está autenticado. Por favor, inicie sesión.');
+        }
+
         // Primero cargar los proveedores
         const proveedoresResponse = await proveedorService.getProveedores();
         console.log('Proveedores cargados:', proveedoresResponse);
@@ -59,11 +65,22 @@ const Compras = () => {
         
       } catch (error) {
         console.error('Error al cargar datos:', error);
-        Swal.fire({
-          title: 'Error',
-          text: 'No se pudieron cargar los datos',
-          icon: 'error'
-        });
+        if (error.response?.status === 401) {
+          Swal.fire({
+            title: 'Error de autenticación',
+            text: 'Su sesión ha expirado o no está autenticado. Por favor, inicie sesión nuevamente.',
+            icon: 'error'
+          }).then(() => {
+            // Redirect to login
+            window.location.href = '/login';
+          });
+        } else {
+          Swal.fire({
+            title: 'Error',
+            text: 'No se pudieron cargar los datos',
+            icon: 'error'
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -108,7 +125,7 @@ const Compras = () => {
       fecha: new Date().toISOString().split('T')[0],
       numeroFactura: '',
       tipoPago: 'CONTADO',
-      estado: 'NUEVO',
+      estado: 'PENDIENTE', // Changed from 'NUEVO' to 'PENDIENTE'
       observaciones: '',
       total: 0
     });
@@ -122,19 +139,38 @@ const Compras = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Verificar conexión con el servidor
+      const isConnected = await comprasService.checkServerConnection();
+      if (!isConnected) {
+        throw new Error('No se pudo conectar con el servidor');
+      }
+
       if (!compraForm.id_proveedor) {
         throw new Error('Debe seleccionar un proveedor');
       }
 
+      if (!detalles.length) {
+        throw new Error('Debe agregar al menos un detalle a la compra');
+      }
+
+      console.log('Detalles antes de enviar:', detalles);
+
       const compraData = {
-        ...compraForm,
-        id_proveedor: compraForm.id_proveedor, // Asegurarse de que se envíe el ID correcto
+        id_proveedor: parseInt(compraForm.id_proveedor),
+        fecha: compraForm.fecha,
+        numeroFactura: compraForm.numeroFactura,
+        tipoPago: compraForm.tipoPago,
+        estado: compraForm.estado,
+        observaciones: compraForm.observaciones || '',
         detalles: detalles.map(detalle => ({
           idMaterial: detalle.idMaterial,
           cantidad: detalle.cantidad,
           precioUnitario: detalle.precioUnitario,
           iva: detalle.iva,
-          descuento: detalle.descuento
+          descuento: detalle.descuento,
+          subtotal: detalle.subtotal,
+          ivaMonto: detalle.ivaMonto,
+          descuentoMonto: detalle.descuentoMonto
         }))
       };
 
@@ -144,7 +180,8 @@ const Compras = () => {
         await comprasService.updateCompra(compraForm.id, compraData);
         Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
       } else {
-        await comprasService.createCompra(compraData);
+        const response = await comprasService.createCompra(compraData);
+        console.log('Respuesta del servidor:', response);
         Swal.fire('Éxito', 'Compra creada correctamente', 'success');
       }
 
@@ -153,7 +190,8 @@ const Compras = () => {
       setCompras(updatedCompras);
     } catch (error) {
       console.error('Error al guardar compra:', error);
-      Swal.fire('Error', error.message || 'No se pudo guardar la compra', 'error');
+      const errorMessage = error.response?.data?.message || error.message || 'No se pudo guardar la compra';
+      Swal.fire('Error', errorMessage, 'error');
     }
   };
 
@@ -172,7 +210,8 @@ const Compras = () => {
 
       if (result.isConfirmed) {
         await comprasService.updateCompra(id, { estado: 'CANCELADA' });
-        await fetchCompras();
+        const updatedCompras = await comprasService.getCompras(); // Cambiado de fetchCompras a getCompras directamente
+        setCompras(updatedCompras);
         
         Swal.fire({
           title: 'Cancelada',
@@ -190,20 +229,106 @@ const Compras = () => {
     }
   };
 
-  const handleEdit = (compraToEdit) => {
+  const handleEdit = async (compraToEdit) => {
     setIsEditing(true);
-    setCompraForm(compraToEdit);
+    setCompraForm({
+      id: compraToEdit.id_compras,
+      id_proveedor: compraToEdit.id_proveedores?.toString() || '',
+      fecha: compraToEdit.fecha_compra ? new Date(compraToEdit.fecha_compra).toISOString().split('T')[0] : '',
+      numeroFactura: compraToEdit.numero_factura || '',
+      tipoPago: compraToEdit.tipo_pago || 'CONTADO',
+      estado: compraToEdit.estado?.nombre || compraToEdit.estado || 'PENDIENTE', // Cambiado de 'NUEVO' a 'PENDIENTE'
+      observaciones: compraToEdit.observaciones || '',
+      total: compraToEdit.total || 0
+    });
+
+    try {
+      // 1. Obtén todos los materiales
+      const materiales = await import('../../services/materialService').then(m => m.getMaterials());
+
+      // 2. Solicita los detalles al backend
+      const detallesResponse = await comprasService.getDetallesByCompraId(compraToEdit.id_compras);
+
+      // 3. Mapea los detalles incluyendo el objeto material completo
+      const detallesMapeados = detallesResponse.map(detalle => {
+        const materialObj = materiales.find(m => m.id_material === detalle.id_material) || {
+          nombre: 'Material no encontrado',
+          codigo: 'N/A',
+          imagen_url: ''
+        };
+        return {
+          idMaterial: detalle.id_material?.toString() || '',
+          cantidad: Number(detalle.cantidad) || 0,
+          precioUnitario: Number(detalle.precio_unitario) || 0,
+          iva: Number(detalle.iva) || 0,
+          descuento: Number(detalle.descuento) || 0,
+          subtotal: Number(detalle.subtotal) || 0,
+          ivaMonto: Number(detalle.iva_monto) || 0,
+          descuentoMonto: Number(detalle.descuento_monto) || 0,
+          total: (Number(detalle.subtotal) || 0) + (Number(detalle.iva_monto) || 0) - (Number(detalle.descuento_monto) || 0),
+          material: materialObj, // Pasa el objeto material completo
+          codigo: materialObj.codigo || 'N/A',
+          imagen: materialObj.imagen_url || '',
+          observaciones: detalle.observaciones || ''
+        };
+      });
+
+      setDetalles(detallesMapeados);
+    } catch (error) {
+      console.error('Error al cargar detalles de la compra:', error);
+      setDetalles([]);
+    }
+
     setOpenDialog(true);
   };
 
-  const handleViewDetails = (compra) => {
-    setSelectedCompra(compra);
-    setShowDetalle(true);
+  const handleViewDetails = async (compra) => {
+    try {
+      // Obtener los detalles de la compra
+      const detallesResponse = await comprasService.getDetallesByCompraId(compra.id_compras);
+      
+      // Obtener todos los materiales
+      const materiales = await import('../../services/materialService').then(m => m.getMaterials());
+      
+      // Mapear los detalles con la información completa del material
+      const detallesConMateriales = detallesResponse.map(detalle => {
+        const material = materiales.find(m => m.id_material === detalle.id_material) || {
+          nombre: 'Material no encontrado',
+          codigo: 'N/A'
+        };
+        return {
+          ...detalle,
+          material: material.nombre,
+          codigo: material.codigo
+        };
+      });
+      
+      // Actualizar la compra seleccionada con los detalles
+      setSelectedCompra({
+        ...compra,
+        detalles: detallesConMateriales
+      });
+      setShowDetalle(true);
+    } catch (error) {
+      console.error('Error al cargar los detalles:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudieron cargar los detalles de la compra',
+        icon: 'error'
+      });
+    }
   };
 
   const handleCloseDetails = () => {
     setSelectedCompra(null);
     setShowDetalle(false);
+  };
+
+  const validateCompra = (compraData) => {
+    if (!compraData.id_proveedor) throw new Error('Proveedor requerido');
+    if (!compraData.numeroFactura?.trim()) throw new Error('Número de factura requerido');
+    if (!compraData.fecha) throw new Error('Fecha requerida');
+    if (!compraData.detalles?.length) throw new Error('Debe incluir al menos un detalle');
   };
 
   if (loading) {
@@ -219,6 +344,8 @@ const Compras = () => {
       </Box>
     );
   }
+
+  console.log('loading:', loading, 'compras:', compras);
 
   return (
     <Box sx={{ p: 3, mt: 8 }}>
@@ -312,11 +439,13 @@ const Compras = () => {
                     <TableCell>{compra.numero_factura}</TableCell>
                     <TableCell>{compra.proveedor?.nombre}</TableCell>
                     <TableCell>{new Date(compra.fecha_compra).toLocaleDateString()}</TableCell>
-                    <TableCell>${compra.total.toFixed(2)}</TableCell>
+                    <TableCell>
+                      Q{parseFloat(compra.total || 0).toFixed(2)}
+                    </TableCell>
                     <TableCell>
                       <Chip 
-                        label={compra.estado} 
-                        color={compra.estado === 'CANCELADA' ? 'error' : 'success'} 
+                        label={compra.estado?.nombre || getEstadoNombre(compra.id_estado)} 
+                        color={getEstadoColor(compra.id_estado)}
                         size="small" 
                       />
                     </TableCell>
@@ -453,12 +582,12 @@ const Compras = () => {
       </Dialog>
 
       <Dialog open={showDetalle} onClose={handleCloseDetails} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{ backgroundColor: '#1976d2', color: 'white' }}>
+        <DialogTitle sx={{ backgroundColor: '#1976d2', color: 'white', mb: 3 }}>
           Detalles de la Compra
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           {selectedCompra && (
-            <Box>
+            <>
               <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)', mb: 3 }}>
                 <Typography variant="subtitle1">
                   <strong>N° Factura:</strong> {selectedCompra.numero_factura}
@@ -470,13 +599,13 @@ const Compras = () => {
                   <strong>Fecha:</strong> {new Date(selectedCompra.fecha_compra).toLocaleDateString()}
                 </Typography>
                 <Typography variant="subtitle1">
-                  <strong>Estado:</strong> {selectedCompra.estado}
+                  <strong>Estado:</strong> {selectedCompra.estado?.nombre || selectedCompra.estado}
                 </Typography>
                 <Typography variant="subtitle1">
                   <strong>Tipo de Pago:</strong> {selectedCompra.tipo_pago}
                 </Typography>
                 <Typography variant="subtitle1">
-                  <strong>Total:</strong> ${selectedCompra.total.toFixed(2)}
+                  <strong>Total:</strong> Q{parseFloat(selectedCompra?.total || 0).toFixed(2)}
                 </Typography>
                 {selectedCompra.observaciones && (
                   <Typography variant="subtitle1" sx={{ gridColumn: '1 / -1' }}>
@@ -485,45 +614,43 @@ const Compras = () => {
                 )}
               </Box>
 
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Materiales
-                </Typography>
-                <TableContainer component={Paper}>
-                  <Table>
-                    <TableHead>
-                      <TableRow sx={{ backgroundColor: '#1976d2' }}>
-                        <TableCell sx={{ color: 'white' }}>Material</TableCell>
-                        <TableCell sx={{ color: 'white' }}>Cantidad</TableCell>
-                        <TableCell sx={{ color: 'white' }}>Precio Unitario</TableCell>
-                        <TableCell sx={{ color: 'white' }}>Subtotal</TableCell>
-                        <TableCell sx={{ color: 'white' }}>IVA</TableCell>
-                        <TableCell sx={{ color: 'white' }}>Descuento</TableCell>
-                        <TableCell sx={{ color: 'white' }}>Total</TableCell>
+              <Typography variant="h6" sx={{ mb: 2 }}>Materiales</Typography>
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#1976d2' }}>
+                      <TableCell sx={{ color: 'white' }}>Material</TableCell>
+                      <TableCell sx={{ color: 'white' }}>Código</TableCell>
+                      <TableCell align="right" sx={{ color: 'white' }}>Cantidad</TableCell>
+                      <TableCell align="right" sx={{ color: 'white' }}>Precio Unitario</TableCell>
+                      <TableCell align="right" sx={{ color: 'white' }}>Subtotal</TableCell>
+                      <TableCell align="right" sx={{ color: 'white' }}>IVA</TableCell>
+                      <TableCell align="right" sx={{ color: 'white' }}>Descuento</TableCell>
+                      <TableCell align="right" sx={{ color: 'white' }}>Total</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedCompra.detalles?.map((detalle, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{detalle.material}</TableCell>
+                        <TableCell>{detalle.codigo}</TableCell>
+                        <TableCell align="right">{detalle.cantidad}</TableCell>
+                        <TableCell align="right">Q{parseFloat(detalle.precio_unitario || 0).toFixed(2)}</TableCell>
+                        <TableCell align="right">Q{parseFloat(detalle.subtotal || 0).toFixed(2)}</TableCell>
+                        <TableCell align="right">Q{parseFloat(detalle.iva_monto || 0).toFixed(2)}</TableCell>
+                        <TableCell align="right">Q{parseFloat(detalle.descuento_monto || 0).toFixed(2)}</TableCell>
+                        <TableCell align="right">Q{(parseFloat(detalle.subtotal || 0) + parseFloat(detalle.iva_monto || 0) - parseFloat(detalle.descuento_monto || 0)).toFixed(2)}</TableCell>
                       </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {selectedCompra.detalles?.map((detalle, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{detalle.material?.nombre}</TableCell>
-                          <TableCell>{detalle.cantidad}</TableCell>
-                          <TableCell>${detalle.precio_unitario.toFixed(2)}</TableCell>
-                          <TableCell>${detalle.subtotal.toFixed(2)}</TableCell>
-                          <TableCell>${detalle.iva_monto.toFixed(2)}</TableCell>
-                          <TableCell>${detalle.descuento_monto.toFixed(2)}</TableCell>
-                          <TableCell>${detalle.total.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
 
-              <PagosCompra
-                idCompra={selectedCompra.id_compras}
-                totalCompra={selectedCompra.total}
+              <PagosCompra 
+                idCompra={selectedCompra.id_compras} 
+                totalCompra={selectedCompra.total} 
               />
-            </Box>
+            </>
           )}
         </DialogContent>
         <DialogActions>
@@ -534,4 +661,33 @@ const Compras = () => {
   );
 };
 
-export default Compras; 
+export default Compras;
+const getEstadoNombre = (idEstado) => {
+  switch (idEstado) {
+    case 1:
+      return 'PENDIENTE';
+    case 2:
+      return 'APROBADO';
+    case 3:
+      return 'RECHAZADO';
+    case 4:
+      return 'ANULADO';
+    default:
+      return 'DESCONOCIDO';
+  }
+};
+
+const getEstadoColor = (idEstado) => {
+  switch (idEstado) {
+    case 1:
+      return 'warning'; // Pendiente
+    case 2:
+      return 'success'; // Aprobado
+    case 3:
+      return 'error'; // Rechazado
+    case 4:
+      return 'default'; // Anulado
+    default:
+      return 'default';
+  }
+};

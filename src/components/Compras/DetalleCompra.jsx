@@ -23,6 +23,8 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import * as materialService from '../../services/materialService';
+import Swal from 'sweetalert2';
+import * as comprasService from '../../services/comprasService';
 
 const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
   const [materiales, setMateriales] = useState([]);
@@ -35,67 +37,105 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
     precioUnitario: '',
     iva: 0,
     descuento: 0,
+    observaciones: '' // Agregar campo de observaciones al estado inicial
   });
 
   useEffect(() => {
     const fetchMateriales = async () => {
       try {
+        setLoading(true);
         const data = await materialService.getMaterials();
-        setMateriales(data);
-        setMaterialesDisponibles(data);
-        setLoading(false);
+        
+        // Transform the data to ensure proper structure
+        const transformedData = data.map(material => ({
+          ...material,
+          id_material: material.id_material.toString(),
+          imagen_url: material.imagen_url ? `http://localhost:4001/${material.imagen_url}` : null,
+          nombre: material.nombre || 'Sin nombre', // Ensure nombre exists
+          codigo: material.codigo || 'Sin código' // Ensure codigo exists
+        }));
+        
+        setMateriales(transformedData);
+        
+        // Filter out materials that are already in detalles
+        const materialesAgregadosIds = detalles.map(d => d.idMaterial?.toString());
+        const disponibles = transformedData.filter(m => !materialesAgregadosIds.includes(m.id_material));
+        setMaterialesDisponibles(disponibles);
       } catch (error) {
         console.error('Error al cargar materiales:', error);
+        Swal.fire('Error', 'Error al cargar los materiales', 'error');
+      } finally {
         setLoading(false);
       }
     };
 
     fetchMateriales();
-  }, []);
-
-  useEffect(() => {
-    // Actualizar materiales disponibles excluyendo los ya agregados
-    const materialesAgregadosIds = detalles.map(d => d.idMaterial);
-    const disponibles = materiales.filter(m => !materialesAgregadosIds.includes(m.id_material));
-    setMaterialesDisponibles(disponibles);
-  }, [detalles, materiales]);
+  }, [detalles]);
 
   const handleAddDetalle = () => {
-    if (!newDetalle.idMaterial || !newDetalle.cantidad || !newDetalle.precioUnitario) {
-      alert('Por favor complete todos los campos requeridos');
-      return;
+    try {
+      if (!newDetalle.idMaterial) {
+        throw new Error('Debe seleccionar un material');
+      }
+
+      if (!newDetalle.cantidad || newDetalle.cantidad <= 0) {
+        throw new Error('La cantidad debe ser mayor a 0');
+      }
+
+      if (!newDetalle.precioUnitario || newDetalle.precioUnitario <= 0) {
+        throw new Error('El precio unitario debe ser mayor a 0');
+      }
+
+      console.log('Formulario de detalle:', newDetalle);
+
+      const material = materiales.find(m => m.id_material.toString() === newDetalle.idMaterial.toString());
+      if (!material) {
+        throw new Error('Material no encontrado');
+      }
+
+      const subtotal = newDetalle.cantidad * newDetalle.precioUnitario;
+      const ivaMonto = (subtotal * (newDetalle.iva || 0)) / 100;
+      const descuentoMonto = (subtotal * (newDetalle.descuento || 0)) / 100;
+      const total = subtotal + ivaMonto - descuentoMonto;
+
+      console.log('Cálculos del detalle:', {
+        subtotal,
+        ivaMonto,
+        descuentoMonto,
+        total
+      });
+
+      const detalle = {
+        idCompra,
+        idMaterial: newDetalle.idMaterial,
+        material: material.nombre,
+        codigo: material.codigo,
+        imagen: material.imagen_url,
+        cantidad: parseFloat(newDetalle.cantidad),
+        precioUnitario: parseFloat(newDetalle.precioUnitario),
+        subtotal,
+        iva: parseFloat(newDetalle.iva || 0),
+        ivaMonto,
+        descuento: parseFloat(newDetalle.descuento || 0),
+        descuentoMonto,
+        total,
+        observaciones: newDetalle.observaciones || '' // Agregar campo de observaciones
+      };
+
+      console.log('Nuevo detalle creado:', detalle);
+
+      onDetallesChange([...detalles, detalle]);
+      setNewDetalle({
+        idMaterial: '',
+        cantidad: '',
+        precioUnitario: '',
+        iva: 0,
+        descuento: 0,
+      });
+    } catch (error) {
+      console.error('Error al agregar detalle:', error);
+      Swal.fire('Error', error.message, 'error');
     }
-
-    const material = materiales.find(m => m.id_material === newDetalle.idMaterial);
-    const subtotal = newDetalle.cantidad * newDetalle.precioUnitario;
-    const ivaMonto = subtotal * (newDetalle.iva / 100);
-    const descuentoMonto = subtotal * (newDetalle.descuento / 100);
-    const total = subtotal + ivaMonto - descuentoMonto;
-
-    const detalle = {
-      idCompra,
-      idMaterial: newDetalle.idMaterial,
-      material: material.nombre,
-      codigo: material.codigo,
-      imagen: material.imagen_url,
-      cantidad: newDetalle.cantidad,
-      precioUnitario: newDetalle.precioUnitario,
-      subtotal,
-      iva: newDetalle.iva,
-      ivaMonto,
-      descuento: newDetalle.descuento,
-      descuentoMonto,
-      total,
-    };
-
-    onDetallesChange([...detalles, detalle]);
-    setNewDetalle({
-      idMaterial: '',
-      cantidad: '',
-      precioUnitario: '',
-      iva: 0,
-      descuento: 0,
-    });
   };
 
   const handleRemoveDetalle = (index) => {
@@ -120,33 +160,29 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
     setSearchTerm(searchValue);
     
     const filtered = materiales.filter(material => 
-      material.nombre.toLowerCase().includes(searchValue) ||
-      material.codigo.toLowerCase().includes(searchValue)
+      String(material.nombre || '').toLowerCase().includes(searchValue) ||
+      String(material.codigo || '').toLowerCase().includes(searchValue)
     );
     setMaterialesDisponibles(filtered);
   };
 
   if (loading) {
-    return <Typography>Cargando materiales...</Typography>;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
+        <Typography component="span">Cargando materiales...</Typography>
+      </Box>
+    );
   }
 
   const totals = calculateTotals();
-
-  const MenuProps = {
-    PaperProps: {
-      style: {
-        maxHeight: 300,
-        width: 'auto',
-      },
-    },
-  };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
         <FormControl sx={{ minWidth: '300px', flex: 2 }}>
-          <InputLabel>Material</InputLabel>
+          <InputLabel id="material-select-label">Material</InputLabel>
           <Select
+            labelId="material-select-label"
             value={newDetalle.idMaterial}
             onChange={(e) => setNewDetalle({ ...newDetalle, idMaterial: e.target.value })}
             label="Material"
@@ -160,36 +196,22 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
               },
             }}
           >
-            <Box sx={{ p: 2, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Buscar material..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
-            {materialesDisponibles.map((material) => (
+            {Array.isArray(materialesDisponibles) && materialesDisponibles.map((material) => (
               <MenuItem key={material.id_material} value={material.id_material}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                  <Avatar
-                    src={material.imagen_url}
-                    alt={material.nombre}
-                    sx={{ width: 24, height: 24 }}
-                  />
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography noWrap={false} sx={{ wordBreak: 'break-word' }}>
-                      {material.nombre}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  {material.imagen_url && (
+                    <Avatar
+                      src={material.imagen_url}
+                      alt={String(material.nombre || '')}
+                      sx={{ width: 32, height: 32 }}
+                    />
+                  )}
+                  <Box>
+                    <Typography component="div" variant="body1">
+                      {String(material.nombre || '')}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                      {material.codigo}
+                    <Typography component="div" variant="caption" color="text.secondary">
+                      Código: {String(material.codigo || '')}
                     </Typography>
                   </Box>
                 </Box>
@@ -257,25 +279,27 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
               <TableRow key={index}>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar
-                      src={detalle.imagen}
-                      alt={detalle.material}
-                      sx={{ width: 24, height: 24 }}
-                    />
+                    {detalle.imagen && (
+                      <Avatar
+                        src={detalle.imagen}
+                        alt={String(detalle.material || '')}
+                        sx={{ width: 24, height: 24 }}
+                      />
+                    )}
                     <Box>
-                      <Typography>{detalle.material}</Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {detalle.codigo}
+                      <Typography component="div">{String(detalle.material || '')}</Typography>
+                      <Typography component="div" variant="caption" sx={{ color: 'text.secondary' }}>
+                        {String(detalle.codigo || '')}
                       </Typography>
                     </Box>
                   </Box>
                 </TableCell>
-                <TableCell align="right">{detalle.cantidad}</TableCell>
-                <TableCell align="right">{detalle.precioUnitario.toFixed(2)}</TableCell>
-                <TableCell align="right">{detalle.subtotal.toFixed(2)}</TableCell>
-                <TableCell align="right">{detalle.ivaMonto.toFixed(2)}</TableCell>
-                <TableCell align="right">{detalle.descuentoMonto.toFixed(2)}</TableCell>
-                <TableCell align="right">{detalle.total.toFixed(2)}</TableCell>
+                <TableCell align="right">{String(detalle.cantidad || '')}</TableCell>
+                <TableCell align="right">{(detalle.precioUnitario || 0).toFixed(2)}</TableCell>
+                <TableCell align="right">{(detalle.subtotal || 0).toFixed(2)}</TableCell>
+                <TableCell align="right">{(detalle.ivaMonto || 0).toFixed(2)}</TableCell>
+                <TableCell align="right">{(detalle.descuentoMonto || 0).toFixed(2)}</TableCell>
+                <TableCell align="right">{(detalle.total || 0).toFixed(2)}</TableCell>
                 <TableCell align="right">
                   <IconButton onClick={() => handleRemoveDetalle(index)}>
                     <DeleteIcon />
@@ -285,12 +309,12 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
             ))}
             <TableRow>
               <TableCell colSpan={3} align="right">
-                <strong>Totales</strong>
+                <Typography component="div"><strong>Totales</strong></Typography>
               </TableCell>
-              <TableCell align="right">{totals.subtotal.toFixed(2)}</TableCell>
-              <TableCell align="right">{totals.iva.toFixed(2)}</TableCell>
-              <TableCell align="right">{totals.descuento.toFixed(2)}</TableCell>
-              <TableCell align="right">{totals.total.toFixed(2)}</TableCell>
+              <TableCell align="right">{(totals.subtotal || 0).toFixed(2)}</TableCell>
+              <TableCell align="right">{(totals.iva || 0).toFixed(2)}</TableCell>
+              <TableCell align="right">{(totals.descuento || 0).toFixed(2)}</TableCell>
+              <TableCell align="right">{(totals.total || 0).toFixed(2)}</TableCell>
               <TableCell />
             </TableRow>
           </TableBody>
@@ -300,4 +324,4 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
   );
 };
 
-export default DetalleCompra; 
+export default DetalleCompra;

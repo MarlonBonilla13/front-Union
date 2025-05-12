@@ -21,16 +21,18 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
   const [editando, setEditando] = useState(false);
   const [pago, setPago] = useState({
     monto: 0,
-    fecha_pago: new Date().toISOString().split('T')[0],
     tipo_pago: '',
     numero_referencia: '',
     estado_pago: 'PENDIENTE',
     observaciones: '',
-    usuario_registro: localStorage.getItem('userId')
+    usuario_registro: parseInt(localStorage.getItem('userId')) || 1
   });
 
   useEffect(() => {
-    fetchPagos();
+    console.log('ID Compra recibido:', idCompra);
+    if (idCompra) {
+      fetchPagos();
+    }
   }, [idCompra]);
 
   const fetchPagos = async () => {
@@ -38,6 +40,38 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       setLoading(true);
       const data = await comprasService.getPagosCompra(idCompra);
       setPagos(data);
+
+      if (data && data.length > 0) {
+        const tieneCompletadoOCancelado = data.some(pago => 
+          pago.estado_pago === 'COMPLETADO' || 
+          pago.estado_pago === 'CANCELADO'
+        );
+        
+        if (tieneCompletadoOCancelado) {
+          try {
+            const compraActual = await comprasService.getCompraById(idCompra);
+            
+            if (compraActual && compraActual.id_estado === 1) {
+              await comprasService.updateCompra(idCompra, {
+                id_estado: 2,
+                estado: 'APROBADO',
+                fecha_actualizacion: new Date().toISOString()
+              });
+              
+              window.dispatchEvent(new CustomEvent('compraActualizada', { 
+                detail: { idCompra, nuevoEstado: 'APROBADO' } 
+              }));
+            }
+          } catch (error) {
+            console.error('Error al actualizar estado de la compra:', error);
+            console.log('Detalles del error:', {
+              mensaje: error.message,
+              respuesta: error.response?.data,
+              estado: error.response?.status
+            });
+          }
+        }
+      }
     } catch (error) {
       console.error('Error al cargar pagos:', error);
       Swal.fire({
@@ -54,12 +88,11 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
     setEditando(false);
     setPago({
       monto: 0,
-      fecha_pago: new Date().toISOString().split('T')[0],
       tipo_pago: '',
       numero_referencia: '',
       estado_pago: 'PENDIENTE',
       observaciones: '',
-      usuario_registro: localStorage.getItem('userId')
+      usuario_registro: parseInt(localStorage.getItem('userId')) || 1
     });
     setOpen(true);
   };
@@ -78,13 +111,47 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
 
   const handleSubmit = async () => {
     try {
+      const saldoPendiente = calcularSaldoPendiente();
+      
+      if (pago.estado_pago === 'COMPLETADO' || pago.estado_pago === 'CANCELADO') {
+        try {
+          // Usar getCompraById en lugar de getCompra
+          const compraActual = await comprasService.getCompraById(idCompra);
+          
+          if (compraActual.id_estado === 1) {
+            await comprasService.updateCompra(idCompra, {
+              id_estado: 2
+            });
+            
+            window.dispatchEvent(new CustomEvent('compraActualizada', { 
+              detail: { idCompra, nuevoEstado: 'APROBADO' } 
+            }));
+          }
+        } catch (error) {
+          console.error('Error al actualizar estado de la compra:', error);
+          throw new Error('No se pudo actualizar el estado de la compra');
+        }
+      }
+
       if (editando) {
         await comprasService.updatePagoCompra(pago.id_pago, pago);
       } else {
         await comprasService.createPagoCompra(idCompra, pago);
       }
+      
+      // Actualizar la lista de pagos inmediatamente después de crear/editar
       await fetchPagos();
       handleClose();
+      
+      // Limpiar el formulario
+      setPago({
+        monto: 0,
+        tipo_pago: '',
+        numero_referencia: '',
+        estado_pago: 'PENDIENTE',
+        observaciones: '',
+        usuario_registro: parseInt(localStorage.getItem('userId')) || 1
+      });
       
       Swal.fire({
         title: editando ? 'Pago Actualizado' : 'Pago Registrado',
@@ -99,7 +166,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
         icon: 'error'
       });
     }
-  };
+};
 
   const handleDelete = async (id) => {
     try {
@@ -141,11 +208,19 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
   };
 
   const calcularTotalPagado = () => {
-    return pagos.reduce((total, pago) => total + pago.monto, 0);
+    // Ensure pagos exists and is an array before reducing
+    if (!pagos || !Array.isArray(pagos)) {
+      return 0;
+    }
+    // Convert result to number explicitly
+    return Number(pagos.reduce((total, pago) => total + (Number(pago.monto) || 0), 0));
   };
 
   const calcularSaldoPendiente = () => {
-    return totalCompra - calcularTotalPagado();
+    // Convert totalCompra to number and ensure it's not NaN
+    const total = Number(totalCompra) || 0;
+    const pagado = calcularTotalPagado();
+    return total - pagado;
   };
 
   if (loading) {
@@ -172,13 +247,13 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
 
       <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
         <Typography variant="subtitle1">
-          Total Compra: ${totalCompra.toFixed(2)}
+          Total Compra: Q{parseFloat(totalCompra || 0).toFixed(2)}
         </Typography>
         <Typography variant="subtitle1">
-          Total Pagado: ${calcularTotalPagado().toFixed(2)}
+          Total Pagado: Q{calcularTotalPagado().toFixed(2)}
         </Typography>
         <Typography variant="subtitle1" sx={{ color: calcularSaldoPendiente() > 0 ? 'error.main' : 'success.main' }}>
-          Saldo Pendiente: ${calcularSaldoPendiente().toFixed(2)}
+          Saldo Pendiente: Q{calcularSaldoPendiente().toFixed(2)}
         </Typography>
       </Box>
 
@@ -198,7 +273,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
             {pagos.map((pago) => (
               <TableRow key={pago.id_pago}>
                 <TableCell>{new Date(pago.fecha_pago).toLocaleDateString()}</TableCell>
-                <TableCell>${pago.monto.toFixed(2)}</TableCell>
+                <TableCell>Q{Number(pago.monto).toFixed(2)}</TableCell>
                 <TableCell>{pago.tipo_pago}</TableCell>
                 <TableCell>{pago.numero_referencia}</TableCell>
                 <TableCell>
@@ -240,7 +315,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
               fullWidth
               required
               InputProps={{
-                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                startAdornment: <InputAdornment position="start">Q</InputAdornment>,
               }}
             />
 
@@ -319,4 +394,4 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
   );
 };
 
-export default PagosCompra; 
+export default PagosCompra;
