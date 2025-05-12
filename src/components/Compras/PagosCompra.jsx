@@ -40,7 +40,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       setLoading(true);
       const data = await comprasService.getPagosCompra(idCompra);
       setPagos(data);
-
+  
       if (data && data.length > 0) {
         const tieneCompletadoOCancelado = data.some(pago => 
           pago.estado_pago === 'COMPLETADO' || 
@@ -51,9 +51,8 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
           try {
             const compraActual = await comprasService.getCompraById(idCompra);
             
-            if (compraActual && compraActual.id_estado === 1) {
+            if (compraActual && compraActual.estado === 'PENDIENTE') {
               await comprasService.updateCompra(idCompra, {
-                id_estado: 2,
                 estado: 'APROBADO',
                 fecha_actualizacion: new Date().toISOString()
               });
@@ -64,11 +63,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
             }
           } catch (error) {
             console.error('Error al actualizar estado de la compra:', error);
-            console.log('Detalles del error:', {
-              mensaje: error.message,
-              respuesta: error.response?.data,
-              estado: error.response?.status
-            });
+            throw new Error('No se pudo actualizar el estado de la compra');
           }
         }
       }
@@ -167,6 +162,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       });
     }
 };
+
 
   const handleDelete = async (id) => {
     try {
@@ -393,5 +389,6 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
     </Box>
   );
 };
+  
 
 export default PagosCompra;
