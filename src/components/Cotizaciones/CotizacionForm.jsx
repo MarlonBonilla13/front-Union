@@ -31,6 +31,7 @@ import { API_IMAGE_URL } from '../../config/config';
 import Swal from 'sweetalert2';
 import CircularProgress from '@mui/material/CircularProgress';
 import { toast } from 'react-hot-toast';
+import api from '../../services/api'; // Agregar esta importación
 
 // Importamos el servicio de usuario
 import { getUserById } from '../../services/userService';
@@ -125,11 +126,19 @@ const CotizacionForm = ({ isNew = false }) => {
 
   const cargarDatos = async () => {
     try {
+      setLoading(true);
       const [clientesData, materialesData] = await Promise.all([
         getClientes(),
         getMaterials()
       ]);
-      console.log('Materiales cargados:', materialesData); // Para debugging
+      
+      // Verificar que materialesData sea un array y tenga datos
+      if (!Array.isArray(materialesData) || materialesData.length === 0) {
+        console.error('No se recibieron materiales o el formato es incorrecto');
+        throw new Error('Error al cargar los materiales');
+      }
+  
+      console.log('Materiales cargados:', materialesData);
       setClientes(clientesData);
       setMateriales(materialesData);
     } catch (error) {
@@ -139,115 +148,77 @@ const CotizacionForm = ({ isNew = false }) => {
         text: 'Error al cargar los datos iniciales',
         icon: 'error'
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const cargarCotizacion = async () => {
     try {
-      console.log('Iniciando carga de cotización:', id); // Debug
+      console.log('Iniciando carga de cotización:', id);
       const cotizacion = await getCotizacionById(id);
-      console.log('Cotización completa:', cotizacion); // Debug detallado
+      console.log('Cotización completa:', cotizacion);
     
       if (!cotizacion) {
-        console.error('No se recibieron datos de la cotización');
-        return;
+        throw new Error('No se recibieron datos de la cotización');
       }
+  
+      // Obtener los detalles de la cotización usando el servicio importado
+      const detalles = await api.get(`/detalle-cotizacion/cotizacion/${id}`);
+      console.log('Detalles obtenidos:', detalles.data);
   
       // Asegurarnos de que los detalles sean un array
-      const detalles = Array.isArray(cotizacion.detalles) ? cotizacion.detalles : [];
-      console.log('Detalles a procesar:', detalles); // Debug
+      const detallesCotizacion = Array.isArray(detalles.data) ? detalles.data : [];
       
-      // Extraer el costo de mano de obra - asumimos que es el mismo para todos los detalles
-      let costoManoObra = 0;
-      if (detalles.length > 0) {
-        // Tomamos el valor del primer detalle, ya que debería ser el mismo para todos
-        costoManoObra = parseFloat(detalles[0]?.costo_mano_obra || 0);
-      }
-      console.log('Costo mano de obra extraído:', costoManoObra); // Debug
-  
-      // Procesar los detalles y cargar los materiales
-      const items = [];
-      
-      // Primero asegurarnos de que los materiales estén cargados
+      // Cargar materiales si no están disponibles
       if (materiales.length === 0) {
         const materialesData = await getMaterials();
         setMateriales(materialesData);
       }
-      
-      for (const detalle of detalles) {
-        try {
-          console.log('Procesando detalle:', detalle); // Debug
-          
-          // Asegurarnos de que tenemos todos los datos necesarios
-          if (!detalle.id_material) {
-            console.error('Detalle sin id_material:', detalle);
-            continue;
-          }
-          
-          // Buscar el material en la lista de materiales
-          const materialId = parseInt(detalle.id_material);
-          const materialEncontrado = materiales.find(m => m.id_material === materialId);
-          
-          console.log(`Material ID ${materialId} encontrado:`, materialEncontrado);
-          
-          items.push({
-            materialId: materialId,
-            cantidad: parseInt(detalle.cantidad),
-            precio: parseFloat(detalle.precio_unitario),
-            subtotal: parseFloat(detalle.subtotal),
-            costo_mano_obra: parseFloat(detalle.costo_mano_obra || 0) // Make sure to include costo_mano_obra in each item
-          });
-        } catch (error) {
-          console.error('Error al procesar detalle:', error);
-        }
-      }
-      
-      console.log('Items procesados:', items); // Debug
+  
+      // Procesar los detalles y cargar los materiales
+      const items = detallesCotizacion.map(detalle => ({
+        materialId: detalle.id_material?.toString(),
+        cantidad: parseInt(detalle.cantidad),
+        precio: parseFloat(detalle.precio_unitario),
+        subtotal: parseFloat(detalle.subtotal),
+        costo_mano_obra: parseFloat(detalle.costo_mano_obra)
+      }));
+  
+      console.log('Items procesados:', items);
   
       // Actualizar el cliente seleccionado
       let clienteInfo = null;
       if (cotizacion.id_cliente) {
         clienteInfo = await getClienteById(cotizacion.id_cliente);
-        console.log('Cliente cargado:', clienteInfo); // Debug
         setClienteSeleccionado(clienteInfo);
       }
   
-      // Use functional update for setFormData directly
-      setFormData(prevData => {
-        console.log('Actualizando formData con:', cotizacion);
-        
-        return {
-          ...prevData,
-          clienteId: cotizacion.id_cliente.toString(),
-          nombreComercial: clienteInfo?.nombre_comercial || '',
-          direccion: clienteInfo?.direccion || '',
-          telefono: clienteInfo?.telefono || '',
-          fecha_cotizacion: cotizacion.fecha_cotizacion ? new Date(cotizacion.fecha_cotizacion).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          validez: parseInt(cotizacion.validez) || 0,
-          items: items,
-          observaciones: cotizacion.observaciones || '',
-          subtotal: parseFloat(cotizacion.subtotal) || 0,
-          descuento: parseFloat(cotizacion.descuento) || 0,
-          impuestos: parseFloat(cotizacion.impuestos) || 0,
-          total: parseFloat(cotizacion.total) || 0,
-          estado: cotizacion.estado === "activo",
-          costo_mano_obra: costoManoObra,
-          usuario_creacion: cotizacion.usuario_creacion,
-          // Add these fields from the cotizacion object
-          asunto_cotizacion: cotizacion.asunto_cotizacion || '',
-          trabajo_realizar: cotizacion.trabajo_realizar || '',
-          condiciones_adicionales: cotizacion.condiciones_adicionales || '',
-          tiempo_trabajo: cotizacion.tiempo_trabajo || '',
-          condicion_pago: cotizacion.condicion_pago || '',
-          usuario_creacion_nombre: cotizacion.usuario_info ? 
-            `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 
-            'Usuario desconocido'
-        };
-      });
-
-      console.log('setFormData called in cargarCotizacion'); // Debug
-      setHasChanges(false); // Reiniciar el estado de cambios después de cargar
-
+      setFormData(prevData => ({
+        ...prevData,
+        clienteId: cotizacion.id_cliente?.toString() || '',
+        nombreComercial: clienteInfo?.nombre_comercial || '',
+        direccion: clienteInfo?.direccion || '',
+        telefono: clienteInfo?.telefono || '',
+        fecha_cotizacion: cotizacion.fecha_cotizacion ? new Date(cotizacion.fecha_cotizacion).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        validez: parseInt(cotizacion.validez) || 0,
+        items: items, // Usar los items procesados
+        observaciones: cotizacion.observaciones || '',
+        subtotal: parseFloat(cotizacion.subtotal) || 0,
+        descuento: parseFloat(cotizacion.descuento) || 0,
+        impuestos: parseFloat(cotizacion.impuestos) || 0,
+        total: parseFloat(cotizacion.total) || 0,
+        estado: cotizacion.estado === "activo",
+        costo_mano_obra: parseFloat(detallesCotizacion[0]?.costo_mano_obra) || 0,
+        asunto_cotizacion: cotizacion.asunto_cotizacion || '',
+        trabajo_realizar: cotizacion.trabajo_realizar || '',
+        condiciones_adicionales: cotizacion.condiciones_adicionales || '',
+        tiempo_trabajo: cotizacion.tiempo_trabajo || '',
+        condicion_pago: cotizacion.condicion_pago || ''
+      }));
+  
+      setHasChanges(false);
+  
     } catch (error) {
       console.error('Error al cargar la cotización:', error);
       toast.error('Error al cargar la cotización');
@@ -309,8 +280,20 @@ const CotizacionForm = ({ isNew = false }) => {
     const item = updatedItems[index];
     
     if (field === 'materialId') {
-      const material = materiales?.find(m => m.id_material == value);
+      // Verificar que materiales esté cargado y tenga datos
+      if (!materiales || materiales.length === 0) {
+        console.error('No hay materiales disponibles');
+        Swal.fire({
+          title: 'Error',
+          text: 'No se pudieron cargar los materiales',
+          icon: 'error'
+        });
+        return;
+      }
+  
+      const material = materiales.find(m => m.id_material.toString() === value.toString());
       console.log('Material seleccionado:', material);
+      
       if (material) {
         item.materialId = value;
         item.precio = material.precio_unitario || 0;
@@ -662,94 +645,11 @@ const CotizacionForm = ({ isNew = false }) => {
                           value={item.materialId || ''}
                           onChange={(e) => handleItemChange(index, 'materialId', e.target.value)}
                           label="Material"
-                          MenuProps={{
-                            PaperProps: {
-                              style: {
-                                maxHeight: 300
-                              }
-                            }
-                          }}
                         >
-                          <MenuItem value="" disabled>Seleccione un material</MenuItem>            
-                          {/* Campo de búsqueda */}
-                          <Box sx={{ p: 1, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>
-                            <TextField
-                              autoFocus
-                              placeholder="Buscar por nombre o código..."
-                              fullWidth
-                              variant="outlined"
-                              size="small"
-                              onChange={(e) => {
-                                const searchText = e.target.value.toLowerCase();
-                                const filteredItems = document.querySelectorAll('.material-item');
-                                filteredItems.forEach(item => {
-                                  const itemText = item.getAttribute('data-search').toLowerCase();
-                                  if (itemText.includes(searchText)) {
-                                    item.style.display = '';
-                                  } else {
-                                    item.style.display = 'none';
-                                  }
-                                });
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              InputProps={{
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <SearchIcon />
-                                  </InputAdornment>
-                                ),
-                              }}
-                            />
-                          </Box>
-
-                          {/* Lista de materiales */}
-                          {materiales?.map(material => (
-                            <MenuItem 
-                              key={material.id_material} 
-                              value={material.id_material}
-                              className="material-item"
-                              data-search={`${material.nombre} ${material.codigo || ''}`}
-                            >
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                {material && material.imagen_url && (
-                                  <Box sx={{ 
-                                    width: '40px', 
-                                    height: '40px', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    border: '1px solid #ddd',
-                                    borderRadius: '4px',
-                                    padding: '2px',
-                                    backgroundColor: '#f5f5f5'
-                                  }}>
-                                    <img 
-                                      src={getMaterialImageUrl(material.imagen_url)}
-                                      alt={material.nombre || 'Material'}
-                                      style={{ 
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'contain'
-                                      }}
-                                      onError={(e) => {
-                                        console.error('Error loading image:', e.target.src);
-                                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjOTA5MDkwIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6bTAtMTNhMiAyIDAgMTAwIDQgMiAyIDAgMDAwLTR6Ii8+PC9zdmc+';
-                                        e.target.onerror = null;
-                                      }}
-                                    />
-                                  </Box>
-                                )}
-                                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                                  <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>
-                                    {material.nombre}
-                                  </Typography>
-                                  {material.codigo && (
-                                    <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                                      Código: {material.codigo}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              </Box>
+                          <MenuItem value="" disabled>Seleccione un material</MenuItem>
+                          {materiales.map(material => (
+                            <MenuItem key={material.id_material} value={material.id_material.toString()}>
+                              {material.nombre}
                             </MenuItem>
                           ))}
                         </Select>

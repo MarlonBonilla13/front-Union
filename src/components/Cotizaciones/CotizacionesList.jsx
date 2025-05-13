@@ -137,16 +137,20 @@ const CotizacionesList = () => {
 
   const handleGeneratePDF = async (id) => {
     try {
-      Swal.fire({
-        title: 'Generando PDF',
-        text: 'Por favor espere...',
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
-
-      await generatePDF(id);
+      // Validar que el ID sea un número válido
+      if (!id || isNaN(id)) {
+        throw new Error('ID de cotización no válido');
+      }
+      
+      const response = await generatePDF(id);
+      const blob = new Blob([response], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cotizacion-${id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
       Swal.fire({
         title: '¡PDF Generado!',
@@ -243,23 +247,23 @@ const CotizacionesList = () => {
                 <TableCell>
                   {cotizacion.estado ? (
                     <>
-                      <IconButton onClick={() => navigate(`/cotizaciones/editar/${cotizacion.id_cotizaciones}`)}>
+                      <IconButton onClick={() => navigate(`/cotizaciones/editar/${cotizacion.id_cotizacion}`)}>
                         <EditIcon />
                       </IconButton>
-                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizaciones)}>
+                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizacion)}>
                         <PictureAsPdfIcon />
                       </IconButton>
-                      <IconButton onClick={() => handleDelete(cotizacion.id_cotizaciones)}>
+                      <IconButton onClick={() => handleDelete(cotizacion.id_cotizacion)}>
                         <DeleteIcon />
                       </IconButton>
                     </>
                   ) : (
                     <>
-                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizaciones)}>
+                      <IconButton onClick={() => handleGeneratePDF(cotizacion.id_cotizacion)}>
                         <PictureAsPdfIcon />
                       </IconButton>
                       <IconButton 
-                        onClick={() => handleReactivate(cotizacion.id_cotizaciones)}
+                        onClick={() => handleReactivate(cotizacion.id_cotizacion)}
                         color="primary"
                       >
                         <RestoreIcon />

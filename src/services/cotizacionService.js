@@ -63,86 +63,44 @@ export const getCotizaciones = async () => {
 
 export const getCotizacionById = async (id) => {
   try {
-    console.log('Obteniendo cotización con ID:', id);
-    const response = await api.get(`/cotizaciones/${id}`);
-    const cotizacion = response.data;
-    
-    // Get client information
-    if (cotizacion.id_cliente) {
-      const clienteResponse = await api.get(`/clientes/${cotizacion.id_cliente}`);
-      cotizacion.cliente = clienteResponse.data;
+    // Validar que el ID existe y es un número
+    if (!id || isNaN(id)) {
+      throw new Error('ID de cotización no válido');
     }
     
-    // Get quotation details
-    const detallesResponse = await api.get(`/detalle-cotizacion/cotizacion/${id}`);
-    cotizacion.detalles = detallesResponse.data.map(detalle => ({
-      ...detalle,
-      id_material: parseInt(detalle.id_material),
-      cantidad: parseInt(detalle.cantidad),
-      precio_unitario: parseFloat(detalle.precio_unitario),
-      subtotal: parseFloat(detalle.subtotal),
-      costo_mano_obra: parseFloat(detalle.costo_mano_obra || 0)
-    }));
-
-    console.log('Cotización procesada completa:', cotizacion);
-    return cotizacion;
+    const response = await api.get(`/cotizaciones/${id}`);
+    return response.data;
   } catch (error) {
     console.error('Error en getCotizacionById:', error);
     throw error;
   }
 };
 
-export const updateCotizacion = async (id, cotizacionData) => {
+export const generatePDF = async (id) => {
   try {
-    // Extraer los items antes de enviar la cotización
-    const { items, ...cotizacionBasica } = cotizacionData;
-    
-    // Log para depuración
-    console.log('updateCotizacion - datos a enviar:', {
-      id,
-      cotizacionBasica,
-      items
-    });
-    
-    // Actualizar la cotización básica con PATCH
-    const response = await api.patch(`/cotizaciones/${id}`, cotizacionBasica);
-    
-    // Si hay items, actualizarlos uno por uno
-    if (items && items.length > 0) {
-      try {
-        // Primero eliminar los detalles existentes usando el nuevo endpoint
-        console.log('Eliminando detalles existentes para la cotización:', id);
-        await api.delete(`/detalle-cotizacion/cotizacion/${id}`);
-        console.log('Detalles eliminados correctamente');
-      } catch (deleteError) {
-        console.error('Error al eliminar detalles existentes:', deleteError);
-        throw new Error(`No se pudieron eliminar los detalles existentes: ${deleteError.message}`);
-      }
-      
-      // Luego crear los nuevos detalles
-      for (const item of items) {
-        console.log(`Enviando detalle para material ${item.id_material} con costo_mano_obra:`, item.costo_mano_obra);
-        
-        // Crear el detalle de la cotización con id_cotizacion como número
-        await api.post(`/detalle-cotizacion`, {
-          ...item,
-          id_cotizacion: parseInt(id)
-        });
-      }
+    // Validar que el ID existe y es un número
+    if (!id || isNaN(id)) {
+      throw new Error('ID de cotización no válido');
     }
     
-    return response.data;
+    // Obtener la cotización
+    const cotizacion = await getCotizacionById(id);
+    
+    // Pasar la cotización directamente en lugar del ID
+    return await generateDetailedPDF(cotizacion);
   } catch (error) {
-    console.error('Error en updateCotizacion:', error);
+    console.error('Error al generar PDF:', error);
     throw error;
   }
 };
 
-export const generatePDF = async (id) => {
+// Modificar la función generateDetailedPDF para recibir la cotización en lugar del ID
+export const generateDetailedPDF = async (cotizacion) => {
   try {
-    const cotizacion = await getCotizacionById(id);
-    
-    // Crear nuevo documento PDF
+    if (!cotizacion) {
+      throw new Error('No se encontró la cotización');
+    }
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const margin = 20;
@@ -150,13 +108,12 @@ export const generatePDF = async (id) => {
 
     // Título centrado
     doc.setFontSize(18);
-    doc.setTextColor(0, 0, 0); // Cambiado a negro
-    doc.text('INDUSTRIA UNION: COTIZACIÓN', pageWidth/2, y, { align: 'center' });
-    y += 15; // Reducido el espacio después del título
-
-    // Información básica - alineada a la izquierda
-    doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
+    doc.text('INDUSTRIA UNION: COTIZACIÓN', pageWidth/2, y, { align: 'center' });
+    y += 15;
+
+    // Información básica
+    doc.setFontSize(11);
     doc.text(`Cotización No: ${cotizacion.id_cotizacion}`, margin, y);
     y += 8;
     doc.text(`Fecha: ${new Date(cotizacion.fecha_cotizacion).toLocaleDateString()}`, margin, y);
@@ -164,99 +121,170 @@ export const generatePDF = async (id) => {
     doc.text(`Válida por: ${cotizacion.validez} días`, margin, y);
     y += 8;
     doc.text(`Creado por: ${cotizacion.usuario_info ? `${cotizacion.usuario_info.nombre} ${cotizacion.usuario_info.apellido}` : 'Usuario desconocido'}`, margin, y);
-    y += 10; // Reducido el espacio antes de las secciones
+    y += 10;
 
-    // Secciones con fondo gris claro
-    const drawSection = (title, content) => {
-      // Encabezado gris
-      doc.setFillColor(220, 220, 220);
-      doc.rect(margin, y, pageWidth - 2*margin, 8, 'F');
-      doc.setFontSize(11);
-      doc.text(title, margin + 2, y + 6);
-      y += 12;
+    // Información del cliente
+    doc.setFillColor(220, 220, 220);
+    doc.rect(margin, y, pageWidth - 2*margin, 8, 'F');
+    doc.text('INFORMACIÓN DEL CLIENTE', margin + 2, y + 6);
+    y += 12;
 
-      // Contenido
-      doc.setFontSize(10);
-      content();
-      y += 5;
-    };
-
-    // Sección de información del cliente
-    drawSection('INFORMACIÓN DEL CLIENTE', () => {
-      doc.text(`Nombre: ${cotizacion.cliente.nombre} ${cotizacion.cliente.apellido}`, margin, y);
+    const cliente = cotizacion.cliente || {};
+    doc.setFontSize(10);
+    doc.text(`Nombre: ${cliente.nombre || ''} ${cliente.apellido || ''}`, margin, y);
+    y += 6;
+    doc.text(`Empresa: ${cliente.nombre_comercial || ''}`, margin, y);
+    y += 6;
+    doc.text(`Dirección: ${cliente.direccion || ''}`, margin, y);
+    y += 6;
+    if (cliente.telefono) {
+      doc.text(`Teléfono: ${cliente.telefono}`, margin, y);
       y += 6;
-      doc.text(`Empresa: ${cotizacion.cliente.nombre_comercial}`, margin, y);
-      y += 6;
-      doc.text(`Dirección: ${cotizacion.cliente.direccion}`, margin, y);
-      y += 6;
-      doc.text(`Teléfono: ${cotizacion.cliente.telefono}`, margin, y);
-      y += 10;
-    });
+    }
+    y += 4;
 
-    // Sección de detalles del trabajo
-    drawSection('DETALLES DEL TRABAJO', () => {
+    // Detalles del trabajo
+    doc.setFontSize(11);
+    doc.setFillColor(220, 220, 220);
+    doc.rect(margin, y, pageWidth - 2*margin, 8, 'F');
+    doc.text('DETALLES DEL TRABAJO', margin + 2, y + 6);
+    y += 12;
+
+    doc.setFontSize(10);
+    if (cotizacion.asunto_cotizacion) {
       doc.text(`Asunto: ${cotizacion.asunto_cotizacion}`, margin, y);
       y += 8;
+    }
+
+    if (cotizacion.trabajo_realizar) {
       doc.text('Trabajo a realizar:', margin, y);
       y += 6;
       
-      // Lista con guiones
       cotizacion.trabajo_realizar.split('\n').forEach(trabajo => {
         doc.text(`- ${trabajo.trim()}`, margin + 5, y);
         y += 6;
       });
-    });
+      y += 4;
+    }
 
-    // Sección de materiales y costos
-    drawSection('MATERIALES Y COSTOS', () => {
-      const colMaterial = margin;
-      const colCantidad = pageWidth - 80;
-      const colTotal = pageWidth - 40;
+    // Materiales y costos
+    doc.setFontSize(11);
+    doc.setFillColor(220, 220, 220);
+    doc.rect(margin, y, pageWidth - 2*margin, 8, 'F');
+    doc.text('MATERIALES Y COSTOS', margin + 2, y + 6);
+    y += 12;
 
-      // Encabezados de la tabla
-      doc.text('Material', colMaterial, y);
-      doc.text('Cantidad', colCantidad, y);
-      doc.text('Total', colTotal, y);
-      y += 8;
+    // Tabla de materiales
+    const headers = [['Material', 'Cantidad', 'Precio Unit.', 'Total']];
+    const data = [];
 
-      // Filas de materiales
+    // Verificar y agregar los materiales
+    console.log('Detalles de la cotización:', cotizacion.detalles);
+    
+    if (cotizacion.detalles && Array.isArray(cotizacion.detalles)) {
       cotizacion.detalles.forEach(detalle => {
-        doc.text(detalle.material?.nombre || '', colMaterial, y);
-        doc.text(detalle.cantidad.toString(), colCantidad, y);
-        doc.text(`Q ${parseFloat(detalle.subtotal).toFixed(2)}`, colTotal, y);
-        y += 6;
+        data.push([
+          detalle.material?.nombre || 'N/A',
+          detalle.cantidad.toString(),
+          `Q ${parseFloat(detalle.precio_unitario).toFixed(2)}`,
+          `Q ${parseFloat(detalle.subtotal).toFixed(2)}`
+        ]);
+      });
+    }
+
+    // Generar la tabla solo si hay datos
+    if (data.length > 0) {
+      autoTable(doc, {
+        startY: y,
+        head: headers,
+        body: data,
+        margin: { left: margin },
+        theme: 'grid',
+        styles: {
+          fontSize: 10,
+          cellPadding: 5
+        },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          1: { cellWidth: 30, halign: 'center' },
+          2: { cellWidth: 40, halign: 'right' },
+          3: { cellWidth: 40, halign: 'right' }
+        }
       });
 
-      // Agregar línea de mano de obra
-      y += 1;
-      doc.text('MANO DE OBRA:', colMaterial, y);
-      doc.text(`Q ${parseFloat(cotizacion.detalles[0]?.costo_mano_obra || 0).toFixed(2)}`, colTotal, y);
-      y += 7;
+      y = doc.lastAutoTable.finalY + 10;
+    }
 
-      // Total final
-      doc.text(`Total: Q ${parseFloat(cotizacion.total).toFixed(2)}`, colTotal - 10, y);
-    });
+    // Agregar la mano de obra como una fila separada
+    if (cotizacion.mano_obra && parseFloat(cotizacion.mano_obra) > 0) {
+      data.push(['MANO DE OBRA:', '', `Q ${parseFloat(cotizacion.mano_obra).toFixed(2)}`]);
+    }
 
-    // Sección de condiciones adicionales
-    drawSection('CONDICIONES ADICIONALES', () => {
+    // Generar la tabla solo si hay datos
+    if (data.length > 0) {
+      autoTable(doc, {
+        startY: y,
+        head: headers,
+        body: data,
+        margin: { left: margin },
+        theme: 'grid',
+        styles: {
+          fontSize: 10,
+          cellPadding: 5
+        },
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 30, halign: 'center' },
+          2: { cellWidth: 40, halign: 'right' }
+        }
+      });
+
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // Totales alineados a la derecha
+    doc.setFontSize(11);
+    const xTotal = pageWidth - margin - 50;
+    doc.text(`Subtotal: Q${parseFloat(cotizacion.subtotal).toFixed(2)}`, xTotal, y);
+    y += 6;
+    doc.text(`Descuento: Q${parseFloat(cotizacion.descuento).toFixed(2)}`, xTotal, y);
+    y += 6;
+    doc.text(`Impuestos: Q${parseFloat(cotizacion.impuestos).toFixed(2)}`, xTotal, y);
+    y += 6;
+    doc.text(`Total: Q${parseFloat(cotizacion.total).toFixed(2)}`, xTotal, y);
+    y += 15;
+
+    // Condiciones adicionales
+    if (cotizacion.condiciones_adicionales) {
+      doc.setFillColor(220, 220, 220);
+      doc.rect(margin, y, pageWidth - 2*margin, 8, 'F');
+      doc.text('CONDICIONES ADICIONALES', margin + 2, y + 6);
+      y += 12;
+      doc.setFontSize(10);
       doc.text(cotizacion.condiciones_adicionales, margin, y);
-      y += 15;
+      y += 10;
+    }
+
+    // Tiempo de trabajo y condición de pago
+    if (cotizacion.tiempo_trabajo) {
       doc.text(`Tiempo de trabajo: ${cotizacion.tiempo_trabajo}`, margin, y);
       y += 6;
+    }
+    if (cotizacion.condicion_pago) {
       doc.text(`Condición de pago: ${cotizacion.condicion_pago}`, margin, y);
-    });
+      y += 20;
+    }
 
     // Pie de página
     doc.setFontSize(8);
     doc.setTextColor(128, 128, 128);
-    const footerY = doc.internal.pageSize.height - 15;
-    doc.text('METAL MECANICA, AUTOMATIZACIONES, DISEÑOS Y MONTAJES INDUSTRIALES', pageWidth/2, footerY, { align: 'center' });
-    doc.text('Manzana I lote 15 col. Sacramento 2 Palín, Escuintla', pageWidth/2, footerY + 4, { align: 'center' });
-    doc.text('E-mail: joel—union@hotmail.com tel. 52 901245 - 32821499', pageWidth/2, footerY + 8, { align: 'center' });
+    doc.text('METAL MECANICA, AUTOMATIZACIONES, DISEÑOS Y MONTAJES INDUSTRIALES', pageWidth/2, y, { align: 'center' });
+    y += 4;
+    doc.text('Manzana I lote 15 col. Sacramento 2 Palin, Escuintla', pageWidth/2, y, { align: 'center' });
+    y += 4;
+    doc.text('E-mail: joel—union@hotmail.com tel. 52 901245 - 32821499', pageWidth/2, y, { align: 'center' });
 
-    // Descargar el PDF
-    doc.save(`cotizacion-${id}.pdf`);
-    return true;
+    return doc.output('arraybuffer');
   } catch (error) {
     console.error('Error al generar PDF:', error);
     throw error;
@@ -279,6 +307,39 @@ export const reactivateCotizacion = async (id) => {
     const response = await api.patch(`/cotizaciones/${id}`, { estado: 'activo' });
     return response.data;
   } catch (error) {
+    throw error;
+  }
+};
+
+export const updateCotizacion = async (id, cotizacionData) => {
+  try {
+    // Extraer los items antes de enviar la cotización
+    const { items, ...cotizacionBasica } = cotizacionData;
+    const response = await api.patch(`/cotizaciones/${id}`, cotizacionBasica);
+    
+    // Si hay items, actualizarlos
+    if (items && items.length > 0) {
+      // Primero eliminar los detalles existentes
+      await api.delete(`/detalle-cotizacion/cotizacion/${id}`);
+      
+      // Crear cada detalle nuevo
+      for (const item of items) {
+        const detalle = {
+          id_cotizacion: id,
+          id_material: parseInt(item.id_material),
+          cantidad: parseInt(item.cantidad),
+          precio_unitario: parseFloat(item.precio_unitario),
+          subtotal: parseFloat(item.subtotal),
+          costo_mano_obra: parseFloat(item.costo_mano_obra || 0)
+        };
+        
+        await api.post('/detalle-cotizacion', detalle);
+      }
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error en updateCotizacion:', error.response?.data || error);
     throw error;
   }
 };

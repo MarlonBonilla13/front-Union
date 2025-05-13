@@ -201,18 +201,37 @@ export const updateCompra = async (id, data) => {
     console.log('ID de compra:', id);
     console.log('Datos a actualizar:', data);
 
-    // Usar solo la ruta correcta
-    const route = `/compras/${id}`;
-    
-    try {
-      console.log(`\n=== Intentando ruta: ${route} ===`);
-      const response = await api.put(route, data);
-      console.log(`✅ Éxito en ruta ${route}`);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Error en ruta ${route}:`, error.message);
-      throw error;
+    // Validar ID
+    if (!id) throw new Error('El ID de la compra es requerido');
+
+    // Formatear datos para la actualización
+    const datosFormateados = {
+      ...data,
+      id_estado: data.id_estado || data.estado ? 2 : 1,
+      fecha_actualizacion: new Date().toISOString()
+    };
+
+    // Intentar diferentes rutas
+    const routes = ['/compras', '/api/compras', '/v1/compras'];
+    let lastError = null;
+
+    for (const route of routes) {
+      try {
+        console.log(`\n=== Intentando ruta: ${route}/${id} ===`);
+        const response = await api.put(`${route}/${id}`, datosFormateados);
+        console.log(`✅ Éxito en ruta ${route}/${id}`);
+        return response.data;
+      } catch (error) {
+        console.log(`❌ Error en ruta ${route}/${id}:`, error.message);
+        lastError = error;
+        if (error.response?.status !== 404) {
+          throw error; // Si el error no es 404, lo propagamos
+        }
+      }
     }
+
+    // Si llegamos aquí, ninguna ruta funcionó
+    throw lastError || new Error('No se pudo actualizar la compra en ninguna ruta disponible');
   } catch (error) {
     console.error('=== Error en updateCompra ===');
     console.error('Tipo de error:', error.constructor.name);

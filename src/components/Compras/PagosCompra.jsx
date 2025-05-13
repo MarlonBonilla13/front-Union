@@ -106,35 +106,23 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
 
   const handleSubmit = async () => {
     try {
-      const saldoPendiente = calcularSaldoPendiente();
-      
-      if (pago.estado_pago === 'COMPLETADO' || pago.estado_pago === 'CANCELADO') {
-        try {
-          // Usar getCompraById en lugar de getCompra
-          const compraActual = await comprasService.getCompraById(idCompra);
-          
-          if (compraActual.id_estado === 1) {
-            await comprasService.updateCompra(idCompra, {
-              id_estado: 2
-            });
-            
-            window.dispatchEvent(new CustomEvent('compraActualizada', { 
-              detail: { idCompra, nuevoEstado: 'APROBADO' } 
-            }));
-          }
-        } catch (error) {
-          console.error('Error al actualizar estado de la compra:', error);
-          throw new Error('No se pudo actualizar el estado de la compra');
-        }
+      // Validar el monto del pago
+      if (!pago.monto || pago.monto <= 0) {
+        throw new Error('El monto del pago debe ser mayor a 0');
       }
-
+      
+      // Validar que no exceda el saldo pendiente si es un pago nuevo
+      const saldoPendiente = calcularSaldoPendiente();
+      if (!editando && pago.monto > saldoPendiente) {
+        throw new Error('El monto del pago no puede ser mayor al saldo pendiente');
+      }
+      
+      // Crear o actualizar el pago
       if (editando) {
-        await comprasService.updatePagoCompra(pago.id_pago, pago);
-      } else {
         await comprasService.createPagoCompra(idCompra, pago);
       }
       
-      // Actualizar la lista de pagos inmediatamente después de crear/editar
+      // Actualizar la lista de pagos
       await fetchPagos();
       handleClose();
       
