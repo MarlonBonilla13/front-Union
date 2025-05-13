@@ -10,8 +10,10 @@ import { getMaterials } from './materialService';
 
 export const createCotizacion = async (cotizacionData) => {
   try {
-    // Extraer los items antes de enviar la cotización
-    const { items, ...cotizacionBasica } = cotizacionData;
+    // Extraer costo_mano_obra y los items antes de enviar la cotización
+    const { items, costo_mano_obra, ...cotizacionBasica } = cotizacionData;
+    
+    // Enviar solo los datos básicos de la cotización
     const response = await api.post('/cotizaciones', cotizacionBasica);
     
     // Si hay items, crearlos uno por uno
@@ -24,7 +26,7 @@ export const createCotizacion = async (cotizacionData) => {
           cantidad: parseInt(item.cantidad),
           precio_unitario: parseFloat(item.precio_unitario),
           subtotal: parseFloat(item.subtotal),
-          costo_mano_obra: parseFloat(item.costo_mano_obra || 0)
+          costo_mano_obra: parseFloat(costo_mano_obra || 0) // Usar el costo_mano_obra de la cotización principal
         };
 
         console.log('Enviando detalle:', detalle);
@@ -80,16 +82,20 @@ export const getCotizacionById = async (id) => {
 export const generatePDF = async (id) => {
   try {
     if (!id || isNaN(id)) throw new Error('ID de cotización no válido');
-    const cotizacion = await getCotizacionById(id);
+    
+    // Obtener la cotización y sus detalles
+    const [cotizacionResp, detallesResp] = await Promise.all([
+      api.get(`/cotizaciones/${id}`),
+      api.get(`/detalle-cotizacion/cotizacion/${id}`)
+    ]);
 
-    // Si no tiene detalles, los traemos manualmente
-    if (!cotizacion.detalles || !Array.isArray(cotizacion.detalles) || cotizacion.detalles.length === 0) {
-      const detallesResp = await api.get(`/detalle-cotizacion/cotizacion/${id}`);
-      cotizacion.detalles = detallesResp.data || [];
+    const cotizacion = cotizacionResp.data;
+    cotizacion.detalles = detallesResp.data || [];
+
+    // Obtener el costo de mano de obra del primer detalle
+    if (cotizacion.detalles && cotizacion.detalles.length > 0) {
+      cotizacion.costo_mano_obra = parseFloat(cotizacion.detalles[0].costo_mano_obra || 0);
     }
-
-    // Obtener el costo de mano de obra directamente de la cotización
-    cotizacion.costo_mano_obra = parseFloat(cotizacion.costo_mano_obra || 0);
 
     // Trae los materiales
     const materiales = await getMaterials();
@@ -194,8 +200,8 @@ export const generateDetailedPDF = async (cotizacion) => {
     }
     
     // Agregar la mano de obra como última fila
-    // Corregimos la forma de acceder al costo_mano_obra
-    const costoManoObra = parseFloat(cotizacion.costo_mano_obra || 0);
+    const costoManoObra = parseFloat(cotizacion.costo_mano_obra);
+    console.log('Valor de costo_mano_obra antes de agregar a la tabla:', costoManoObra); // Para debugging
     dataMateriales.push(['MANO DE OBRA:', '', `Q ${costoManoObra.toFixed(2)}`]);
 
     // Generar la tabla con estilo más simple
@@ -292,8 +298,8 @@ export const reactivateCotizacion = async (id) => {
 
 export const updateCotizacion = async (id, cotizacionData) => {
   try {
-    // Extraer los items antes de enviar la cotización
-    const { items, ...cotizacionBasica } = cotizacionData;
+    // Extraer costo_mano_obra y los items antes de enviar la cotización
+    const { items, costo_mano_obra, ...cotizacionBasica } = cotizacionData;
     const response = await api.patch(`/cotizaciones/${id}`, cotizacionBasica);
     
     // Si hay items, actualizarlos
@@ -309,7 +315,7 @@ export const updateCotizacion = async (id, cotizacionData) => {
           cantidad: parseInt(item.cantidad),
           precio_unitario: parseFloat(item.precio_unitario),
           subtotal: parseFloat(item.subtotal),
-          costo_mano_obra: parseFloat(item.costo_mano_obra || 0)
+          costo_mano_obra: parseFloat(costo_mano_obra || 0) // Usar el costo_mano_obra de la cotización principal
         };
         
         await api.post('/detalle-cotizacion', detalle);

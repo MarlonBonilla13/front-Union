@@ -35,8 +35,58 @@ const CotizacionesList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [tabValue, setTabValue] = useState('ACTIVAS');
-  // Eliminar esta línea:
-  // const [filter, setFilter] = useState('active');
+
+  useEffect(() => {
+    loadCotizaciones();
+  }, []);
+
+  // Eliminar el segundo useEffect que estaba causando problemas
+  
+  const loadCotizaciones = async () => {
+    try {
+      setLoading(true);
+      const data = await getCotizaciones();
+      console.log('Cotizaciones cargadas:', data); // Para debugging
+      setCotizaciones(data);
+    } catch (error) {
+      console.error('Error al cargar cotizaciones:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudieron cargar las cotizaciones',
+        icon: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCotizaciones = useMemo(() => {
+    return cotizaciones.filter(cot => {
+      const searchLower = searchTerm.toLowerCase();
+      const clienteNombre = cot.cliente?.nombre?.toLowerCase() || '';
+      const clienteComercial = cot.cliente?.nombre_comercial?.toLowerCase() || '';
+      const id = cot.id_cotizacion?.toString() || '';
+      const matchesSearch = 
+        clienteNombre.includes(searchLower) ||
+        clienteComercial.includes(searchLower) ||
+        id.includes(searchLower);
+
+      // Filtro universal para estado
+      const isActiva = cot.estado === true || cot.estado === 'activo' || cot.estado === 1 || cot.estado === '1';
+      const isInactiva = cot.estado === false || cot.estado === 'inactivo' || cot.estado === 0 || cot.estado === '0';
+
+      switch (tabValue) {
+        case 'ACTIVAS':
+          return matchesSearch && isActiva;
+        case 'INACTIVAS':
+          return matchesSearch && isInactiva;
+        case 'TODAS':
+          return matchesSearch;
+        default:
+          return false;
+      }
+    });
+  }, [cotizaciones, searchTerm, tabValue]);
 
   const formatearFecha = (fecha) => {
     return new Date(fecha).toLocaleDateString('es-GT', {
@@ -57,49 +107,6 @@ const CotizacionesList = () => {
     setTabValue(newValue);
   };
 
-  const filteredCotizaciones = useMemo(() => {
-    return cotizaciones.filter(cot => {
-      const searchLower = searchTerm.toLowerCase();
-      const clienteNombre = cot.cliente?.nombre?.toLowerCase() || '';
-      const clienteComercial = cot.cliente?.nombre_comercial?.toLowerCase() || '';
-      const id = cot.id_cotizacion?.toString() || '';
-      
-      const matchesSearch = 
-        clienteNombre.includes(searchLower) ||
-        clienteComercial.includes(searchLower) ||
-        id.includes(searchLower);
-
-      const matchesTab = 
-        (tabValue === 'ACTIVAS' && cot.estado) ||
-        (tabValue === 'INACTIVAS' && !cot.estado) ||
-        tabValue === 'TODAS';
-
-      return matchesSearch && matchesTab;
-    });
-  }, [cotizaciones, searchTerm, tabValue]);
-
-  useEffect(() => {
-    loadCotizaciones();
-  }, []);
-
-  const loadCotizaciones = async () => {
-    try {
-      setLoading(true);
-      const data = await getCotizaciones();
-      console.log('Cotizaciones cargadas con usuarios:', data);
-      setCotizaciones(data);
-    } catch (error) {
-      console.error('Error al cargar cotizaciones:', error);
-      Swal.fire({
-        title: 'Error',
-        text: 'No se pudieron cargar las cotizaciones',
-        icon: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDelete = async (id) => {
     const result = await Swal.fire({
       title: '¿Está seguro?',
@@ -115,7 +122,9 @@ const CotizacionesList = () => {
     if (result.isConfirmed) {
       try {
         await deleteCotizacion(id);
+        // Actualizar el estado local y recargar las cotizaciones
         await loadCotizaciones();
+        setTabValue('INACTIVAS'); // Cambiar automáticamente a la pestaña de inactivas
         Swal.fire('¡Desactivada!', 'La cotización ha sido desactivada.', 'success');
       } catch (error) {
         console.error('Error al desactivar:', error);
@@ -240,12 +249,12 @@ const CotizacionesList = () => {
                 <TableCell>{formatearMoneda(cotizacion.total)}</TableCell>
                 <TableCell>
                   <Chip 
-                    label={cotizacion.estado ? 'Activa' : 'Inactiva'} 
-                    color={cotizacion.estado ? 'success' : 'error'}
+                    label={cotizacion.estado === true || cotizacion.estado === 'activo' || cotizacion.estado === 1 || cotizacion.estado === '1' ? 'Activa' : 'Inactiva'} 
+                    color={cotizacion.estado === true || cotizacion.estado === 'activo' || cotizacion.estado === 1 || cotizacion.estado === '1' ? 'success' : 'error'}
                   />
                 </TableCell>
                 <TableCell>
-                  {cotizacion.estado ? (
+                  {cotizacion.estado === true || cotizacion.estado === 'activo' || cotizacion.estado === 1 || cotizacion.estado === '1' ? (
                     <>
                       <IconButton onClick={() => navigate(`/cotizaciones/editar/${cotizacion.id_cotizacion}`)}>
                         <EditIcon />
@@ -264,7 +273,8 @@ const CotizacionesList = () => {
                       </IconButton>
                       <IconButton 
                         onClick={() => handleReactivate(cotizacion.id_cotizacion)}
-                        color="primary"
+                        color="success"
+                        title="Reactivar cotización"
                       >
                         <RestoreIcon />
                       </IconButton>
