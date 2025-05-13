@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -19,11 +19,18 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  InputAdornment,  // Agregar esta importación
+  InputAdornment  // Keep this one and remove the duplicate
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';  // Agregar esta importación
+import SearchIcon from '@mui/icons-material/Search';
+import ListSubheader from '@mui/material/ListSubheader';
+// Remove this duplicate import
+// import InputAdornment from '@mui/material/InputAdornment';
+// Remove this duplicate import since it's already in the destructured import above
+// import Box from '@mui/material/Box';
+// Remove this duplicate import since it's already in the destructured import above
+// import Typography from '@mui/material/Typography';
 import { getClientes, getClienteById } from '../../services/clienteService';
 import { getMaterials, getMaterialById } from '../../services/materialService';
 import { createCotizacion, getCotizacionById, updateCotizacion } from '../../services/cotizacionService';
@@ -44,6 +51,17 @@ const CotizacionForm = ({ isNew = false }) => {
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [materialFilter, setMaterialFilter] = useState('');
+
+  const filteredMateriales = useMemo(() => {
+    return materiales.filter(material => {
+      const searchTerm = materialFilter.toLowerCase();
+      return (
+        (material.nombre && material.nombre.toLowerCase().includes(searchTerm)) ||
+        (material.codigo && material.codigo.toLowerCase().includes(searchTerm))
+      );
+    });
+  }, [materiales, materialFilter]);
 
   const getMaterialImageUrl = (imagePath) => {
     if (!imagePath) {
@@ -406,45 +424,31 @@ const CotizacionForm = ({ isNew = false }) => {
 
     // Asegurarnos de que el costo_mano_obra sea un número válido
     const costoManoObra = parseFloat(formData.costo_mano_obra || 0);
-    console.log('Costo mano de obra a enviar (formData original):', formData.costo_mano_obra);
-    console.log('Costo mano de obra a enviar (parseado):', costoManoObra);
 
-    // Preparar los items con el formato correcto según la base de datos
-    const items = formData.items.map(item => {
-      // Asegurarnos de que el costo_mano_obra sea un número válido para cada item
-      const itemCostoManoObra = costoManoObra;
-      console.log(`Item para material ${item.materialId} - costo_mano_obra asignado:`, itemCostoManoObra);
-      
-      return {
+    // Estructura de la cotización según la base de datos
+    const cotizacionData = {
+      id_cliente: parseInt(formData.clienteId),
+      validez: parseInt(formData.validez),
+      estado: "activo",
+      subtotal: parseFloat(formData.subtotal),
+      descuento: parseFloat(formData.descuento),
+      impuestos: parseFloat(formData.impuestos),
+      total: parseFloat(formData.total),
+      observaciones: formData.observaciones || '',
+      costo_mano_obra: costoManoObra, // Agregamos explícitamente el costo de mano de obra
+      asunto_cotizacion: formData.asunto_cotizacion,
+      trabajo_realizar: formData.trabajo_realizar,
+      condiciones_adicionales: formData.condiciones_adicionales,
+      tiempo_trabajo: formData.tiempo_trabajo,
+      condicion_pago: formData.condicion_pago,
+      usuario_creacion: 1,
+      items: formData.items.map(item => ({
         id_material: parseInt(item.materialId),
         cantidad: parseInt(item.cantidad),
         precio_unitario: parseFloat(item.precio),
         subtotal: parseFloat(item.subtotal),
-        costo_mano_obra: itemCostoManoObra // Usar el valor global parseado y verificado
-      };
-    });
-
-    console.log('Items a enviar con costo_mano_obra:', JSON.stringify(items, null, 2));
-
-    // Estructura de la cotización según la base de datos
-    // Inside handleSubmit function, update the cotizacionData object
-    const cotizacionData = {
-    id_cliente: parseInt(formData.clienteId),
-    validez: parseInt(formData.validez),
-    estado: "activo",
-    subtotal: parseFloat(formData.subtotal),
-    descuento: parseFloat(formData.descuento),
-    impuestos: parseFloat(formData.impuestos),
-    total: parseFloat(formData.total),
-    observaciones: formData.observaciones || '',
-    // Add these fields to be saved
-    asunto_cotizacion: formData.asunto_cotizacion,
-    trabajo_realizar: formData.trabajo_realizar,
-    condiciones_adicionales: formData.condiciones_adicionales,
-    tiempo_trabajo: formData.tiempo_trabajo,
-    condicion_pago: formData.condicion_pago,
-    usuario_creacion: 1,
-    items
+        costo_mano_obra: costoManoObra
+      }))
     };
 
     setLoading(true);
@@ -637,7 +641,6 @@ const CotizacionForm = ({ isNew = false }) => {
               <TableBody>
                 {formData?.items?.map((item, index) => (
                   <TableRow key={index}>
-
                     <TableCell sx={{ minWidth: '300px', width: '30%' }}>
                       <FormControl fullWidth>
                         <InputLabel>Material</InputLabel>
@@ -645,11 +648,54 @@ const CotizacionForm = ({ isNew = false }) => {
                           value={item.materialId || ''}
                           onChange={(e) => handleItemChange(index, 'materialId', e.target.value)}
                           label="Material"
+                          MenuProps={{
+                            PaperProps: {
+                              style: {
+                                maxHeight: 300
+                              }
+                            }
+                          }}
                         >
-                          <MenuItem value="" disabled>Seleccione un material</MenuItem>
-                          {materiales.map(material => (
+                          <ListSubheader>
+                            <TextField
+                              size="small"
+                              autoFocus
+                              placeholder="Buscar por nombre o código..."
+                              fullWidth
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <SearchIcon />
+                                  </InputAdornment>
+                                )
+                              }}
+                              onChange={(e) => setMaterialFilter(e.target.value)}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </ListSubheader>
+                          <MenuItem value="" disabled>
+                            Seleccione un material
+                          </MenuItem>
+                          {filteredMateriales.map((material) => (
                             <MenuItem key={material.id_material} value={material.id_material.toString()}>
-                              {material.nombre}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                {material.imagen_url && (
+                                  <Box
+                                    component="img"
+                                    src={getMaterialImageUrl(material.imagen_url)}
+                                    alt={material.nombre}
+                                    sx={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 1 }}
+                                  />
+                                )}
+                                <Box>
+                                  <Typography variant="body1">
+                                    {material.nombre}
+                                  </Typography>
+                                  <Typography variant="caption" color="textSecondary">
+                                    Código: {material.codigo}
+                                  </Typography>
+                                </Box>
+                              </Box>
                             </MenuItem>
                           ))}
                         </Select>
