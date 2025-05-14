@@ -178,8 +178,26 @@ const Compras = () => {
 
       if (isEditing) {
         try {
-          await comprasService.updateCompra(compraForm.id, compraData);
-          Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
+          // Si estamos cambiando el estado a APROBADO, RECHAZADO o ANULADO
+          // vamos a utilizar la función específica para actualizar estado
+          const estadoOriginal = compras.find(c => c.id_compras === compraForm.id)?.estado;
+          const hayMovimientoDeEstado = estadoOriginal !== compraForm.estado;
+          
+          if (hayMovimientoDeEstado) {
+            console.log('Detectado cambio de estado:', estadoOriginal, '->', compraForm.estado);
+            
+            // Intentar primero actualizar solo el estado
+            await comprasService.actualizarEstadoCompra(compraForm.id, compraForm.estado);
+            Swal.fire('Éxito', `El estado de la compra ha sido actualizado a ${compraForm.estado}`, 'success');
+            
+            // Luego actualizamos el resto de los datos
+            await comprasService.updateCompra(compraForm.id, compraData);
+            console.log('Datos generales actualizados después del cambio de estado');
+          } else {
+            // Si no hay cambio de estado, actualizar normalmente
+            await comprasService.updateCompra(compraForm.id, compraData);
+            Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
+          }
         } catch (updateError) {
           console.error('Error al actualizar compra:', updateError);
           // Actualizar solo la UI si la API falla
@@ -248,8 +266,9 @@ const Compras = () => {
 
       if (result.isConfirmed) {
         try {
-          // Intentar actualizar la compra
-          await comprasService.updateCompra(id, { estado: 'CANCELADA' });
+          // Intentar actualizar el estado utilizando la función específica
+          await comprasService.actualizarEstadoCompra(id, 'ANULADO');
+          
           // Si la actualización tuvo éxito, actualizar el estado local
           const updatedCompras = await comprasService.getCompras();
           setCompras(updatedCompras);
@@ -260,7 +279,7 @@ const Compras = () => {
             icon: 'success'
           });
         } catch (error) {
-          console.error('Error al actualizar compra:', error);
+          console.error('Error al actualizar estado de compra:', error);
           
           // Actualizar solo la UI si la API falla
           Swal.fire({
@@ -271,7 +290,7 @@ const Compras = () => {
           
           // Actualizar localmente
           setCompras(prevCompras => prevCompras.map(compra => 
-            compra.id_compras === id ? { ...compra, estado: 'CANCELADA' } : compra
+            compra.id_compras === id ? { ...compra, estado: 'ANULADO', id_estado: 4 } : compra
           ));
         }
       }
@@ -587,6 +606,203 @@ const Compras = () => {
       Swal.fire({
         title: 'Error',
         text: `Error al probar rutas API: ${error.message}`,
+        icon: 'error'
+      });
+    }
+  };
+
+  const testEstadoCompra = async () => {
+    const compraId = await Swal.fire({
+      title: 'Diagnóstico de Estado',
+      text: 'Ingrese el ID de la compra que desea probar:',
+      input: 'text',
+      inputPlaceholder: 'Ej: 42',
+      showCancelButton: true,
+      confirmButtonText: 'Iniciar diagnóstico',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!compraId.isConfirmed || !compraId.value) return;
+
+    const id = compraId.value;
+    
+    Swal.fire({
+      title: 'Ejecutando diagnóstico',
+      text: 'Probando distintos métodos para actualizar el estado...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      // Información inicial de la compra
+      console.log(`=== Diagnóstico para compra ID: ${id} ===`);
+      let compraInfo;
+      try {
+        compraInfo = await comprasService.getCompraById(id);
+        console.log('Estado actual:', compraInfo.estado);
+        console.log('ID estado actual:', compraInfo.id_estado);
+      } catch (error) {
+        throw new Error(`No se pudo obtener información de la compra: ${error.message}`);
+      }
+
+      // 1. Probar actualizando solo el campo id_estado con PUT
+      const resultados = [];
+      
+      try {
+        const axios = await import('axios');
+        console.log('\n=== Probando PUT con campo id_estado ===');
+        const response = await axios.default.put(
+          `${api.defaults.baseURL}/compras/${id}`,
+          { id_estado: 2 }, // APROBADO
+          { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+        );
+        resultados.push({
+          metodo: 'PUT',
+          campo: 'id_estado',
+          estado: 'success',
+          codigo: response.status,
+          respuesta: response.data ? 'Con datos' : 'Sin datos'
+        });
+      } catch (error) {
+        resultados.push({
+          metodo: 'PUT',
+          campo: 'id_estado',
+          estado: 'error',
+          codigo: error.response?.status || 'N/A',
+          mensaje: error.response?.data?.message || error.message
+        });
+      }
+
+      // 2. Probar actualizando solo el campo id_estado con PATCH
+      try {
+        const axios = await import('axios');
+        console.log('\n=== Probando PATCH con campo id_estado ===');
+        const response = await axios.default.patch(
+          `${api.defaults.baseURL}/compras/${id}`,
+          { id_estado: 2 }, // APROBADO
+          { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+        );
+        resultados.push({
+          metodo: 'PATCH',
+          campo: 'id_estado',
+          estado: 'success',
+          codigo: response.status,
+          respuesta: response.data ? 'Con datos' : 'Sin datos'
+        });
+      } catch (error) {
+        resultados.push({
+          metodo: 'PATCH',
+          campo: 'id_estado',
+          estado: 'error',
+          codigo: error.response?.status || 'N/A',
+          mensaje: error.response?.data?.message || error.message
+        });
+      }
+
+      // 3. Probar actualizando con endpoint específico estado 
+      try {
+        const axios = await import('axios');
+        console.log('\n=== Probando POST a endpoint específico de estado ===');
+        const response = await axios.default.post(
+          `${api.defaults.baseURL}/compras/${id}/estado`,
+          { id_estado: 2 }, // APROBADO
+          { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+        );
+        resultados.push({
+          metodo: 'POST',
+          campo: 'endpoint específico',
+          estado: 'success',
+          codigo: response.status,
+          respuesta: response.data ? 'Con datos' : 'Sin datos'
+        });
+      } catch (error) {
+        resultados.push({
+          metodo: 'POST',
+          campo: 'endpoint específico',
+          estado: 'error',
+          codigo: error.response?.status || 'N/A',
+          mensaje: error.response?.data?.message || error.message
+        });
+      }
+
+      // Mostrar resultados
+      const resultHtml = `
+        <div style="text-align: left;">
+          <h4>Diagnóstico de actualizaciones de estado</h4>
+          <p><strong>Compra ID:</strong> ${id}</p>
+          <p><strong>Estado actual:</strong> ${compraInfo?.estado || 'Desconocido'}</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+            <thead>
+              <tr>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Método</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Campo</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Estado</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Código</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Mensaje</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${resultados.map(res => `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${res.metodo}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${res.campo}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; color: ${res.estado === 'success' ? 'green' : 'red'};">
+                    ${res.estado === 'success' ? '✅ Éxito' : '❌ Error'}
+                  </td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${res.codigo}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${res.mensaje || res.respuesta || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Buscar si algún método fue exitoso
+      const metodosExitosos = resultados.filter(res => res.estado === 'success');
+      
+      // Mostrar resultados
+      Swal.fire({
+        title: 'Resultados del diagnóstico',
+        html: resultHtml,
+        icon: metodosExitosos.length > 0 ? 'success' : 'warning',
+        width: '800px'
+      }).then(async (result) => {
+        if (result.isConfirmed && metodosExitosos.length > 0) {
+          // Preguntar si desea aplicar el mejor método encontrado
+          const mejorMetodo = metodosExitosos[0];
+          const confirmResult = await Swal.fire({
+            title: '¿Actualizar ahora?',
+            html: `
+              <p>Se encontró un método para actualizar el estado:</p>
+              <p><strong>${mejorMetodo.metodo} con ${mejorMetodo.campo}</strong></p>
+              <p>¿Desea actualizar la compra a APROBADO?</p>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, actualizar',
+            cancelButtonText: 'No'
+          });
+          
+          if (confirmResult.isConfirmed) {
+            // Intentar actualizar el estado
+            await comprasService.actualizarEstadoCompra(id, 'APROBADO');
+            Swal.fire('¡Actualizado!', 'La compra ha sido actualizada a APROBADO', 'success');
+            
+            // Recargar la lista de compras
+            const updatedCompras = await comprasService.getCompras();
+            setCompras(updatedCompras);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error durante el diagnóstico:', error);
+      Swal.fire({
+        title: 'Error',
+        text: `Error durante el diagnóstico: ${error.message}`,
         icon: 'error'
       });
     }
@@ -955,6 +1171,9 @@ const Compras = () => {
                   <p><strong>Ruta:</strong> ${config.route}</p>
                   <p><strong>Método:</strong> ${config.method}</p>
                   <p><strong>Formato:</strong> ${config.format || 'No especificado'}</p>
+                  <p><small>Click normal: Diagnóstico completo API</small></p>
+                  <p><small>Click derecho: Ver/Reiniciar configuración</small></p>
+                  <p><small>Presionar Alt+Click: Diagnóstico de estado</small></p>
                 </div>
               `,
               showCancelButton: true,
@@ -971,7 +1190,15 @@ const Compras = () => {
           }
           return false;
         }}
-        title="Clic: Diagnosticar API | Clic derecho: Ver configuración"
+        onMouseDown={(e) => {
+          // Si se presiona Alt+Click, ejecutar diagnóstico de estado
+          if (e.altKey) {
+            e.preventDefault();
+            testEstadoCompra();
+            return false;
+          }
+        }}
+        title="Clic: Diagnóstico API | Clic derecho: Ver configuración | Alt+Clic: Diagnóstico estado"
       >
         🔍
       </button>

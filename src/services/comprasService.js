@@ -252,6 +252,10 @@ export const updateCompra = async (id, data) => {
     const savedRouteConfig = localStorage.getItem('bestUpdateRoute');
     let datosFormateados = null;
     
+    // Asegurar que tenemos el id_estado correcto
+    const estado_numerico = data.estado === 'APROBADO' ? 2 : (data.estado === 'RECHAZADO' ? 3 : (data.estado === 'ANULADO' ? 4 : 1));
+    console.log('Estado convertido a numérico:', estado_numerico);
+    
     if (savedRouteConfig) {
       const config = JSON.parse(savedRouteConfig);
       console.log(`\n=== Usando configuración guardada ===`);
@@ -260,7 +264,7 @@ export const updateCompra = async (id, data) => {
       // Formatear datos según el formato preferido
       if (config.format === 'snake_case') {
         datosFormateados = {
-          id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1),
+          id_estado: estado_numerico,  // Usar el valor numérico calculado
           observaciones: data.observaciones || '',
           
           // Si hay detalles, transformarlos también
@@ -274,7 +278,7 @@ export const updateCompra = async (id, data) => {
       } else {
         // Formato camelCase (o predeterminado si no se especifica)
         datosFormateados = {
-          id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1),
+          id_estado: estado_numerico,  // Usar el valor numérico calculado
           observaciones: data.observaciones || '',
           
           // Si hay detalles, mantener su formato
@@ -348,7 +352,7 @@ export const updateCompra = async (id, data) => {
     } else {
       // Si no hay configuración guardada, usamos el formato snake_case por defecto
       datosFormateados = {
-        id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1),
+        id_estado: estado_numerico,  // Usar el valor numérico calculado
         observaciones: data.observaciones || '',
         
         // Si hay detalles, transformarlos también
@@ -407,7 +411,7 @@ export const updateCompra = async (id, data) => {
         try {
           console.log('\n=== Intentando PATCH solo con estado ===');
           const datosMinimos = {
-            id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1)
+            id_estado: estado_numerico  // Usar el valor numérico calculado
           };
           
           const axios = await import('axios');
@@ -656,4 +660,104 @@ export const discoverApiRoutes = async () => {
   }
   
   return routes;
+};
+
+// Nueva función específica para actualizar el estado de una compra
+export const actualizarEstadoCompra = async (id, estado) => {
+  try {
+    console.log('=== Actualizando estado de compra ===');
+    console.log('ID de compra:', id);
+    console.log('Nuevo estado:', estado);
+
+    // Convertir el estado a su valor numérico
+    const estadoNumerico = typeof estado === 'string' 
+      ? (estado === 'APROBADO' ? 2 : 
+         estado === 'RECHAZADO' ? 3 : 
+         estado === 'ANULADO' ? 4 : 1)
+      : estado;
+    
+    console.log('Estado numérico:', estadoNumerico);
+
+    // Crear payload mínimo solo con el estado
+    const payload = { id_estado: estadoNumerico };
+    
+    // Intentar las tres opciones principales (PUT, PATCH, PATCH solo con ID)
+    try {
+      // 1. Intentar con PUT
+      console.log('\n=== Intentando PUT para actualizar estado ===');
+      const axios = await import('axios');
+      const putResponse = await axios.default.put(
+        `${api.defaults.baseURL}/compras/${id}`, 
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      console.log('✅ Éxito actualizando estado con PUT');
+      return putResponse.data;
+    } catch (putError) {
+      console.log('❌ Error con PUT:', putError.message);
+      
+      // 2. Intentar con PATCH
+      try {
+        console.log('\n=== Intentando PATCH para actualizar estado ===');
+        const axios = await import('axios');
+        const patchResponse = await axios.default.patch(
+          `${api.defaults.baseURL}/compras/${id}`, 
+          payload,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        console.log('✅ Éxito actualizando estado con PATCH');
+        return patchResponse.data;
+      } catch (patchError) {
+        console.log('❌ Error con PATCH:', patchError.message);
+        
+        // 3. Intentar con endpoint específico de estado
+        try {
+          console.log('\n=== Intentando endpoint específico de estado ===');
+          const axios = await import('axios');
+          const endpointResponse = await axios.default.post(
+            `${api.defaults.baseURL}/compras/${id}/estado`, 
+            payload,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            }
+          );
+          console.log('✅ Éxito actualizando estado con endpoint específico');
+          return endpointResponse.data;
+        } catch (endpointError) {
+          console.log('❌ Error con endpoint específico:', endpointError.message);
+          throw endpointError;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('=== Error al actualizar estado de compra ===');
+    console.error('Tipo de error:', error.constructor.name);
+    console.error('Mensaje:', error.message);
+    console.error('Response:', error.response?.data);
+    console.error('Status:', error.response?.status);
+    
+    let errorMessage = 'Error al actualizar estado de compra: ';
+    if (error.response?.data?.message) {
+      errorMessage += error.response.data.message;
+    } else if (error.message) {
+      errorMessage += error.message;
+    } else {
+      errorMessage += 'Error desconocido';
+    }
+    
+    throw new Error(errorMessage);
+  }
 };

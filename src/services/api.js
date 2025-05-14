@@ -51,9 +51,52 @@ api.interceptors.response.use(
     console.error('URL:', error.config?.url);
     console.error('Método:', error.config?.method);
     console.error('Status:', error.response?.status);
+    
+    // Información más detallada para errores de estado
+    if (error.response?.status === 400) {
+      console.error('Error 400 - Bad Request. Posible error en el formato de los datos enviados');
+      console.error('Detalles del error:', error.response?.data);
+      
+      // Mostrar en detalle los datos que se enviaron
+      console.error('Datos enviados:', error.config?.data ? JSON.parse(error.config.data) : 'Sin datos');
+      
+      // Si hay un mensaje específico del campo id_estado
+      if (error.response?.data?.message?.includes('id_estado')) {
+        console.error('⚠️ Error específico con campo id_estado detectado');
+      }
+    }
+    else if (error.response?.status === 404) {
+      console.error('Error 404 - Not Found. El recurso o endpoint no existe');
+    }
+    else if (error.response?.status === 401) {
+      console.error('Error 401 - Unauthorized. Problemas de autenticación o token expirado');
+    }
+    else if (error.response?.status === 403) {
+      console.error('Error 403 - Forbidden. No tiene permisos para esta acción');
+    }
+    else if (error.response?.status === 422) {
+      console.error('Error 422 - Unprocessable Entity. Datos de entrada inválidos');
+      console.error('Detalles de validación:', error.response?.data);
+    }
+    else if (error.response?.status === 500) {
+      console.error('Error 500 - Internal Server Error. Error en el servidor');
+    }
+    
     console.error('Data:', error.response?.data);
     console.error('Headers:', error.response?.headers);
     console.error('=========================');
+    
+    // Añadir información adicional al error para facilitar el diagnóstico
+    if (error.response) {
+      error.detailedInfo = {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        data: error.response?.data,
+        sentData: error.config?.data ? JSON.parse(error.config.data) : null
+      };
+    }
+    
     throw error;
   }
 );
