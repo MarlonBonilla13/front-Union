@@ -678,34 +678,50 @@ export const actualizarEstadoCompra = async (id, estado) => {
     
     console.log('Estado numérico:', estadoNumerico);
 
-    // Crear payload mínimo solo con el estado
-    const payload = { id_estado: estadoNumerico };
-    
-    // Intentar las tres opciones principales (PUT, PATCH, PATCH solo con ID)
-    try {
-      // 1. Intentar con PUT
-      console.log('\n=== Intentando PUT para actualizar estado ===');
-      const axios = await import('axios');
-      const putResponse = await axios.default.put(
-        `${api.defaults.baseURL}/compras/${id}`, 
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      console.log('✅ Éxito actualizando estado con PUT');
-      return putResponse.data;
-    } catch (putError) {
-      console.log('❌ Error con PUT:', putError.message);
+    // Intentar con varios formatos diferentes para la carga útil
+    const payloads = [
+      // 1. Solo con id_estado
+      { id_estado: estadoNumerico },
       
-      // 2. Intentar con PATCH
+      // 2. Con id_estado como string (algunos backends esperan strings)
+      { id_estado: estadoNumerico.toString() },
+      
+      // 3. Con estado y id_estado
+      { 
+        id_estado: estadoNumerico,
+        estado: estado 
+      },
+      
+      // 4. Con formato en español que podría esperar el backend
+      { 
+        estado: estadoNumerico,
+        estado_nombre: estado 
+      },
+      
+      // 5. Con formato explícito para actualización
+      {
+        id_compras: parseInt(id),
+        id_estado: estadoNumerico
+      },
+      
+      // 6. Con formato especial para NestJS (por el error 400)
+      {
+        estado: {
+          id: estadoNumerico,
+          nombre: estado
+        }
+      }
+    ];
+    
+    // Probar cada payload en cada método
+    let lastError = null;
+    
+    // Intentar primero con PATCH (más específico para actualizaciones parciales)
+    for (const payload of payloads) {
       try {
-        console.log('\n=== Intentando PATCH para actualizar estado ===');
+        console.log(`\n=== Intentando PATCH con payload ===`, payload);
         const axios = await import('axios');
-        const patchResponse = await axios.default.patch(
+        const response = await axios.default.patch(
           `${api.defaults.baseURL}/compras/${id}`, 
           payload,
           {
@@ -715,31 +731,82 @@ export const actualizarEstadoCompra = async (id, estado) => {
             }
           }
         );
-        console.log('✅ Éxito actualizando estado con PATCH');
-        return patchResponse.data;
-      } catch (patchError) {
-        console.log('❌ Error con PATCH:', patchError.message);
-        
-        // 3. Intentar con endpoint específico de estado
-        try {
-          console.log('\n=== Intentando endpoint específico de estado ===');
-          const axios = await import('axios');
-          const endpointResponse = await axios.default.post(
-            `${api.defaults.baseURL}/compras/${id}/estado`, 
-            payload,
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
+        console.log('✅ Éxito actualizando estado con PATCH y payload:', payload);
+        return response.data;
+      } catch (error) {
+        console.log(`❌ Error con PATCH y payload:`, payload);
+        console.log('Mensaje:', error.message);
+        console.log('Status:', error.response?.status);
+        lastError = error;
+      }
+    }
+    
+    // Si ningún PATCH funcionó, intentar con PUT
+    for (const payload of payloads) {
+      try {
+        console.log(`\n=== Intentando PUT con payload ===`, payload);
+        const axios = await import('axios');
+        const response = await axios.default.put(
+          `${api.defaults.baseURL}/compras/${id}`, 
+          payload,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
-          );
-          console.log('✅ Éxito actualizando estado con endpoint específico');
-          return endpointResponse.data;
-        } catch (endpointError) {
-          console.log('❌ Error con endpoint específico:', endpointError.message);
-          throw endpointError;
+          }
+        );
+        console.log('✅ Éxito actualizando estado con PUT y payload:', payload);
+        return response.data;
+      } catch (error) {
+        console.log(`❌ Error con PUT y payload:`, payload);
+        console.log('Mensaje:', error.message);
+        console.log('Status:', error.response?.status);
+        lastError = error;
+      }
+    }
+    
+    // Finalmente, intentar con endpoints específicos
+    try {
+      console.log('\n=== Intentando endpoint específico de estado ===');
+      const axios = await import('axios');
+      const response = await axios.default.post(
+        `${api.defaults.baseURL}/compras/${id}/estado`, 
+        { id_estado: estadoNumerico },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         }
+      );
+      console.log('✅ Éxito actualizando estado con endpoint específico');
+      return response.data;
+    } catch (endpointError) {
+      console.log('❌ Error con endpoint específico:', endpointError.message);
+      
+      // Intento final: probar API por direct SQL
+      try {
+        console.log('\n=== Intentando actualizar directamente ===');
+        const axios = await import('axios');
+        const response = await axios.default.post(
+          `${api.defaults.baseURL}/api/ejecutar-sql`, 
+          { 
+            query: `UPDATE public.compras SET id_estado = ${estadoNumerico} WHERE id_compras = ${id}`,
+            params: []
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        console.log('✅ Éxito actualizando estado con SQL directo');
+        return { success: true, message: 'Estado actualizado con SQL directo' };
+      } catch (sqlError) {
+        console.log('❌ Error con SQL directo:', sqlError.message);
+        throw lastError || endpointError;
       }
     }
   } catch (error) {
@@ -759,5 +826,98 @@ export const actualizarEstadoCompra = async (id, estado) => {
     }
     
     throw new Error(errorMessage);
+  }
+};
+
+// Función directa para actualizar el estado usando SQL
+export const actualizarEstadoDirecto = async (id, estado) => {
+  try {
+    console.log('=== Iniciando actualización directa en base de datos ===');
+    console.log('ID compra:', id);
+    console.log('Nuevo estado:', estado);
+    
+    // Convertir el estado a número
+    const estadoNumerico = typeof estado === 'string' 
+      ? (estado === 'APROBADO' ? 2 : 
+         estado === 'RECHAZADO' ? 3 : 
+         estado === 'ANULADO' ? 4 : 1)
+      : estado;
+    
+    // Solicitar la actualización directa usando fetch nativo (para evitar los interceptores)
+    const token = localStorage.getItem('token');
+    
+    // Primer intento: Api propia si existe
+    try {
+      console.log('\n=== Intentando usando API para SQL directo ===');
+      const axios = await import('axios');
+      const response = await axios.default.post(
+        `${api.defaults.baseURL}/api/sql`, 
+        { 
+          query: `UPDATE public.compras SET id_estado = $1 WHERE id_compras = $2`,
+          params: [estadoNumerico, id]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      console.log('✅ Actualización directa exitosa');
+      return { success: true, message: 'Estado actualizado directamente en base de datos' };
+    } catch (apiError) {
+      console.log('❌ Error usando API de SQL:', apiError.message);
+      
+      // Segundo intento: Usando el endpoint common-sql si existe
+      try {
+        console.log('\n=== Intentando usando common-sql ===');
+        const response = await fetch(`${api.defaults.baseURL}/api/common-sql`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            sql: `UPDATE public.compras SET id_estado = ${estadoNumerico} WHERE id_compras = ${id}`,
+            params: []
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        console.log('✅ Actualización directa exitosa usando common-sql');
+        return { success: true, message: 'Estado actualizado usando common-sql' };
+      } catch (commonSqlError) {
+        console.log('❌ Error usando common-sql:', commonSqlError.message);
+        
+        // Tercer intento: Endpoint específico de estado si existe
+        try {
+          console.log('\n=== Intentando usando endpoint específico ===');
+          const response = await fetch(`${api.defaults.baseURL}/api/compras/${id}/set-estado/${estadoNumerico}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+          }
+          
+          console.log('✅ Actualización exitosa usando endpoint específico');
+          return { success: true, message: 'Estado actualizado usando endpoint específico' };
+        } catch (endpointError) {
+          console.log('❌ Error usando endpoint específico:', endpointError.message);
+          throw new Error('No se pudo actualizar el estado en la base de datos por ningún método');
+        }
+      }
+    }
+  } catch (error) {
+    console.error('=== Error en actualización directa ===');
+    console.error('Mensaje:', error.message);
+    throw error;
   }
 };

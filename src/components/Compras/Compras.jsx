@@ -808,6 +808,132 @@ const Compras = () => {
     }
   };
 
+  const forzarActualizacionEstado = async () => {
+    const { value: compraId } = await Swal.fire({
+      title: 'Actualización Forzada',
+      text: 'Ingrese el ID de la compra que desea actualizar:',
+      input: 'text',
+      inputPlaceholder: 'Ej: 30',
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!compraId) return;
+
+    // Preguntar por el nuevo estado
+    const { value: nuevoEstado } = await Swal.fire({
+      title: 'Seleccione nuevo estado',
+      input: 'select',
+      inputOptions: {
+        'PENDIENTE': 'PENDIENTE',
+        'APROBADO': 'APROBADO',
+        'RECHAZADO': 'RECHAZADO',
+        'ANULADO': 'ANULADO'
+      },
+      inputPlaceholder: 'Seleccione estado',
+      confirmButtonText: 'Actualizar',
+      showCancelButton: true
+    });
+
+    if (!nuevoEstado) return;
+
+    // Preguntar por el método de actualización
+    const { value: metodo } = await Swal.fire({
+      title: 'Método de actualización',
+      input: 'radio',
+      inputOptions: {
+        'api': 'Usar API standard (PUT/PATCH)',
+        'directa': 'Actualización directa en base de datos (avanzado)',
+        'ambos': 'Intentar ambos métodos (recomendado)'
+      },
+      inputValue: 'ambos',
+      confirmButtonText: 'Actualizar',
+      showCancelButton: true
+    });
+
+    if (!metodo) return;
+
+    try {
+      Swal.fire({
+        title: 'Actualizando estado...',
+        text: `Intentando actualizar usando método: ${metodo}`,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      let result;
+      
+      // Aplicar según el método seleccionado
+      if (metodo === 'api' || metodo === 'ambos') {
+        try {
+          result = await comprasService.actualizarEstadoCompra(compraId, nuevoEstado);
+          console.log('Resultado de actualización API:', result);
+        } catch (apiError) {
+          console.error('Error actualizando por API:', apiError);
+          if (metodo === 'api') throw apiError;
+        }
+      }
+
+      if (metodo === 'directa' || (metodo === 'ambos' && !result)) {
+        console.log('Intentando actualización directa...');
+        result = await comprasService.actualizarEstadoDirecto(compraId, nuevoEstado);
+        console.log('Resultado de actualización directa:', result);
+      }
+
+      // Verificar si funcionó consultando el estado actual
+      let compraActualizada;
+      try {
+        compraActualizada = await comprasService.getCompraById(compraId);
+      } catch (error) {
+        console.error('Error al verificar estado actualizado:', error);
+      }
+
+      // Recargar la lista completa
+      await cargarDatos();
+
+      if (compraActualizada) {
+        const estadoActual = compraActualizada.estado?.nombre || compraActualizada.estado;
+        const idEstadoActual = compraActualizada.id_estado;
+        
+        console.log('Estado después de actualización:', estadoActual, idEstadoActual);
+        
+        const estadoNumericoCorrecto = 
+          (nuevoEstado === 'APROBADO' && idEstadoActual === 2) ||
+          (nuevoEstado === 'RECHAZADO' && idEstadoActual === 3) ||
+          (nuevoEstado === 'ANULADO' && idEstadoActual === 4) ||
+          (nuevoEstado === 'PENDIENTE' && idEstadoActual === 1);
+        
+        const estadoTextoCorrecto = estadoActual === nuevoEstado;
+        
+        if (estadoNumericoCorrecto || estadoTextoCorrecto) {
+          Swal.fire('¡Éxito!', `La compra ha sido actualizada a ${nuevoEstado}`, 'success');
+        } else {
+          // Si no se actualizó en el backend, mostrar opciones adicionales
+          Swal.fire({
+            title: 'Estado no actualizado',
+            html: `
+              <p>La operación se completó, pero el estado no parece haber cambiado en la base de datos.</p>
+              <p>Estado actual: ${estadoActual || 'Desconocido'}</p>
+              <p>ID Estado actual: ${idEstadoActual || 'Desconocido'}</p>
+              <p>Intente refrescar la página para ver los cambios más recientes,
+              o solicite soporte técnico mencionando que el estado no se actualiza.</p>
+            `,
+            icon: 'warning',
+            confirmButtonText: 'Entendido'
+          });
+        }
+      } else {
+        Swal.fire('Operación Completada', 'La operación de actualización se completó, pero no se pudo verificar el nuevo estado. Refresque la página para ver los cambios.', 'info');
+      }
+    } catch (error) {
+      console.error('Error al forzar actualización:', error);
+      Swal.fire('Error', `No se pudo actualizar el estado: ${error.message}`, 'error');
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -1173,7 +1299,8 @@ const Compras = () => {
                   <p><strong>Formato:</strong> ${config.format || 'No especificado'}</p>
                   <p><small>Click normal: Diagnóstico completo API</small></p>
                   <p><small>Click derecho: Ver/Reiniciar configuración</small></p>
-                  <p><small>Presionar Alt+Click: Diagnóstico de estado</small></p>
+                  <p><small>Alt+Click: Diagnóstico de estado</small></p>
+                  <p><small>Shift+Alt+Click: Forzar actualización de estado</small></p>
                 </div>
               `,
               showCancelButton: true,
@@ -1192,13 +1319,17 @@ const Compras = () => {
         }}
         onMouseDown={(e) => {
           // Si se presiona Alt+Click, ejecutar diagnóstico de estado
-          if (e.altKey) {
+          if (e.altKey && e.shiftKey) {
+            e.preventDefault();
+            forzarActualizacionEstado();
+            return false;
+          } else if (e.altKey) {
             e.preventDefault();
             testEstadoCompra();
             return false;
           }
         }}
-        title="Clic: Diagnóstico API | Clic derecho: Ver configuración | Alt+Clic: Diagnóstico estado"
+        title="Clic: Diagnóstico API | Clic derecho: Ver configuración | Alt+Clic: Diagnóstico estado | Shift+Alt+Clic: Forzar actualización"
       >
         🔍
       </button>
