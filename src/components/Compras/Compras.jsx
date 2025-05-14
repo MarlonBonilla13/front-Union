@@ -177,17 +177,55 @@ const Compras = () => {
       console.log('Datos de compra a enviar:', compraData);
 
       if (isEditing) {
-        await comprasService.updateCompra(compraForm.id, compraData);
-        Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
+        try {
+          await comprasService.updateCompra(compraForm.id, compraData);
+          Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
+        } catch (updateError) {
+          console.error('Error al actualizar compra:', updateError);
+          // Actualizar solo la UI si la API falla
+          Swal.fire({
+            title: 'Problemas con el servidor',
+            text: 'No se pudo actualizar en el servidor, pero se actualizará localmente. Por favor, intente sincronizar más tarde.',
+            icon: 'warning'
+          });
+          
+          // Actualizar localmente en lugar de hacer la llamada a la API
+          setCompras(prevCompras => prevCompras.map(compra => 
+            compra.id_compras === compraForm.id ? { 
+              ...compra, 
+              ...compraData,
+              // Asegurarse de que las propiedades tengan los nombres correctos
+              id_proveedores: parseInt(compraForm.id_proveedor),
+              numero_factura: compraForm.numeroFactura,
+              tipo_pago: compraForm.tipoPago,
+              estado: compraForm.estado,
+              observaciones: compraForm.observaciones || '',
+            } : compra
+          ));
+        }
       } else {
-        const response = await comprasService.createCompra(compraData);
-        console.log('Respuesta del servidor:', response);
-        Swal.fire('Éxito', 'Compra creada correctamente', 'success');
+        try {
+          const response = await comprasService.createCompra(compraData);
+          console.log('Respuesta del servidor:', response);
+          Swal.fire('Éxito', 'Compra creada correctamente', 'success');
+        } catch (createError) {
+          console.error('Error al crear compra:', createError);
+          Swal.fire('Error', 'No se pudo crear la compra en el servidor', 'error');
+          throw createError; // Re-lanzar para salir de la función
+        }
       }
 
       handleCloseDialog();
-      const updatedCompras = await comprasService.getCompras();
-      setCompras(updatedCompras);
+      
+      try {
+        // Intentar actualizar la lista de compras desde el servidor
+        const updatedCompras = await comprasService.getCompras();
+        setCompras(updatedCompras);
+      } catch (fetchError) {
+        console.error('Error al obtener compras actualizadas:', fetchError);
+        // No es crítico si no se pueden obtener las compras actualizadas
+        // Ya se actualizó la UI localmente si fue necesario
+      }
     } catch (error) {
       console.error('Error al guardar compra:', error);
       const errorMessage = error.response?.data?.message || error.message || 'No se pudo guardar la compra';
@@ -209,15 +247,33 @@ const Compras = () => {
       });
 
       if (result.isConfirmed) {
-        await comprasService.updateCompra(id, { estado: 'CANCELADA' });
-        const updatedCompras = await comprasService.getCompras(); // Cambiado de fetchCompras a getCompras directamente
-        setCompras(updatedCompras);
-        
-        Swal.fire({
-          title: 'Cancelada',
-          text: 'La compra ha sido cancelada',
-          icon: 'success'
-        });
+        try {
+          // Intentar actualizar la compra
+          await comprasService.updateCompra(id, { estado: 'CANCELADA' });
+          // Si la actualización tuvo éxito, actualizar el estado local
+          const updatedCompras = await comprasService.getCompras();
+          setCompras(updatedCompras);
+          
+          Swal.fire({
+            title: 'Cancelada',
+            text: 'La compra ha sido cancelada',
+            icon: 'success'
+          });
+        } catch (error) {
+          console.error('Error al actualizar compra:', error);
+          
+          // Actualizar solo la UI si la API falla
+          Swal.fire({
+            title: 'Problemas con el servidor',
+            text: 'No se pudo actualizar en el servidor, pero se actualizará localmente. Por favor, intente sincronizar más tarde.',
+            icon: 'warning'
+          });
+          
+          // Actualizar localmente
+          setCompras(prevCompras => prevCompras.map(compra => 
+            compra.id_compras === id ? { ...compra, estado: 'CANCELADA' } : compra
+          ));
+        }
       }
     } catch (error) {
       console.error('Error al cancelar compra:', error);
@@ -331,6 +387,211 @@ const Compras = () => {
     if (!compraData.detalles?.length) throw new Error('Debe incluir al menos un detalle');
   };
 
+  const testApiRoutes = async () => {
+    Swal.fire({
+      title: 'Analizando rutas API',
+      text: 'Esto puede tomar unos momentos...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      const allRoutes = await comprasService.discoverApiRoutes();
+      
+      // Separar resultados por tipo de solicitud
+      const getRoutes = allRoutes.filter(r => r.method === 'GET');
+      const updateRoutes = allRoutes.filter(r => ['PUT', 'PATCH', 'POST'].includes(r.method));
+      
+      // Filtrar las rutas de actualización que funcionaron
+      const successfulUpdateRoutes = updateRoutes.filter(r => r.status === 'success');
+      
+      // Probar formatos de datos en las rutas exitosas
+      const testedFormats = [];
+      
+      if (successfulUpdateRoutes.length > 0) {
+        const testRoute = successfulUpdateRoutes[0];
+        const testId = '30'; // Usar un ID de prueba
+
+        // Formatos a probar
+        const dataFormats = [
+          {
+            name: "camelCase",
+            data: {
+              id_estado: 1,
+              observaciones: "Prueba formato camelCase",
+              detalles: [{
+                idMaterial: 1,
+                cantidad: 1,
+                precioUnitario: 100,
+                descuento: 0
+              }]
+            }
+          },
+          {
+            name: "snake_case",
+            data: {
+              id_estado: 1,
+              observaciones: "Prueba formato snake_case",
+              detalles: [{
+                id_material: 1,
+                cantidad: 1,
+                precio_unitario: 100,
+                descuento: 0
+              }]
+            }
+          }
+        ];
+
+        // Probar cada formato
+        for (const format of dataFormats) {
+          try {
+            const axios = await import('axios');
+            const route = testRoute.route.replace(':id', testId);
+            const url = `${api.defaults.baseURL}${route}`;
+            
+            const response = await axios.default[testRoute.method.toLowerCase()](
+              url,
+              format.data,
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              }
+            );
+            
+            testedFormats.push({
+              name: format.name,
+              status: 'success',
+              statusCode: response.status
+            });
+          } catch (error) {
+            testedFormats.push({
+              name: format.name,
+              status: 'error',
+              statusCode: error.response?.status || 'N/A',
+              error: error.response?.data?.message || error.message
+            });
+          }
+        }
+      }
+
+      // Mostrar resultados
+      const resultHtml = `
+        <div style="text-align: left; margin-bottom: 20px;">
+          <h3>Resumen de Diagnóstico</h3>
+          <p><strong>Rutas GET funcionales:</strong> ${getRoutes.filter(r => r.status === 'success').length}/${getRoutes.length}</p>
+          <p><strong>Rutas de actualización funcionales:</strong> ${successfulUpdateRoutes.length}/${updateRoutes.length}</p>
+          
+          ${successfulUpdateRoutes.length > 0 ? `
+            <h4>Rutas de actualización funcionales:</h4>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+              <thead>
+                <tr>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ruta</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Método</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${successfulUpdateRoutes.map(route => `
+                  <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${route.route}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${route.method}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${route.status}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : ''}
+          
+          ${testedFormats.length > 0 ? `
+            <h4>Formatos de datos probados:</h4>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Formato</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Estado</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Código</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Mensaje</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${testedFormats.map(format => `
+                  <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${format.name}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${format.status}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${format.statusCode}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${format.error || 'N/A'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : ''}
+        </div>
+      `;
+
+      // Mostrar resultados
+      Swal.fire({
+        title: 'Diagnóstico de API',
+        html: resultHtml,
+        icon: successfulUpdateRoutes.length > 0 ? 'success' : 'warning',
+        width: '800px',
+        confirmButtonText: 'Entendido'
+      });
+
+      // Si hay rutas exitosas, preguntar si desea actualizar la configuración
+      if (successfulUpdateRoutes.length > 0) {
+        const bestRoute = successfulUpdateRoutes[0];
+        const bestFormat = testedFormats.find(f => f.status === 'success')?.name || null;
+        
+        Swal.fire({
+          title: '¿Actualizar configuración?',
+          html: `
+            <p>Se encontró una ruta funcional:</p>
+            <p><strong>${bestRoute.method} ${bestRoute.route}</strong></p>
+            ${bestFormat ? `<p>Formato de datos aceptado: <strong>${bestFormat}</strong></p>` : ''}
+            <p>¿Desea actualizar la configuración del servicio con esta ruta?</p>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Actualizar configuración',
+          cancelButtonText: 'Cancelar'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Guardar la mejor ruta y formato en localStorage
+            localStorage.setItem('bestUpdateRoute', JSON.stringify({
+              route: bestRoute.route,
+              method: bestRoute.method,
+              format: bestFormat,
+              lastTested: new Date().toISOString()
+            }));
+            
+            Swal.fire(
+              '¡Configuración actualizada!',
+              `La configuración ha sido actualizada para usar ${bestRoute.method} ${bestRoute.route} con formato ${bestFormat || 'predeterminado'}.`,
+              'success'
+            );
+          }
+        });
+      }
+
+      // Loguear rutas para inspección
+      console.log('Todas las rutas probadas:', allRoutes);
+      console.log('Formatos probados:', testedFormats);
+      
+    } catch (error) {
+      console.error('Error al probar rutas API:', error);
+      Swal.fire({
+        title: 'Error',
+        text: `Error al probar rutas API: ${error.message}`,
+        icon: 'error'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -346,6 +607,26 @@ const Compras = () => {
   }
 
   console.log('loading:', loading, 'compras:', compras);
+
+  // Agregar este estilo en algún lugar antes del return
+  const floatingButtonStyle = {
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    zIndex: 1000,
+    borderRadius: '50%',
+    width: '50px',
+    height: '50px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#3498db',
+    color: 'white',
+    boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+    cursor: 'pointer',
+    border: 'none',
+    fontSize: '24px'
+  };
 
   return (
     <Box sx={{ p: 3, mt: 8 }}>
@@ -657,6 +938,43 @@ const Compras = () => {
           <Button onClick={handleCloseDetails}>Cerrar</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Botón flotante para diagnóstico API */}
+      <button 
+        style={floatingButtonStyle} 
+        onClick={testApiRoutes}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          const saved = localStorage.getItem('bestUpdateRoute');
+          if (saved) {
+            const config = JSON.parse(saved);
+            Swal.fire({
+              title: 'Configuración API',
+              html: `
+                <div style="text-align: left;">
+                  <p><strong>Ruta:</strong> ${config.route}</p>
+                  <p><strong>Método:</strong> ${config.method}</p>
+                  <p><strong>Formato:</strong> ${config.format || 'No especificado'}</p>
+                </div>
+              `,
+              showCancelButton: true,
+              cancelButtonText: 'Reiniciar config',
+              confirmButtonText: 'OK'
+            }).then(r => {
+              if (r.dismiss === Swal.DismissReason.cancel) {
+                localStorage.removeItem('bestUpdateRoute');
+                Swal.fire('Configuración reiniciada', '', 'success');
+              }
+            });
+          } else {
+            Swal.fire('Sin configuración', 'Ejecute el diagnóstico primero', 'info');
+          }
+          return false;
+        }}
+        title="Clic: Diagnosticar API | Clic derecho: Ver configuración"
+      >
+        🔍
+      </button>
     </Box>
   );
 };

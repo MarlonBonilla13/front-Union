@@ -25,10 +25,7 @@ export const checkServerConnection = async () => {
 // Función para probar diferentes rutas
 export const testComprasRoutes = async () => {
   const routes = [
-    '/compras',
-    '/api/compras',
-    '/v1/compras',
-    '/api/v1/compras'
+    '/compras'
   ];
 
   console.log('Probando rutas disponibles...');
@@ -90,11 +87,58 @@ export const getCompras = async () => {
 
 export const getCompraById = async (id) => {
   try {
-    const response = await api.get(`/compras/${id}`);
-    return response.data;
+    console.log('=== Obteniendo compra por ID ===');
+    console.log('ID de compra:', id);
+
+    // Validar ID
+    if (!id) throw new Error('El ID de la compra es requerido');
+
+    // Intentar diferentes rutas
+    const routes = [
+      '/api/compras',
+      '/compras',
+      '/v1/compras',
+      '/api/v1/compras'
+    ];
+    let lastError = null;
+
+    for (const route of routes) {
+      try {
+        console.log(`\n=== Intentando ruta: ${route}/${id} ===`);
+        const response = await api.get(`${route}/${id}`);
+        console.log(`✅ Éxito en ruta ${route}/${id}`);
+        return response.data;
+      } catch (error) {
+        console.log(`❌ Error en ruta ${route}/${id}:`, error.message);
+        lastError = error;
+        if (error.response?.status !== 404) {
+          console.log(`⚠️ Error diferente a 404, no seguimos intentando otras rutas`);
+          throw error; // Si el error no es 404, lo propagamos
+        }
+      }
+    }
+
+    // Si llegamos aquí, ninguna ruta funcionó
+    console.error('❌ Ninguna ruta funcionó para obtener la compra');
+    throw lastError || new Error(`No se pudo obtener la compra con ID ${id}`);
   } catch (error) {
-    console.error(`Error al obtener compra con ID ${id}:`, error);
-    throw error;
+    console.error(`=== Error al obtener compra con ID ${id} ===`);
+    console.error('Tipo de error:', error.constructor.name);
+    console.error('Mensaje:', error.message);
+    console.error('Response:', error.response?.data);
+    console.error('Status:', error.response?.status);
+    
+    // Mensaje de error más detallado
+    let errorMessage = `Error al obtener compra con ID ${id}: `;
+    if (error.response?.data?.message) {
+      errorMessage += error.response.data.message;
+    } else if (error.message) {
+      errorMessage += error.message;
+    } else {
+      errorMessage += 'Error desconocido';
+    }
+    
+    throw new Error(errorMessage);
   }
 };
 
@@ -199,39 +243,193 @@ export const updateCompra = async (id, data) => {
   try {
     console.log('=== Iniciando actualización de compra ===');
     console.log('ID de compra:', id);
-    console.log('Datos a actualizar:', data);
+    console.log('Datos originales a actualizar:', data);
 
     // Validar ID
     if (!id) throw new Error('El ID de la compra es requerido');
 
-    // Formatear datos para la actualización
-    const datosFormateados = {
-      ...data,
-      id_estado: data.id_estado || data.estado ? 2 : 1,
-      fecha_actualizacion: new Date().toISOString()
-    };
-
-    // Intentar diferentes rutas
-    const routes = ['/compras', '/api/compras', '/v1/compras'];
-    let lastError = null;
-
-    for (const route of routes) {
+    // Verificar si tenemos una ruta y formato preferido guardado
+    const savedRouteConfig = localStorage.getItem('bestUpdateRoute');
+    let datosFormateados = null;
+    
+    if (savedRouteConfig) {
+      const config = JSON.parse(savedRouteConfig);
+      console.log(`\n=== Usando configuración guardada ===`);
+      console.log(`Ruta: ${config.route}, Método: ${config.method}, Formato: ${config.format || 'No especificado'}`);
+      
+      // Formatear datos según el formato preferido
+      if (config.format === 'snake_case') {
+        datosFormateados = {
+          id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1),
+          observaciones: data.observaciones || '',
+          
+          // Si hay detalles, transformarlos también
+          detalles: data.detalles ? data.detalles.map(detalle => ({
+            id_material: parseInt(detalle.idMaterial || detalle.id_material),
+            cantidad: parseFloat(detalle.cantidad),
+            precio_unitario: parseFloat(detalle.precioUnitario || detalle.precio_unitario),
+            descuento: parseFloat(detalle.descuento || 0)
+          })) : undefined
+        };
+      } else {
+        // Formato camelCase (o predeterminado si no se especifica)
+        datosFormateados = {
+          id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1),
+          observaciones: data.observaciones || '',
+          
+          // Si hay detalles, mantener su formato
+          detalles: data.detalles ? data.detalles.map(detalle => ({
+            idMaterial: parseInt(detalle.idMaterial || detalle.id_material),
+            cantidad: parseFloat(detalle.cantidad),
+            precioUnitario: parseFloat(detalle.precioUnitario || detalle.precio_unitario),
+            descuento: parseFloat(detalle.descuento || 0)
+          })) : undefined
+        };
+      }
+      
+      console.log('Datos formateados según preferencia:', datosFormateados);
+      
       try {
-        console.log(`\n=== Intentando ruta: ${route}/${id} ===`);
-        const response = await api.put(`${route}/${id}`, datosFormateados);
-        console.log(`✅ Éxito en ruta ${route}/${id}`);
+        const { route, method } = config;
+        
+        // Extraer la parte de la ruta sin el ID
+        const baseRoute = route.split('/:id')[0] || route.split('/')[0];
+        const fullRoute = baseRoute + '/' + id;
+        
+        // Usar axios nativo para mayor control
+        const axios = await import('axios');
+        let response;
+        
+        if (method === 'PUT') {
+          response = await axios.default.put(
+            `${api.defaults.baseURL}${fullRoute}`, 
+            datosFormateados,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            }
+          );
+        } else if (method === 'PATCH') {
+          response = await axios.default.patch(
+            `${api.defaults.baseURL}${fullRoute}`, 
+            datosFormateados,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            }
+          );
+        } else if (method === 'POST') {
+          response = await axios.default.post(
+            `${api.defaults.baseURL}${fullRoute}`,
+            {
+              ...datosFormateados,
+              _method: 'PUT' // Algunos frameworks soportan esto
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            }
+          );
+        }
+        
+        console.log('✅ Éxito con ruta guardada');
         return response.data;
-      } catch (error) {
-        console.log(`❌ Error en ruta ${route}/${id}:`, error.message);
-        lastError = error;
-        if (error.response?.status !== 404) {
-          throw error; // Si el error no es 404, lo propagamos
+      } catch (savedRouteError) {
+        console.log('❌ Error con ruta guardada:', savedRouteError.message);
+        console.log('Respuesta del servidor:', savedRouteError.response?.data);
+        // Si falla, continuamos con los métodos normales
+      }
+    } else {
+      // Si no hay configuración guardada, usamos el formato snake_case por defecto
+      datosFormateados = {
+        id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1),
+        observaciones: data.observaciones || '',
+        
+        // Si hay detalles, transformarlos también
+        detalles: data.detalles ? data.detalles.map(detalle => ({
+          id_material: parseInt(detalle.idMaterial || detalle.id_material),
+          cantidad: parseFloat(detalle.cantidad),
+          precio_unitario: parseFloat(detalle.precioUnitario || detalle.precio_unitario),
+          descuento: parseFloat(detalle.descuento || 0)
+        })) : undefined
+      };
+      
+      console.log('Datos formateados (snake_case predeterminado):', datosFormateados);
+    }
+
+    // Intentar actualizar con axios nativo directamente a la URL correcta
+    try {
+      console.log('\n=== Intentando PUT directo a la URL correcta ===');
+      const axios = await import('axios');
+      const response = await axios.default.put(
+        `${api.defaults.baseURL}/compras/${id}`, 
+        datosFormateados,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      console.log('✅ Éxito con PUT directo');
+      return response.data;
+    } catch (putError) {
+      console.log('❌ Error con PUT directo:', putError.message);
+      console.log('Respuesta del servidor:', putError.response?.data);
+      
+      // Si PUT falla, intentar con PATCH
+      try {
+        console.log('\n=== Intentando PATCH directo a la URL correcta ===');
+        const axios = await import('axios');
+        const response = await axios.default.patch(
+          `${api.defaults.baseURL}/compras/${id}`, 
+          datosFormateados,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        console.log('✅ Éxito con PATCH directo');
+        return response.data;
+      } catch (patchError) {
+        console.log('❌ Error con PATCH directo:', patchError.message);
+        console.log('Respuesta del servidor:', patchError.response?.data);
+        
+        // Si PATCH falla, intentar con snake_case sin detalles (solo el estado)
+        try {
+          console.log('\n=== Intentando PATCH solo con estado ===');
+          const datosMinimos = {
+            id_estado: data.id_estado || (data.estado === 'APROBADO' ? 2 : 1)
+          };
+          
+          const axios = await import('axios');
+          const response = await axios.default.patch(
+            `${api.defaults.baseURL}/compras/${id}`, 
+            datosMinimos,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            }
+          );
+          console.log('✅ Éxito con PATCH mínimo');
+          return response.data;
+        } catch (minimalPatchError) {
+          console.log('❌ Error con PATCH mínimo:', minimalPatchError.message);
+          console.log('Respuesta del servidor:', minimalPatchError.response?.data);
+          throw minimalPatchError;
         }
       }
     }
-
-    // Si llegamos aquí, ninguna ruta funcionó
-    throw lastError || new Error('No se pudo actualizar la compra en ninguna ruta disponible');
   } catch (error) {
     console.error('=== Error en updateCompra ===');
     console.error('Tipo de error:', error.constructor.name);
@@ -239,10 +437,17 @@ export const updateCompra = async (id, data) => {
     console.error('Response:', error.response?.data);
     console.error('Status:', error.response?.status);
     
+    // Mensaje de error más detallado
+    let errorMessage = 'Error al actualizar la compra: ';
     if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
+      errorMessage += error.response.data.message;
+    } else if (error.message) {
+      errorMessage += error.message;
+    } else {
+      errorMessage += 'Error desconocido';
     }
-    throw error;
+    
+    throw new Error(errorMessage);
   }
 };
 
@@ -373,4 +578,82 @@ export const createMovimientoCompra = async (idCompra, movimientoData) => {
     console.error(`Error al crear movimiento para compra ${idCompra}:`, error);
     throw error;
   }
+};
+
+// Función para descubrir rutas disponibles en el backend
+export const discoverApiRoutes = async () => {
+  const routes = [];
+  const id = '30'; // ID de prueba
+  
+  // Lista de rutas a probar
+  const routesToTry = [
+    { method: 'GET', route: '/compras' },
+    { method: 'GET', route: '/compras/:id' },
+    { method: 'GET', route: '/api/v1/compras' },
+    { method: 'GET', route: '/api/v1/compras/:id' },
+    { method: 'PUT', route: '/compras/:id' },
+    { method: 'PATCH', route: '/compras/:id' },
+    { method: 'PUT', route: '/api/v1/compras/:id' },
+    { method: 'PATCH', route: '/api/v1/compras/:id' },
+    { method: 'POST', route: '/compras/:id' },
+    { method: 'POST', route: '/api/v1/compras/:id' }
+  ];
+  
+  // Probar cada ruta
+  for (const route of routesToTry) {
+    try {
+      const axios = await import('axios');
+      const fullRoute = route.route.replace(':id', id);
+      const url = `${api.defaults.baseURL}${fullRoute}`;
+      
+      let response;
+      
+      // Datos para las solicitudes PUT, PATCH y POST
+      // Formato snake_case - lo que espera el backend
+      const testData = {
+        id_estado: 1,
+        observaciones: "Test API route discovery"
+      };
+      
+      if (route.method === 'GET') {
+        response = await axios.default.get(url, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+      } else {
+        response = await axios.default[route.method.toLowerCase()](
+          url, 
+          testData,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+      }
+      
+      routes.push({
+        route: route.route,
+        method: route.method,
+        status: 'success',
+        statusCode: response.status
+      });
+      
+      console.log(`✅ ${route.method} ${route.route}: ${response.status}`);
+    } catch (error) {
+      routes.push({
+        route: route.route,
+        method: route.method,
+        status: 'error',
+        statusCode: error.response?.status || 'N/A',
+        errorMessage: error.response?.data?.message || error.message
+      });
+      
+      console.log(`❌ ${route.method} ${route.route}: ${error.response?.status || 'Error'}`);
+    }
+  }
+  
+  return routes;
 };

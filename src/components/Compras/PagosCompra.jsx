@@ -12,7 +12,7 @@ import * as comprasService from '../../services/comprasService';
 import Swal from 'sweetalert2';
 
 const tiposPago = ['Efectivo', 'Transferencia', 'Tarjeta de Crédito', 'Cheque'];
-const estadosPago = ['PENDIENTE', 'COMPLETADO', 'CANCELADO'];
+const estadosPago = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
 
 const PagosCompra = ({ idCompra, totalCompra }) => {
   const [pagos, setPagos] = useState([]);
@@ -23,7 +23,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
     monto: 0,
     tipo_pago: '',
     numero_referencia: '',
-    estado_pago: 'PENDIENTE',
+    estado_pago: estadosPago[0],
     observaciones: '',
     usuario_registro: parseInt(localStorage.getItem('userId')) || 1
   });
@@ -40,33 +40,9 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       setLoading(true);
       const data = await comprasService.getPagosCompra(idCompra);
       setPagos(data);
-  
-      if (data && data.length > 0) {
-        const tieneCompletadoOCancelado = data.some(pago => 
-          pago.estado_pago === 'COMPLETADO' || 
-          pago.estado_pago === 'CANCELADO'
-        );
-        
-        if (tieneCompletadoOCancelado) {
-          try {
-            const compraActual = await comprasService.getCompraById(idCompra);
-            
-            if (compraActual && compraActual.estado === 'PENDIENTE') {
-              await comprasService.updateCompra(idCompra, {
-                estado: 'APROBADO',
-                fecha_actualizacion: new Date().toISOString()
-              });
-              
-              window.dispatchEvent(new CustomEvent('compraActualizada', { 
-                detail: { idCompra, nuevoEstado: 'APROBADO' } 
-              }));
-            }
-          } catch (error) {
-            console.error('Error al actualizar estado de la compra:', error);
-            throw new Error('No se pudo actualizar el estado de la compra');
-          }
-        }
-      }
+      
+      // Verificar si debemos actualizar el estado de la compra basado en los pagos existentes
+      await verificarEstadoCompra(data);
     } catch (error) {
       console.error('Error al cargar pagos:', error);
       Swal.fire({
@@ -85,7 +61,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       monto: 0,
       tipo_pago: '',
       numero_referencia: '',
-      estado_pago: 'PENDIENTE',
+      estado_pago: estadosPago[0],
       observaciones: '',
       usuario_registro: parseInt(localStorage.getItem('userId')) || 1
     });
@@ -117,9 +93,25 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
         throw new Error('El monto del pago no puede ser mayor al saldo pendiente');
       }
       
-      // Crear o actualizar el pago
-      if (editando) {
-        await comprasService.createPagoCompra(idCompra, pago);
+      // Crear el pago
+      await comprasService.createPagoCompra(idCompra, pago);
+      
+      // Verificar si este pago completa el total de la compra
+      const nuevoPagoMonto = Number(pago.monto) || 0;
+      const totalPagadoActual = calcularTotalPagado() + (editando ? 0 : nuevoPagoMonto);
+      const compraTotal = Number(totalCompra) || 0;
+      
+      // Si el pago es aprobado y cubre el total, mostrar mensaje sugerido
+      if (pago.estado_pago === 'APROBADO' && totalPagadoActual >= compraTotal && saldoPendiente <= nuevoPagoMonto) {
+        // Este mensaje se mostrará después de que se muestre el mensaje de pago exitoso
+        setTimeout(() => {
+          Swal.fire({
+            title: 'Sugerencia',
+            text: 'Se recomienda actualizar el estado de la compra manualmente a APROBADO desde la lista de compras.',
+            icon: 'info',
+            confirmButtonText: 'Entendido'
+          });
+        }, 2000);
       }
       
       // Actualizar la lista de pagos
@@ -131,7 +123,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
         monto: 0,
         tipo_pago: '',
         numero_referencia: '',
-        estado_pago: 'PENDIENTE',
+        estado_pago: estadosPago[0],
         observaciones: '',
         usuario_registro: parseInt(localStorage.getItem('userId')) || 1
       });
@@ -206,6 +198,40 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
     const pagado = calcularTotalPagado();
     return total - pagado;
   };
+  
+  // Función para verificar y actualizar el estado de la compra basado en los pagos
+  const verificarEstadoCompra = async (pagosData = pagos) => {
+    try {
+      if (!pagosData || !Array.isArray(pagosData) || pagosData.length === 0) return;
+      
+      // Calcular el total pagado
+      const totalPagado = pagosData.reduce((sum, p) => sum + Number(p.monto || 0), 0);
+      const total = Number(totalCompra) || 0;
+      
+      // Verificar si hay pagos con estado APROBADO
+      const tieneAprobados = pagosData.some(p => p.estado_pago === 'APROBADO');
+      
+      // Si el saldo pendiente es 0 y hay pagos aprobados, mostrar mensaje informativo
+      if (tieneAprobados && totalPagado >= total && calcularSaldoPendiente() <= 0) {
+        // Mostrar mensaje informativo solo una vez
+        if (!window.mensajeMostrado) {
+          window.mensajeMostrado = true;
+          
+          setTimeout(() => {
+            Swal.fire({
+              title: 'Información',
+              text: 'La compra ya tiene todos los pagos completados. Se recomienda actualizar el estado de la compra manualmente a APROBADO.',
+              icon: 'info',
+              confirmButtonText: 'Entendido'
+            });
+          }, 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error al verificar estado de la compra:', error);
+      // No lanzamos error para que el flujo continúe
+    }
+  };
 
   if (loading) {
     return (
@@ -227,6 +253,42 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
         >
           Nuevo Pago
         </Button>
+      </Box>
+      
+      {/* Aviso sobre actualización manual del estado */}
+      {calcularSaldoPendiente() <= 0 && pagos.some(p => p.estado_pago === 'APROBADO') && (
+        <Box sx={{ 
+          backgroundColor: '#e3f2fd', 
+          p: 2, 
+          mb: 3, 
+          borderRadius: 1, 
+          border: '1px solid #90caf9',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <Typography variant="body1" sx={{ fontWeight: 'medium', color: '#0d47a1' }}>
+            ⚠️ Esta compra tiene sus pagos completos. Para actualizar su estado a APROBADO, vaya a la lista de compras y edite la compra manualmente.
+          </Typography>
+        </Box>
+      )}
+      
+      <Box sx={{ backgroundColor: '#f5f5f5', p: 2, mb: 3, borderRadius: 1, border: '1px solid #e0e0e0' }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+          Información de estados:
+        </Typography>
+        <Typography variant="body2">
+          • PENDIENTE: El pago está registrado pero no se ha procesado completamente.
+        </Typography>
+        <Typography variant="body2">
+          • APROBADO: El pago ha sido verificado y aceptado.
+        </Typography>
+        <Typography variant="body2">
+          • RECHAZADO: El pago ha sido rechazado por algún motivo.
+        </Typography>
+        <Typography variant="body2">
+          • ANULADO: El pago ha sido anulado o cancelado.
+        </Typography>
       </Box>
 
       <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
@@ -254,9 +316,9 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {pagos.map((pago) => (
-              <TableRow key={pago.id_pago}>
-                <TableCell>{new Date(pago.fecha_pago).toLocaleDateString()}</TableCell>
+            {pagos.map((pago, index) => (
+              <TableRow key={index}>
+                <TableCell>{pago.fecha_creacion ? new Date(pago.fecha_creacion).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>Q{Number(pago.monto).toFixed(2)}</TableCell>
                 <TableCell>{pago.tipo_pago}</TableCell>
                 <TableCell>{pago.numero_referencia}</TableCell>
@@ -264,17 +326,31 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
                   <Chip
                     label={pago.estado_pago}
                     color={
-                      pago.estado_pago === 'COMPLETADO' ? 'success' :
-                      pago.estado_pago === 'PENDIENTE' ? 'warning' : 'error'
+                      pago.estado_pago === 'APROBADO' ? 'success' :
+                      pago.estado_pago === 'PENDIENTE' ? 'warning' :
+                      pago.estado_pago === 'RECHAZADO' ? 'error' : 'default'
                     }
                     size="small"
+                    title={
+                      pago.estado_pago === 'APROBADO' ? 'Este pago ha sido verificado y aprobado' :
+                      pago.estado_pago === 'PENDIENTE' ? 'Este pago está pendiente de verificación' : 
+                      pago.estado_pago === 'RECHAZADO' ? 'Este pago ha sido rechazado' :
+                      'Este pago ha sido anulado'
+                    }
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:hover': { 
+                        opacity: 0.8,
+                        boxShadow: '0 0 5px rgba(0, 0, 0, 0.2)' 
+                      }
+                    }}
                   />
                 </TableCell>
                 <TableCell>
                   <IconButton size="small" onClick={() => handleEdit(pago)} sx={{ color: '#1976d2' }}>
                     <EditIcon />
                   </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(pago.id_pago)} sx={{ color: '#d32f2f' }}>
+                  <IconButton size="small" onClick={() => handleDelete(pago.id)} sx={{ color: '#d32f2f' }}>
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -300,19 +376,6 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
               required
               InputProps={{
                 startAdornment: <InputAdornment position="start">Q</InputAdornment>,
-              }}
-            />
-
-            <TextField
-              name="fecha_pago"
-              label="Fecha de Pago"
-              type="date"
-              value={pago.fecha_pago}
-              onChange={handleChange}
-              fullWidth
-              required
-              InputLabelProps={{
-                shrink: true,
               }}
             />
 
@@ -348,6 +411,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
               onChange={handleChange}
               fullWidth
               required
+              helperText="El estado del pago se aplicará automáticamente a la compra"
             >
               {estadosPago.map((estado) => (
                 <MenuItem key={estado} value={estado}>
