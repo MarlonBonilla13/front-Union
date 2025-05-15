@@ -12,7 +12,7 @@ import * as comprasService from '../../services/comprasService';
 import Swal from 'sweetalert2';
 
 const tiposPago = ['Efectivo', 'Transferencia', 'Tarjeta de Crédito', 'Cheque'];
-const estadosPago = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
+const estadosPago = ['Por Pagar', 'Pagado'];
 
 const PagosCompra = ({ idCompra, totalCompra }) => {
   const [pagos, setPagos] = useState([]);
@@ -36,7 +36,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
   }, [idCompra]);
 
   const fetchPagos = async () => {
-    try {
+    try {   
       setLoading(true);
       const data = await comprasService.getPagosCompra(idCompra);
       setPagos(data);
@@ -91,6 +91,21 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       const saldoPendiente = calcularSaldoPendiente();
       if (!editando && pago.monto > saldoPendiente) {
         throw new Error('El monto del pago no puede ser mayor al saldo pendiente');
+      }
+
+
+        // Guardar el pago
+      if (editando) {
+        await updatePagoCompra(pago.id, pagoData);
+      } else {
+        await createPagoCompra(pagoData);
+      }
+      
+      // Si el estado del pago es "Pagado", actualizar el estado de la compra
+      if (pago.estado_pago === 'Pagado') {
+        await comprasService.actualizarEstadoCompra(idCompra, 'Pagado');
+      } else if (pago.estado_pago === 'Por Pagar') {
+        await comprasService.actualizarEstadoCompra(idCompra, 'Por Pagar');
       }
       
       // Crear el pago
@@ -325,17 +340,11 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
                 <TableCell>
                   <Chip
                     label={pago.estado_pago}
-                    color={
-                      pago.estado_pago === 'APROBADO' ? 'success' :
-                      pago.estado_pago === 'PENDIENTE' ? 'warning' :
-                      pago.estado_pago === 'RECHAZADO' ? 'error' : 'default'
-                    }
+                    color={pago.estado_pago === 'Pagado' ? 'success' : 'warning'}
                     size="small"
                     title={
-                      pago.estado_pago === 'APROBADO' ? 'Este pago ha sido verificado y aprobado' :
-                      pago.estado_pago === 'PENDIENTE' ? 'Este pago está pendiente de verificación' : 
-                      pago.estado_pago === 'RECHAZADO' ? 'Este pago ha sido rechazado' :
-                      'Este pago ha sido anulado'
+                      pago.estado_pago === 'Pagado' ? 'Este pago ha sido verificado y aprobado' : 
+                      'Este pago está pendiente de pago'
                     }
                     sx={{ 
                       cursor: 'pointer',

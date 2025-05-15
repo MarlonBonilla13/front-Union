@@ -85,60 +85,21 @@ export const getCompras = async () => {
   }
 };
 
+// Obtener detalles de una compra por su ID
 export const getCompraById = async (id) => {
   try {
     console.log('=== Obteniendo compra por ID ===');
-    console.log('ID de compra:', id);
-
-    // Validar ID
-    if (!id) throw new Error('El ID de la compra es requerido');
-
-    // Intentar diferentes rutas
-    const routes = [
-      '/api/compras',
-      '/compras',
-      '/v1/compras',
-      '/api/v1/compras'
-    ];
-    let lastError = null;
-
-    for (const route of routes) {
-      try {
-        console.log(`\n=== Intentando ruta: ${route}/${id} ===`);
-        const response = await api.get(`${route}/${id}`);
-        console.log(`✅ Éxito en ruta ${route}/${id}`);
-        return response.data;
-      } catch (error) {
-        console.log(`❌ Error en ruta ${route}/${id}:`, error.message);
-        lastError = error;
-        if (error.response?.status !== 404) {
-          console.log(`⚠️ Error diferente a 404, no seguimos intentando otras rutas`);
-          throw error; // Si el error no es 404, lo propagamos
-        }
-      }
-    }
-
-    // Si llegamos aquí, ninguna ruta funcionó
-    console.error('❌ Ninguna ruta funcionó para obtener la compra');
-    throw lastError || new Error(`No se pudo obtener la compra con ID ${id}`);
+    console.log('ID:', id);
+    
+    const response = await api.get(`/compras/${id}`);
+    console.log('Compra encontrada:', response.data);
+    return response.data;
   } catch (error) {
-    console.error(`=== Error al obtener compra con ID ${id} ===`);
-    console.error('Tipo de error:', error.constructor.name);
-    console.error('Mensaje:', error.message);
-    console.error('Response:', error.response?.data);
-    console.error('Status:', error.response?.status);
-    
-    // Mensaje de error más detallado
-    let errorMessage = `Error al obtener compra con ID ${id}: `;
-    if (error.response?.data?.message) {
-      errorMessage += error.response.data.message;
-    } else if (error.message) {
-      errorMessage += error.message;
-    } else {
-      errorMessage += 'Error desconocido';
+    console.error('Error al obtener compra por ID:', error);
+    if (error.response && error.response.status === 404) {
+      throw new Error('Compra no encontrada');
     }
-    
-    throw new Error(errorMessage);
+    throw error;
   }
 };
 
@@ -190,9 +151,9 @@ export const createCompra = async (compraData) => {
     // Preparar datos
     const datosFormateados = {
       id_proveedores: parseInt(compraData.id_proveedor),
-      id_estado: 1,
       numero_factura: compraData.numeroFactura,
       tipo_pago: compraData.tipoPago,
+      estado_pago: compraData.estado || 'PENDIENTE', // Cambiado de estado a estado_pago
       fecha_vencimiento: new Date(compraData.fecha).toISOString(),
       observaciones: compraData.observaciones || '',
       usuario_creacion: 1,
@@ -252,9 +213,13 @@ export const updateCompra = async (id, data) => {
     const savedRouteConfig = localStorage.getItem('bestUpdateRoute');
     let datosFormateados = null;
     
-    // Asegurar que tenemos el id_estado correcto
+    // Asegurar que tenemos el estado correcto
     const estado_numerico = data.estado === 'APROBADO' ? 2 : (data.estado === 'RECHAZADO' ? 3 : (data.estado === 'ANULADO' ? 4 : 1));
     console.log('Estado convertido a numérico:', estado_numerico);
+    
+    // Usar estado_pago en lugar de id_estado
+    const estado_pago = data.estado || 'PENDIENTE';
+    console.log('Estado para actualización:', estado_pago);
     
     if (savedRouteConfig) {
       const config = JSON.parse(savedRouteConfig);
@@ -264,7 +229,7 @@ export const updateCompra = async (id, data) => {
       // Formatear datos según el formato preferido
       if (config.format === 'snake_case') {
         datosFormateados = {
-          id_estado: estado_numerico,  // Usar el valor numérico calculado
+          estado_pago: estado_pago,
           observaciones: data.observaciones || '',
           
           // Si hay detalles, transformarlos también
@@ -278,7 +243,7 @@ export const updateCompra = async (id, data) => {
       } else {
         // Formato camelCase (o predeterminado si no se especifica)
         datosFormateados = {
-          id_estado: estado_numerico,  // Usar el valor numérico calculado
+          estado_pago: estado_pago,
           observaciones: data.observaciones || '',
           
           // Si hay detalles, mantener su formato
@@ -352,7 +317,7 @@ export const updateCompra = async (id, data) => {
     } else {
       // Si no hay configuración guardada, usamos el formato snake_case por defecto
       datosFormateados = {
-        id_estado: estado_numerico,  // Usar el valor numérico calculado
+        estado_pago: estado_pago,
         observaciones: data.observaciones || '',
         
         // Si hay detalles, transformarlos también
@@ -410,23 +375,52 @@ export const updateCompra = async (id, data) => {
         // Si PATCH falla, intentar con snake_case sin detalles (solo el estado)
         try {
           console.log('\n=== Intentando PATCH solo con estado ===');
-          const datosMinimos = {
-            id_estado: estado_numerico  // Usar el valor numérico calculado
-          };
           
-          const axios = await import('axios');
-          const response = await axios.default.patch(
-            `${api.defaults.baseURL}/compras/${id}`, 
-            datosMinimos,
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
+          // Probar diferentes nombres de campo para el estado
+          const posiblesCamposEstado = [
+            { estado_pago: estado_pago },             // Nuevo campo principal
+            { estado: estado_pago },                  // Campo de texto posible
+            { id_estado: estado_numerico },           // Antiguo formato numérico
+            { estado_id: estado_numerico },           // Variante posible
+            { id_estado_compra: estado_numerico },    // Otra variante posible
+            { estado_compra: estado_pago }            // Otra posibilidad
+          ];
+          
+          // Probar cada posible campo uno por uno
+          let exitoso = false;
+          let ultimoError = null;
+          
+          for (const campoEstado of posiblesCamposEstado) {
+            if (exitoso) break;
+            
+            try {
+              console.log(`\n=== Intentando PATCH con campo: ${Object.keys(campoEstado)[0]} ===`);
+              const axios = await import('axios');
+              const response = await axios.default.patch(
+                `${api.defaults.baseURL}/compras/${id}`, 
+                campoEstado,
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  }
+                }
+              );
+              console.log(`✅ Éxito con PATCH usando campo: ${Object.keys(campoEstado)[0]}`);
+              exitoso = true;
+              return response.data;
+            } catch (error) {
+              console.log(`❌ Error con PATCH usando campo: ${Object.keys(campoEstado)[0]}:`, error.message);
+              console.log('Respuesta:', error.response?.data);
+              ultimoError = error;
             }
-          );
-          console.log('✅ Éxito con PATCH mínimo');
-          return response.data;
+          }
+          
+          // Si ninguno de los campos funcionó, lanzar el último error
+          if (!exitoso && ultimoError) {
+            console.log('❌ Ningún formato de campo funcionó para actualizar el estado');
+            throw ultimoError;
+          }
         } catch (minimalPatchError) {
           console.log('❌ Error con PATCH mínimo:', minimalPatchError.message);
           console.log('Respuesta del servidor:', minimalPatchError.response?.data);
@@ -669,47 +663,61 @@ export const actualizarEstadoCompra = async (id, estado) => {
     console.log('ID de compra:', id);
     console.log('Nuevo estado:', estado);
 
-    // Convertir el estado a su valor numérico
+    // Añadir validación para asegurar que estado tenga un valor válido
+    if (!estado) {
+      throw new Error('El estado de la compra es requerido');
+    }
+
+    // Convertir el estado a su valor numérico (para referencias)
     const estadoNumerico = typeof estado === 'string' 
       ? (estado === 'APROBADO' ? 2 : 
          estado === 'RECHAZADO' ? 3 : 
          estado === 'ANULADO' ? 4 : 1)
       : estado;
     
-    console.log('Estado numérico:', estadoNumerico);
+    console.log('Estado numérico (referencia):', estadoNumerico);
+    console.log('Estado texto (para actualización):', estado);
+
+    // Solicitar estado actual antes de intentar actualizar
+    try {
+      const compraActual = await getCompraById(id);
+      console.log('Estado actual de la compra:', compraActual.estado_pago || compraActual.estado);
+      
+      // Si el estado actual ya es el deseado, simplemente retornar éxito
+      if ((compraActual.estado_pago === estado) || (compraActual.estado === estado)) {
+        console.log('✅ La compra ya tiene el estado solicitado:', estado);
+        return { 
+          success: true, 
+          message: 'La compra ya tiene este estado',
+          compra: compraActual
+        };
+      }
+    } catch (compraCheckError) {
+      console.log('❌ No se pudo verificar el estado actual:', compraCheckError.message);
+      // Continuamos con la actualización aunque no pudimos verificar
+    }
 
     // Intentar con varios formatos diferentes para la carga útil
     const payloads = [
-      // 1. Solo con id_estado
-      { id_estado: estadoNumerico },
+      // 1. Nuevo formato con estado_pago
+      { estado_pago: estado },
       
-      // 2. Con id_estado como string (algunos backends esperan strings)
-      { id_estado: estadoNumerico.toString() },
+      // 2. Estado como texto directo
+      { estado: estado },
       
-      // 3. Con estado y id_estado
+      // 3. Combinación de formatos
       { 
-        id_estado: estadoNumerico,
+        estado_pago: estado,
         estado: estado 
       },
       
-      // 4. Con formato en español que podría esperar el backend
-      { 
-        estado: estadoNumerico,
-        estado_nombre: estado 
-      },
+      // 4. Formato antiguo con id_estado (por compatibilidad)
+      { id_estado: estadoNumerico },
       
-      // 5. Con formato explícito para actualización
+      // 5. Formato explícito para actualización
       {
         id_compras: parseInt(id),
-        id_estado: estadoNumerico
-      },
-      
-      // 6. Con formato especial para NestJS (por el error 400)
-      {
-        estado: {
-          id: estadoNumerico,
-          nombre: estado
-        }
+        estado_pago: estado
       }
     ];
     
@@ -728,15 +736,19 @@ export const actualizarEstadoCompra = async (id, estado) => {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
+            },
+            timeout: 5000 // Timeout de 5 segundos para evitar esperas excesivas
           }
         );
         console.log('✅ Éxito actualizando estado con PATCH y payload:', payload);
+        console.log('Response status:', response.status);
+        console.log('Response data:', response.data);
         return response.data;
       } catch (error) {
         console.log(`❌ Error con PATCH y payload:`, payload);
         console.log('Mensaje:', error.message);
         console.log('Status:', error.response?.status);
+        console.log('Datos error:', error.response?.data);
         lastError = error;
       }
     }
@@ -753,62 +765,28 @@ export const actualizarEstadoCompra = async (id, estado) => {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
+            },
+            timeout: 5000 // Timeout de 5 segundos
           }
         );
         console.log('✅ Éxito actualizando estado con PUT y payload:', payload);
+        console.log('Response status:', response.status);
+        console.log('Response data:', response.data);
         return response.data;
       } catch (error) {
         console.log(`❌ Error con PUT y payload:`, payload);
         console.log('Mensaje:', error.message);
         console.log('Status:', error.response?.status);
+        console.log('Datos error:', error.response?.data);
         lastError = error;
       }
     }
     
-    // Finalmente, intentar con endpoints específicos
-    try {
-      console.log('\n=== Intentando endpoint específico de estado ===');
-      const axios = await import('axios');
-      const response = await axios.default.post(
-        `${api.defaults.baseURL}/compras/${id}/estado`, 
-        { id_estado: estadoNumerico },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      console.log('✅ Éxito actualizando estado con endpoint específico');
-      return response.data;
-    } catch (endpointError) {
-      console.log('❌ Error con endpoint específico:', endpointError.message);
-      
-      // Intento final: probar API por direct SQL
-      try {
-        console.log('\n=== Intentando actualizar directamente ===');
-        const axios = await import('axios');
-        const response = await axios.default.post(
-          `${api.defaults.baseURL}/api/ejecutar-sql`, 
-          { 
-            query: `UPDATE public.compras SET id_estado = ${estadoNumerico} WHERE id_compras = ${id}`,
-            params: []
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          }
-        );
-        console.log('✅ Éxito actualizando estado con SQL directo');
-        return { success: true, message: 'Estado actualizado con SQL directo' };
-      } catch (sqlError) {
-        console.log('❌ Error con SQL directo:', sqlError.message);
-        throw lastError || endpointError;
-      }
-    }
+    // Como último recurso, intentar SQL directo:
+    console.log('\n=== Intentando actualizar directamente ===');
+    const result = await actualizarEstadoDirecto(id, estado);
+    console.log('✅ Éxito actualizando estado directamente:', result);
+    return { success: true, message: 'Estado actualizado con SQL directo' };
   } catch (error) {
     console.error('=== Error al actualizar estado de compra ===');
     console.error('Tipo de error:', error.constructor.name);
@@ -816,16 +794,25 @@ export const actualizarEstadoCompra = async (id, estado) => {
     console.error('Response:', error.response?.data);
     console.error('Status:', error.response?.status);
     
-    let errorMessage = 'Error al actualizar estado de compra: ';
-    if (error.response?.data?.message) {
-      errorMessage += error.response.data.message;
-    } else if (error.message) {
-      errorMessage += error.message;
-    } else {
-      errorMessage += 'Error desconocido';
+    // Actualizar con SQL directo como último recurso
+    try {
+      console.log('\n=== Intento final: SQL directo ===');
+      const result = await actualizarEstadoDirecto(id, estado);
+      console.log('✅ Éxito en el intento final:', result);
+      return result;
+    } catch (finalError) {
+      console.error('❌ Error en intento final:', finalError.message);
+      let errorMessage = 'Error al actualizar estado de compra: ';
+      if (error.response?.data?.message) {
+        errorMessage += error.response.data.message;
+      } else if (error.message) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += 'Error desconocido';
+      }
+      
+      throw new Error(errorMessage);
     }
-    
-    throw new Error(errorMessage);
   }
 };
 
@@ -836,7 +823,7 @@ export const actualizarEstadoDirecto = async (id, estado) => {
     console.log('ID compra:', id);
     console.log('Nuevo estado:', estado);
     
-    // Convertir el estado a número
+    // Convertir el estado a número (para referencia, aunque usaremos el texto)
     const estadoNumerico = typeof estado === 'string' 
       ? (estado === 'APROBADO' ? 2 : 
          estado === 'RECHAZADO' ? 3 : 
@@ -853,8 +840,8 @@ export const actualizarEstadoDirecto = async (id, estado) => {
       const response = await axios.default.post(
         `${api.defaults.baseURL}/api/sql`, 
         { 
-          query: `UPDATE public.compras SET id_estado = $1 WHERE id_compras = $2`,
-          params: [estadoNumerico, id]
+          query: `UPDATE public.compras SET estado_pago = $1 WHERE id_compras = $2`,
+          params: [estado, id]
         },
         {
           headers: {
@@ -878,7 +865,7 @@ export const actualizarEstadoDirecto = async (id, estado) => {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            sql: `UPDATE public.compras SET id_estado = ${estadoNumerico} WHERE id_compras = ${id}`,
+            sql: `UPDATE public.compras SET estado_pago = '${estado}' WHERE id_compras = ${id}`,
             params: []
           })
         });
@@ -895,12 +882,15 @@ export const actualizarEstadoDirecto = async (id, estado) => {
         // Tercer intento: Endpoint específico de estado si existe
         try {
           console.log('\n=== Intentando usando endpoint específico ===');
-          const response = await fetch(`${api.defaults.baseURL}/api/compras/${id}/set-estado/${estadoNumerico}`, {
+          const response = await fetch(`${api.defaults.baseURL}/api/compras/${id}/set-estado`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
-            }
+            },
+            body: JSON.stringify({
+              estado_pago: estado
+            })
           });
           
           if (!response.ok) {
@@ -919,5 +909,18 @@ export const actualizarEstadoDirecto = async (id, estado) => {
     console.error('=== Error en actualización directa ===');
     console.error('Mensaje:', error.message);
     throw error;
+  }
+};
+
+// Actualizar el estado de pago de una compra
+export const actualizarEstadoPagoCompra = async (id, estadoPago) => {
+  try {
+    const response = await api.patch(`/compras/${id}`, {
+      estado_pago: estadoPago
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error al actualizar estado de pago:', error);
+    throw new Error(error.response?.data?.message || 'No se pudo actualizar el estado de pago');
   }
 };

@@ -17,7 +17,27 @@ import DetalleCompra from './DetalleCompra';
 import PagosCompra from './PagosCompra';
 
 const tiposPago = ['CONTADO', 'CREDITO'];
-const estadosCompra = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
+const estadosCompra = ['PENDIENTE', 'APROBADA', 'RECHAZADA', 'CANCELADA'];
+// Usar los mismos estados para estado_pago
+const estadosPago = estadosCompra;
+
+export const getEstadoColor = (estado) => {
+  switch (estado) {
+    case 'PENDIENTE':
+      return 'warning';
+    case 'APROBADA':
+    case 'APROBADO':
+      return 'success';  // Verde
+    case 'RECHAZADA':
+    case 'RECHAZADO':
+      return 'error';    // Rojo
+    case 'CANCELADA':
+    case 'ANULADO':
+      return 'info';     // Azul celeste
+    default:
+      return 'default';
+  }
+};
 
 const Compras = () => {
   const [compras, setCompras] = useState([]);
@@ -36,7 +56,8 @@ const Compras = () => {
     fecha: new Date().toISOString().split('T')[0],
     numeroFactura: '',
     tipoPago: 'CONTADO',
-    estado: 'PENDIENTE', // Changed from 'NUEVO' to 'PENDIENTE'
+    estado_pago: 'PENDIENTE',
+    estado: 'PENDIENTE',
     observaciones: '',
     total: 0
   });
@@ -125,7 +146,7 @@ const Compras = () => {
       fecha: new Date().toISOString().split('T')[0],
       numeroFactura: '',
       tipoPago: 'CONTADO',
-      estado: 'PENDIENTE', // Changed from 'NUEVO' to 'PENDIENTE'
+      estado: 'PENDIENTE', // Aseguramos que tenga un valor inicial
       observaciones: '',
       total: 0
     });
@@ -138,6 +159,8 @@ const Compras = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    
     try {
       // Verificar conexión con el servidor
       const isConnected = await comprasService.checkServerConnection();
@@ -153,101 +176,116 @@ const Compras = () => {
         throw new Error('Debe agregar al menos un detalle a la compra');
       }
 
-      console.log('Detalles antes de enviar:', detalles);
-
+      // Obtener los valores actuales de la compra que se está editando
+      let originalCompra = null;
+      if (compraForm.id_compras) {
+        originalCompra = compras.find(c => c.id_compras === parseInt(compraForm.id_compras));
+      }
+      
+      console.log('Formulario actual:', compraForm);
+      console.log('Compra original:', originalCompra);
+      
+      // Verificar si el estado ha cambiado
+      const estadoHaCambiado = originalCompra && compraForm.estado !== (originalCompra.estado_pago || originalCompra.estado);
+      console.log('¿Estado ha cambiado?', estadoHaCambiado);
+      console.log('Estado original:', originalCompra?.estado_pago || originalCompra?.estado);
+      console.log('Nuevo estado:', compraForm.estado);
+      
       const compraData = {
         id_proveedor: parseInt(compraForm.id_proveedor),
         fecha: compraForm.fecha,
         numeroFactura: compraForm.numeroFactura,
         tipoPago: compraForm.tipoPago,
-        estado: compraForm.estado,
         observaciones: compraForm.observaciones || '',
+        estado_pago: compraForm.estado, // Usar estado directamente como estado_pago
+        estado: compraForm.estado, // Mantener para compatibilidad
+        total: parseFloat(compraForm.total || 0),
         detalles: detalles.map(detalle => ({
           idMaterial: detalle.idMaterial,
           cantidad: detalle.cantidad,
           precioUnitario: detalle.precioUnitario,
-          iva: detalle.iva,
-          descuento: detalle.descuento,
+          iva: detalle.iva || 0,
+          descuento: detalle.descuento || 0,
           subtotal: detalle.subtotal,
-          ivaMonto: detalle.ivaMonto,
-          descuentoMonto: detalle.descuentoMonto
+          ivaMonto: detalle.ivaMonto || 0,
+          descuentoMonto: detalle.descuentoMonto || 0
         }))
       };
-
-      console.log('Datos de compra a enviar:', compraData);
-
-      if (isEditing) {
+      
+      console.log('Datos para actualizar:', compraData);
+      
+      // Si es edición (actualizar compra existente)
+      if (isEditing && compraForm.id_compras) {
         try {
-          // Si estamos cambiando el estado a APROBADO, RECHAZADO o ANULADO
-          // vamos a utilizar la función específica para actualizar estado
-          const estadoOriginal = compras.find(c => c.id_compras === compraForm.id)?.estado;
-          const hayMovimientoDeEstado = estadoOriginal !== compraForm.estado;
-          
-          if (hayMovimientoDeEstado) {
-            console.log('Detectado cambio de estado:', estadoOriginal, '->', compraForm.estado);
-            
-            // Intentar primero actualizar solo el estado
-            await comprasService.actualizarEstadoCompra(compraForm.id, compraForm.estado);
-            Swal.fire('Éxito', `El estado de la compra ha sido actualizado a ${compraForm.estado}`, 'success');
-            
-            // Luego actualizamos el resto de los datos
-            await comprasService.updateCompra(compraForm.id, compraData);
-            console.log('Datos generales actualizados después del cambio de estado');
+          if (estadoHaCambiado) {
+            // Si solo cambió el estado, usar la función específica para actualizar estado
+            console.log(`Actualizando estado a ${compraForm.estado}`);
+            await comprasService.actualizarEstadoCompra(compraForm.id_compras, compraForm.estado);
           } else {
-            // Si no hay cambio de estado, actualizar normalmente
-            await comprasService.updateCompra(compraForm.id, compraData);
-            Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
+            // Actualización completa de la compra
+            await comprasService.updateCompra(compraForm.id_compras, compraData);
           }
-        } catch (updateError) {
-          console.error('Error al actualizar compra:', updateError);
-          // Actualizar solo la UI si la API falla
-          Swal.fire({
-            title: 'Problemas con el servidor',
-            text: 'No se pudo actualizar en el servidor, pero se actualizará localmente. Por favor, intente sincronizar más tarde.',
-            icon: 'warning'
+          
+          // Actualizar la lista de compras
+          const comprasActualizadas = await comprasService.getCompras();
+          setCompras(comprasActualizadas);
+          handleCloseDialog();
+          
+          Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
+        } catch (error) {
+          console.error('Error al actualizar compra:', error);
+          
+          // Actualizar localmente para mantener consistencia en la UI, incluso si falla API
+          const nuevasCompras = compras.map(c => {
+            if (c.id_compras === parseInt(compraForm.id_compras)) {
+              return { 
+                ...c, 
+                id_proveedores: parseInt(compraForm.id_proveedor),
+                fecha_compra: compraForm.fecha,
+                numero_factura: compraForm.numeroFactura,
+                tipo_pago: compraForm.tipoPago,
+                observaciones: compraForm.observaciones,
+                estado_pago: compraForm.estado,
+                estado: compraForm.estado
+              };
+            }
+            return c;
           });
           
-          // Actualizar localmente en lugar de hacer la llamada a la API
-          setCompras(prevCompras => prevCompras.map(compra => 
-            compra.id_compras === compraForm.id ? { 
-              ...compra, 
-              ...compraData,
-              // Asegurarse de que las propiedades tengan los nombres correctos
-              id_proveedores: parseInt(compraForm.id_proveedor),
-              numero_factura: compraForm.numeroFactura,
-              tipo_pago: compraForm.tipoPago,
-              estado: compraForm.estado,
-              observaciones: compraForm.observaciones || '',
-            } : compra
-          ));
+          setCompras(nuevasCompras);
+          handleCloseDialog();
+          
+          Swal.fire({
+            title: 'Actualización local',
+            text: 'La compra ha sido actualizada localmente debido a un problema de conexión con el servidor.',
+            icon: 'warning'
+          });
         }
       } else {
+        // Crear nueva compra
         try {
+          console.log('Creando nueva compra:', compraData);
           const response = await comprasService.createCompra(compraData);
           console.log('Respuesta del servidor:', response);
+          
+          // Actualizar la lista de compras
+          const comprasActualizadas = await comprasService.getCompras();
+          setCompras(comprasActualizadas);
+          handleCloseDialog();
+          
           Swal.fire('Éxito', 'Compra creada correctamente', 'success');
-        } catch (createError) {
-          console.error('Error al crear compra:', createError);
+        } catch (error) {
+          console.error('Error al crear compra:', error);
           Swal.fire('Error', 'No se pudo crear la compra en el servidor', 'error');
-          throw createError; // Re-lanzar para salir de la función
+          handleCloseDialog();
         }
-      }
-
-      handleCloseDialog();
-      
-      try {
-        // Intentar actualizar la lista de compras desde el servidor
-        const updatedCompras = await comprasService.getCompras();
-        setCompras(updatedCompras);
-      } catch (fetchError) {
-        console.error('Error al obtener compras actualizadas:', fetchError);
-        // No es crítico si no se pueden obtener las compras actualizadas
-        // Ya se actualizó la UI localmente si fue necesario
       }
     } catch (error) {
       console.error('Error al guardar compra:', error);
       const errorMessage = error.response?.data?.message || error.message || 'No se pudo guardar la compra';
       Swal.fire('Error', errorMessage, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -290,7 +328,7 @@ const Compras = () => {
           
           // Actualizar localmente
           setCompras(prevCompras => prevCompras.map(compra => 
-            compra.id_compras === id ? { ...compra, estado: 'ANULADO', id_estado: 4 } : compra
+            compra.id_compras === id ? { ...compra, estado_pago: 'ANULADO' } : compra
           ));
         }
       }
@@ -304,57 +342,78 @@ const Compras = () => {
     }
   };
 
-  const handleEdit = async (compraToEdit) => {
-    setIsEditing(true);
-    setCompraForm({
-      id: compraToEdit.id_compras,
-      id_proveedor: compraToEdit.id_proveedores?.toString() || '',
-      fecha: compraToEdit.fecha_compra ? new Date(compraToEdit.fecha_compra).toISOString().split('T')[0] : '',
-      numeroFactura: compraToEdit.numero_factura || '',
-      tipoPago: compraToEdit.tipo_pago || 'CONTADO',
-      estado: compraToEdit.estado?.nombre || compraToEdit.estado || 'PENDIENTE', // Cambiado de 'NUEVO' a 'PENDIENTE'
-      observaciones: compraToEdit.observaciones || '',
-      total: compraToEdit.total || 0
-    });
-
+  const handleEdit = async (id) => {
     try {
-      // 1. Obtén todos los materiales
-      const materiales = await import('../../services/materialService').then(m => m.getMaterials());
-
-      // 2. Solicita los detalles al backend
-      const detallesResponse = await comprasService.getDetallesByCompraId(compraToEdit.id_compras);
-
-      // 3. Mapea los detalles incluyendo el objeto material completo
-      const detallesMapeados = detallesResponse.map(detalle => {
-        const materialObj = materiales.find(m => m.id_material === detalle.id_material) || {
-          nombre: 'Material no encontrado',
-          codigo: 'N/A',
-          imagen_url: ''
-        };
-        return {
-          idMaterial: detalle.id_material?.toString() || '',
-          cantidad: Number(detalle.cantidad) || 0,
-          precioUnitario: Number(detalle.precio_unitario) || 0,
-          iva: Number(detalle.iva) || 0,
-          descuento: Number(detalle.descuento) || 0,
-          subtotal: Number(detalle.subtotal) || 0,
-          ivaMonto: Number(detalle.iva_monto) || 0,
-          descuentoMonto: Number(detalle.descuento_monto) || 0,
-          total: (Number(detalle.subtotal) || 0) + (Number(detalle.iva_monto) || 0) - (Number(detalle.descuento_monto) || 0),
-          material: materialObj, // Pasa el objeto material completo
-          codigo: materialObj.codigo || 'N/A',
-          imagen: materialObj.imagen_url || '',
-          observaciones: detalle.observaciones || ''
-        };
+      setIsEditing(true);
+      
+      // Encontrar la compra en el array local
+      const compra = compras.find(c => c.id_compras === id);
+      if (!compra) {
+        throw new Error('No se encontró la compra');
+      }
+      
+      console.log('Editando compra:', compra);
+      
+      // Asegurarnos de usar el campo estado_pago para mayor consistencia
+      const estadoActual = compra.estado_pago || compra.estado || 'PENDIENTE';
+      console.log('Estado actual de la compra:', estadoActual);
+      
+      // Cargar datos básicos de la compra
+      setCompraForm({
+        id_compras: compra.id_compras,
+        id_proveedor: compra.id_proveedores,
+        fecha: compra.fecha_compra?.split('T')[0] || new Date().toISOString().split('T')[0],
+        numeroFactura: compra.numero_factura || '',
+        tipoPago: compra.tipo_pago || 'CONTADO',
+        estado: estadoActual, // Usar estado consistente
+        estado_pago: estadoActual, // Duplicar en ambos campos
+        observaciones: compra.observaciones || '',
+        total: compra.total || 0,
+        items: [] // Se cargarán a continuación
       });
 
-      setDetalles(detallesMapeados);
-    } catch (error) {
-      console.error('Error al cargar detalles de la compra:', error);
-      setDetalles([]);
-    }
+      try {
+        // 1. Obtén todos los materiales
+        const materiales = await import('../../services/materialService').then(m => m.getMaterials());
 
-    setOpenDialog(true);
+        // 2. Solicita los detalles al backend
+        const detallesResponse = await comprasService.getDetallesByCompraId(compra.id_compras);
+
+        // 3. Mapea los detalles incluyendo el objeto material completo
+        const detallesMapeados = detallesResponse.map(detalle => {
+          const materialObj = materiales.find(m => m.id_material === detalle.id_material) || {
+            nombre: 'Material no encontrado',
+            codigo: 'N/A',
+            imagen_url: ''
+          };
+          return {
+            idMaterial: detalle.id_material?.toString() || '',
+            cantidad: Number(detalle.cantidad) || 0,
+            precioUnitario: Number(detalle.precio_unitario) || 0,
+            iva: Number(detalle.iva) || 0,
+            descuento: Number(detalle.descuento) || 0,
+            subtotal: Number(detalle.subtotal) || 0,
+            ivaMonto: Number(detalle.iva_monto) || 0,
+            descuentoMonto: Number(detalle.descuento_monto) || 0,
+            total: (Number(detalle.subtotal) || 0) + (Number(detalle.iva_monto) || 0) - (Number(detalle.descuento_monto) || 0),
+            material: materialObj, // Pasa el objeto material completo
+            codigo: materialObj.codigo || 'N/A',
+            imagen: materialObj.imagen_url || '',
+            observaciones: detalle.observaciones || ''
+          };
+        });
+
+        setDetalles(detallesMapeados);
+      } catch (error) {
+        console.error('Error al cargar detalles de la compra:', error);
+        setDetalles([]);
+      }
+
+      setOpenDialog(true);
+    } catch (error) {
+      console.error('Error al editar compra:', error);
+      Swal.fire('Error', 'No se pudo editar la compra', 'error');
+    }
   };
 
   const handleViewDetails = async (compra) => {
@@ -438,7 +497,7 @@ const Compras = () => {
           {
             name: "camelCase",
             data: {
-              id_estado: 1,
+              estado_pago: 'PENDIENTE',
               observaciones: "Prueba formato camelCase",
               detalles: [{
                 idMaterial: 1,
@@ -451,7 +510,7 @@ const Compras = () => {
           {
             name: "snake_case",
             data: {
-              id_estado: 1,
+              estado_pago: 'PENDIENTE',
               observaciones: "Prueba formato snake_case",
               detalles: [{
                 id_material: 1,
@@ -895,20 +954,18 @@ const Compras = () => {
       await cargarDatos();
 
       if (compraActualizada) {
-        const estadoActual = compraActualizada.estado?.nombre || compraActualizada.estado;
+        // Usar nombres diferentes para evitar conflictos
+        const estadoPagoActual = compraActualizada.estado_pago || 
+                               compraActualizada.estado?.nombre || 
+                               compraActualizada.estado;
         const idEstadoActual = compraActualizada.id_estado;
         
-        console.log('Estado después de actualización:', estadoActual, idEstadoActual);
+        console.log('Estado después de actualización:', estadoPagoActual, idEstadoActual);
         
-        const estadoNumericoCorrecto = 
-          (nuevoEstado === 'APROBADO' && idEstadoActual === 2) ||
-          (nuevoEstado === 'RECHAZADO' && idEstadoActual === 3) ||
-          (nuevoEstado === 'ANULADO' && idEstadoActual === 4) ||
-          (nuevoEstado === 'PENDIENTE' && idEstadoActual === 1);
+        // Verificar el estado actual contra el esperado (texto principalmente)
+        const estadoActualizado = estadoPagoActual === nuevoEstado;
         
-        const estadoTextoCorrecto = estadoActual === nuevoEstado;
-        
-        if (estadoNumericoCorrecto || estadoTextoCorrecto) {
+        if (estadoActualizado) {
           Swal.fire('¡Éxito!', `La compra ha sido actualizada a ${nuevoEstado}`, 'success');
         } else {
           // Si no se actualizó en el backend, mostrar opciones adicionales
@@ -916,7 +973,7 @@ const Compras = () => {
             title: 'Estado no actualizado',
             html: `
               <p>La operación se completó, pero el estado no parece haber cambiado en la base de datos.</p>
-              <p>Estado actual: ${estadoActual || 'Desconocido'}</p>
+              <p>Estado actual: ${estadoPagoActual || 'Desconocido'}</p>
               <p>ID Estado actual: ${idEstadoActual || 'Desconocido'}</p>
               <p>Intente refrescar la página para ver los cambios más recientes,
               o solicite soporte técnico mencionando que el estado no se actualiza.</p>
@@ -1067,14 +1124,20 @@ const Compras = () => {
                     </TableCell>
                     <TableCell>
                       <Chip 
-                        label={compra.estado?.nombre || getEstadoNombre(compra.id_estado)} 
-                        color={getEstadoColor(compra.id_estado)}
-                        size="small" 
+                        label={compra.estado_pago || compra.estado}
+                        color={getEstadoColor(compra.estado_pago || compra.estado)}
+                        size="small"
+                        sx={{
+                          fontWeight: 'medium',
+                          '& .MuiChip-label': {
+                            color: 'white'
+                          }
+                        }}
                       />
                     </TableCell>
                     <TableCell>{compra.tipo_pago}</TableCell>
                     <TableCell>
-                      <IconButton size="small" onClick={() => handleEdit(compra)} sx={{ color: '#1976d2' }}>
+                      <IconButton size="small" onClick={() => handleEdit(compra.id_compras)} sx={{ color: '#1976d2' }}>
                         <EditIcon />
                       </IconButton>
                       <IconButton size="small" onClick={() => handleDelete(compra.id_compras)} sx={{ color: '#d32f2f' }}>
@@ -1159,19 +1222,22 @@ const Compras = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Estado</InputLabel>
+                <FormControl fullWidth required>
+                  <InputLabel id="estado-select-label">Estado</InputLabel>
                   <Select
+                    labelId="estado-select-label"
                     value={compraForm.estado}
-                    onChange={(e) => setCompraForm({ ...compraForm, estado: e.target.value })}
+                    onChange={(e) => setCompraForm({ 
+                      ...compraForm, 
+                      estado: e.target.value,
+                      estado_pago: e.target.value  // Actualizar ambos campos para consistencia
+                    })}
                     label="Estado"
-                    required
                   >
-                    {estadosCompra.map((estado) => (
-                      <MenuItem key={estado} value={estado}>
-                        {estado}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="PENDIENTE">PENDIENTE</MenuItem>
+                    <MenuItem value="APROBADO">APROBADO</MenuItem>
+                    <MenuItem value="ANULADO">ANULADO</MenuItem>
+                    <MenuItem value="RECHAZADO">RECHAZADO</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1222,7 +1288,18 @@ const Compras = () => {
                   <strong>Fecha:</strong> {new Date(selectedCompra.fecha_compra).toLocaleDateString()}
                 </Typography>
                 <Typography variant="subtitle1">
-                  <strong>Estado:</strong> {selectedCompra.estado?.nombre || selectedCompra.estado}
+                  <strong>Estado:</strong>{' '}
+                  <Chip 
+                    label={selectedCompra.estado_pago || selectedCompra.estado} 
+                    color={getEstadoColor(selectedCompra.estado_pago || selectedCompra.estado)}
+                    size="small"
+                    sx={{
+                      fontWeight: 'medium',
+                      '& .MuiChip-label': {
+                        color: 'white'
+                      }
+                    }}
+                  />
                 </Typography>
                 <Typography variant="subtitle1">
                   <strong>Tipo de Pago:</strong> {selectedCompra.tipo_pago}
@@ -1350,20 +1427,5 @@ const getEstadoNombre = (idEstado) => {
       return 'ANULADO';
     default:
       return 'DESCONOCIDO';
-  }
-};
-
-const getEstadoColor = (idEstado) => {
-  switch (idEstado) {
-    case 1:
-      return 'warning'; // Pendiente
-    case 2:
-      return 'success'; // Aprobado
-    case 3:
-      return 'error'; // Rechazado
-    case 4:
-      return 'default'; // Anulado
-    default:
-      return 'default';
   }
 };
