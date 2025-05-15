@@ -15,9 +15,11 @@ import * as comprasService from '../../services/comprasService';
 import * as proveedorService from '../../services/proveedorService';
 import DetalleCompra from './DetalleCompra';
 import PagosCompra from './PagosCompra';
+import RestoreIcon from '@mui/icons-material/Restore';
+import CloseIcon from '@mui/icons-material/Close';
 
 const tiposPago = ['CONTADO', 'CREDITO'];
-const estadosCompra = ['PENDIENTE', 'APROBADA', 'RECHAZADA', 'CANCELADA'];
+const estadosCompra = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
 // Usar los mismos estados para estado_pago
 const estadosPago = estadosCompra;
 
@@ -36,6 +38,14 @@ export const getEstadoColor = (estado) => {
       return 'info';     // Azul celeste
     default:
       return 'default';
+  }
+};
+
+// Agregar la configuración de alerta compartida (igual que en PagosCompra)
+const alertConfig = {
+  customClass: {
+    container: 'swal-container-highest',
+    popup: 'swal-popup-highest'
   }
 };
 
@@ -119,11 +129,21 @@ const Compras = () => {
     
     // Filtrar por estado
     switch (selectedTab) {
-      case 0:
-        filtered = filtered.filter(c => c.estado !== 'CANCELADA');
+      case 0: // Activas
+        filtered = filtered.filter(c => 
+          c.estado_pago !== 'RECHAZADO' && 
+          c.estado_pago !== 'ANULADO' && 
+          c.estado !== 'RECHAZADO' && 
+          c.estado !== 'ANULADO'
+        );
         break;
-      case 1:
-        filtered = filtered.filter(c => c.estado === 'CANCELADA');
+      case 1: // Rechazadas/Canceladas
+        filtered = filtered.filter(c => 
+          c.estado_pago === 'RECHAZADO' || 
+          c.estado_pago === 'ANULADO' || 
+          c.estado === 'RECHAZADO' || 
+          c.estado === 'ANULADO'
+        );
         break;
     }
 
@@ -231,7 +251,12 @@ const Compras = () => {
           setCompras(comprasActualizadas);
           handleCloseDialog();
           
-          Swal.fire('Éxito', 'Compra actualizada correctamente', 'success');
+          Swal.fire({
+            title: 'Éxito', 
+            text: 'Compra actualizada correctamente', 
+            icon: 'success',
+            ...alertConfig
+          });
         } catch (error) {
           console.error('Error al actualizar compra:', error);
           
@@ -258,7 +283,8 @@ const Compras = () => {
           Swal.fire({
             title: 'Actualización local',
             text: 'La compra ha sido actualizada localmente debido a un problema de conexión con el servidor.',
-            icon: 'warning'
+            icon: 'warning',
+            ...alertConfig
           });
         }
       } else {
@@ -273,17 +299,32 @@ const Compras = () => {
           setCompras(comprasActualizadas);
           handleCloseDialog();
           
-          Swal.fire('Éxito', 'Compra creada correctamente', 'success');
+          Swal.fire({
+            title: 'Éxito', 
+            text: 'Compra creada correctamente', 
+            icon: 'success',
+            ...alertConfig
+          });
         } catch (error) {
           console.error('Error al crear compra:', error);
-          Swal.fire('Error', 'No se pudo crear la compra en el servidor', 'error');
+          Swal.fire({
+            title: 'Error', 
+            text: 'No se pudo crear la compra en el servidor', 
+            icon: 'error',
+            ...alertConfig
+          });
           handleCloseDialog();
         }
       }
     } catch (error) {
       console.error('Error al guardar compra:', error);
       const errorMessage = error.response?.data?.message || error.message || 'No se pudo guardar la compra';
-      Swal.fire('Error', errorMessage, 'error');
+      Swal.fire({
+        title: 'Error', 
+        text: errorMessage, 
+        icon: 'error',
+        ...alertConfig
+      });
     } finally {
       setLoading(false);
     }
@@ -293,28 +334,30 @@ const Compras = () => {
     try {
       const result = await Swal.fire({
         title: '¿Está seguro?',
-        text: "La compra será cancelada",
+        text: "La compra cambiará a estado RECHAZADO y se moverá a la pestaña de Rechazadas",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, cancelar',
-        cancelButtonText: 'Cancelar'
+        confirmButtonText: 'Sí, rechazar',
+        cancelButtonText: 'Cancelar',
+        ...alertConfig
       });
 
       if (result.isConfirmed) {
         try {
           // Intentar actualizar el estado utilizando la función específica
-          await comprasService.actualizarEstadoCompra(id, 'ANULADO');
+          await comprasService.actualizarEstadoCompra(id, 'RECHAZADO');
           
           // Si la actualización tuvo éxito, actualizar el estado local
           const updatedCompras = await comprasService.getCompras();
           setCompras(updatedCompras);
           
           Swal.fire({
-            title: 'Cancelada',
-            text: 'La compra ha sido cancelada',
-            icon: 'success'
+            title: 'Rechazada',
+            text: 'La compra ha sido rechazada y movida a la lista de rechazadas',
+            icon: 'success',
+            ...alertConfig
           });
         } catch (error) {
           console.error('Error al actualizar estado de compra:', error);
@@ -323,21 +366,89 @@ const Compras = () => {
           Swal.fire({
             title: 'Problemas con el servidor',
             text: 'No se pudo actualizar en el servidor, pero se actualizará localmente. Por favor, intente sincronizar más tarde.',
-            icon: 'warning'
+            icon: 'warning',
+            ...alertConfig
           });
           
           // Actualizar localmente
           setCompras(prevCompras => prevCompras.map(compra => 
-            compra.id_compras === id ? { ...compra, estado_pago: 'ANULADO' } : compra
+            compra.id_compras === id ? { 
+              ...compra, 
+              estado_pago: 'RECHAZADO',
+              estado: 'RECHAZADO'
+            } : compra
           ));
         }
       }
     } catch (error) {
-      console.error('Error al cancelar compra:', error);
+      console.error('Error al rechazar compra:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Error al cancelar la compra',
-        icon: 'error'
+        text: 'Error al rechazar la compra',
+        icon: 'error',
+        ...alertConfig
+      });
+    }
+  };
+
+  // Nueva función para reactivar una compra (cambiar de RECHAZADO a PENDIENTE)
+  const handleReactivate = async (id) => {
+    try {
+      const result = await Swal.fire({
+        title: '¿Reactivar esta compra?',
+        text: "La compra cambiará a estado PENDIENTE y volverá a la lista de compras activas",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reactivar',
+        cancelButtonText: 'Cancelar',
+        ...alertConfig
+      });
+
+      if (result.isConfirmed) {
+        try {
+          // Intentar actualizar el estado utilizando la función específica
+          await comprasService.actualizarEstadoCompra(id, 'PENDIENTE');
+          
+          // Si la actualización tuvo éxito, actualizar el estado local
+          const updatedCompras = await comprasService.getCompras();
+          setCompras(updatedCompras);
+          
+          Swal.fire({
+            title: 'Reactivada',
+            text: 'La compra ha sido reactivada y movida a la lista de compras activas',
+            icon: 'success',
+            ...alertConfig
+          });
+        } catch (error) {
+          console.error('Error al reactivar la compra:', error);
+          
+          // Actualizar solo la UI si la API falla
+          Swal.fire({
+            title: 'Problemas con el servidor',
+            text: 'No se pudo actualizar en el servidor, pero se actualizará localmente. Por favor, intente sincronizar más tarde.',
+            icon: 'warning',
+            ...alertConfig
+          });
+          
+          // Actualizar localmente
+          setCompras(prevCompras => prevCompras.map(compra => 
+            compra.id_compras === id ? { 
+              ...compra, 
+              estado_pago: 'PENDIENTE',
+              estado: 'PENDIENTE' 
+            } : compra
+          ));
+        }
+      }
+    } catch (error) {
+      console.error('Error al reactivar compra:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Error al reactivar la compra',
+        icon: 'error',
+        ...alertConfig
       });
     }
   };
@@ -412,7 +523,12 @@ const Compras = () => {
       setOpenDialog(true);
     } catch (error) {
       console.error('Error al editar compra:', error);
-      Swal.fire('Error', 'No se pudo editar la compra', 'error');
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudo editar la compra',
+        icon: 'error',
+        ...alertConfig
+      });
     }
   };
 
@@ -448,14 +564,38 @@ const Compras = () => {
       Swal.fire({
         title: 'Error',
         text: 'No se pudieron cargar los detalles de la compra',
-        icon: 'error'
+        icon: 'error',
+        ...alertConfig
       });
     }
   };
 
   const handleCloseDetails = () => {
-    setSelectedCompra(null);
     setShowDetalle(false);
+    setTimeout(() => {
+      setSelectedCompra(null);
+    }, 100);
+  };
+
+  // Manejador para actualizar el estado de la compra desde el componente PagosCompra
+  const handleEstadoChange = (nuevoEstado) => {
+    console.log('Recibido cambio de estado desde PagosCompra:', nuevoEstado);
+    
+    // Actualizar la compra seleccionada (en la vista de detalles)
+    if (selectedCompra) {
+      setSelectedCompra(prevCompra => ({
+        ...prevCompra,
+        estado_pago: nuevoEstado,
+        estado: nuevoEstado
+      }));
+    }
+    
+    // También actualizar en la lista principal de compras
+    setCompras(prevCompras => prevCompras.map(compra => 
+      compra.id_compras === selectedCompra?.id_compras 
+        ? { ...compra, estado_pago: nuevoEstado, estado: nuevoEstado } 
+        : compra
+    ));
   };
 
   const validateCompra = (compraData) => {
@@ -472,7 +612,8 @@ const Compras = () => {
       allowOutsideClick: false,
       didOpen: () => {
         Swal.showLoading();
-      }
+      },
+      ...alertConfig
     });
 
     try {
@@ -617,7 +758,7 @@ const Compras = () => {
         html: resultHtml,
         icon: successfulUpdateRoutes.length > 0 ? 'success' : 'warning',
         width: '800px',
-        confirmButtonText: 'Entendido'
+        ...alertConfig
       });
 
       // Si hay rutas exitosas, preguntar si desea actualizar la configuración
@@ -636,7 +777,8 @@ const Compras = () => {
           icon: 'question',
           showCancelButton: true,
           confirmButtonText: 'Actualizar configuración',
-          cancelButtonText: 'Cancelar'
+          cancelButtonText: 'Cancelar',
+          ...alertConfig
         }).then((result) => {
           if (result.isConfirmed) {
             // Guardar la mejor ruta y formato en localStorage
@@ -647,11 +789,12 @@ const Compras = () => {
               lastTested: new Date().toISOString()
             }));
             
-            Swal.fire(
-              '¡Configuración actualizada!',
-              `La configuración ha sido actualizada para usar ${bestRoute.method} ${bestRoute.route} con formato ${bestFormat || 'predeterminado'}.`,
-              'success'
-            );
+            Swal.fire({
+              title: '¡Configuración actualizada!',
+              text: `La configuración ha sido actualizada para usar ${bestRoute.method} ${bestRoute.route} con formato ${bestFormat || 'predeterminado'}.`,
+              icon: 'success',
+              ...alertConfig
+            });
           }
         });
       }
@@ -665,7 +808,8 @@ const Compras = () => {
       Swal.fire({
         title: 'Error',
         text: `Error al probar rutas API: ${error.message}`,
-        icon: 'error'
+        icon: 'error',
+        ...alertConfig
       });
     }
   };
@@ -678,7 +822,8 @@ const Compras = () => {
       inputPlaceholder: 'Ej: 42',
       showCancelButton: true,
       confirmButtonText: 'Iniciar diagnóstico',
-      cancelButtonText: 'Cancelar'
+      cancelButtonText: 'Cancelar',
+      ...alertConfig
     });
 
     if (!compraId.isConfirmed || !compraId.value) return;
@@ -691,7 +836,8 @@ const Compras = () => {
       allowOutsideClick: false,
       didOpen: () => {
         Swal.showLoading();
-      }
+      },
+      ...alertConfig
     });
 
     try {
@@ -828,7 +974,8 @@ const Compras = () => {
         title: 'Resultados del diagnóstico',
         html: resultHtml,
         icon: metodosExitosos.length > 0 ? 'success' : 'warning',
-        width: '800px'
+        width: '800px',
+        ...alertConfig
       }).then(async (result) => {
         if (result.isConfirmed && metodosExitosos.length > 0) {
           // Preguntar si desea aplicar el mejor método encontrado
@@ -843,13 +990,19 @@ const Compras = () => {
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Sí, actualizar',
-            cancelButtonText: 'No'
+            cancelButtonText: 'No',
+            ...alertConfig
           });
           
           if (confirmResult.isConfirmed) {
             // Intentar actualizar el estado
             await comprasService.actualizarEstadoCompra(id, 'APROBADO');
-            Swal.fire('¡Actualizado!', 'La compra ha sido actualizada a APROBADO', 'success');
+            Swal.fire({
+              title: '¡Actualizado!', 
+              text: 'La compra ha sido actualizada a APROBADO', 
+              icon: 'success',
+              ...alertConfig
+            });
             
             // Recargar la lista de compras
             const updatedCompras = await comprasService.getCompras();
@@ -862,7 +1015,8 @@ const Compras = () => {
       Swal.fire({
         title: 'Error',
         text: `Error durante el diagnóstico: ${error.message}`,
-        icon: 'error'
+        icon: 'error',
+        ...alertConfig
       });
     }
   };
@@ -875,7 +1029,8 @@ const Compras = () => {
       inputPlaceholder: 'Ej: 30',
       showCancelButton: true,
       confirmButtonText: 'Continuar',
-      cancelButtonText: 'Cancelar'
+      cancelButtonText: 'Cancelar',
+      ...alertConfig
     });
 
     if (!compraId) return;
@@ -892,7 +1047,8 @@ const Compras = () => {
       },
       inputPlaceholder: 'Seleccione estado',
       confirmButtonText: 'Actualizar',
-      showCancelButton: true
+      showCancelButton: true,
+      ...alertConfig
     });
 
     if (!nuevoEstado) return;
@@ -908,7 +1064,8 @@ const Compras = () => {
       },
       inputValue: 'ambos',
       confirmButtonText: 'Actualizar',
-      showCancelButton: true
+      showCancelButton: true,
+      ...alertConfig
     });
 
     if (!metodo) return;
@@ -920,7 +1077,8 @@ const Compras = () => {
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
-        }
+        },
+        ...alertConfig
       });
 
       let result;
@@ -966,7 +1124,12 @@ const Compras = () => {
         const estadoActualizado = estadoPagoActual === nuevoEstado;
         
         if (estadoActualizado) {
-          Swal.fire('¡Éxito!', `La compra ha sido actualizada a ${nuevoEstado}`, 'success');
+          Swal.fire({
+            title: '¡Éxito!', 
+            text: `La compra ha sido actualizada a ${nuevoEstado}`, 
+            icon: 'success',
+            ...alertConfig
+          });
         } else {
           // Si no se actualizó en el backend, mostrar opciones adicionales
           Swal.fire({
@@ -979,15 +1142,25 @@ const Compras = () => {
               o solicite soporte técnico mencionando que el estado no se actualiza.</p>
             `,
             icon: 'warning',
-            confirmButtonText: 'Entendido'
+            ...alertConfig
           });
         }
       } else {
-        Swal.fire('Operación Completada', 'La operación de actualización se completó, pero no se pudo verificar el nuevo estado. Refresque la página para ver los cambios.', 'info');
+        Swal.fire({
+          title: 'Operación Completada',
+          text: 'La operación de actualización se completó, pero no se pudo verificar el nuevo estado. Refresque la página para ver los cambios.',
+          icon: 'info',
+          ...alertConfig
+        });
       }
     } catch (error) {
       console.error('Error al forzar actualización:', error);
-      Swal.fire('Error', `No se pudo actualizar el estado: ${error.message}`, 'error');
+      Swal.fire({
+        title: 'Error',
+        text: `No se pudo actualizar el estado: ${error.message}`,
+        icon: 'error',
+        ...alertConfig
+      });
     }
   };
 
@@ -1090,7 +1263,7 @@ const Compras = () => {
                 }}
               />
               <Tab 
-                label="CANCELADAS" 
+                label="RECHAZADAS" 
                 value={1}
                 sx={{ 
                   borderTopRightRadius: 4,
@@ -1118,7 +1291,8 @@ const Compras = () => {
                   <TableRow key={compra.id_compras}>
                     <TableCell>{compra.numero_factura}</TableCell>
                     <TableCell>{compra.proveedor?.nombre}</TableCell>
-                    <TableCell>{new Date(compra.fecha_compra).toLocaleDateString()}</TableCell>
+                    <TableCell>{compra.fecha_compra ? new Date(compra.fecha_compra).toLocaleDateString() : 
+                               compra.fecha_vencimiento ? new Date(compra.fecha_vencimiento).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
                       Q{parseFloat(compra.total || 0).toFixed(2)}
                     </TableCell>
@@ -1140,9 +1314,23 @@ const Compras = () => {
                       <IconButton size="small" onClick={() => handleEdit(compra.id_compras)} sx={{ color: '#1976d2' }}>
                         <EditIcon />
                       </IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(compra.id_compras)} sx={{ color: '#d32f2f' }}>
-                        <DeleteIcon />
-                      </IconButton>
+                      
+                      {/* Mostrar botón de rechazar o reactivar según la pestaña actual */}
+                      {selectedTab === 0 ? (
+                        <IconButton size="small" onClick={() => handleDelete(compra.id_compras)} sx={{ color: '#d32f2f' }}>
+                          <DeleteIcon />
+                        </IconButton>
+                      ) : (
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleReactivate(compra.id_compras)} 
+                          sx={{ color: '#4caf50' }}
+                          title="Reactivar compra"
+                        >
+                          <RestoreIcon />
+                        </IconButton>
+                      )}
+                      
                       <IconButton size="small" sx={{ color: '#2e7d32' }} onClick={() => handleViewDetails(compra)}>
                         <VisibilityIcon />
                       </IconButton>
@@ -1270,45 +1458,50 @@ const Compras = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={showDetalle} onClose={handleCloseDetails} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{ backgroundColor: '#1976d2', color: 'white', mb: 3 }}>
-          Detalles de la Compra
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          {selectedCompra && (
-            <>
-              <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)', mb: 3 }}>
+      <Dialog open={showDetalle} onClose={handleCloseDetails} maxWidth="md" fullWidth>
+        {selectedCompra && (
+          <>
+            <DialogTitle>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6">Detalle de Compra #{selectedCompra.id_compras}</Typography>
+                <IconButton edge="end" color="inherit" onClick={handleCloseDetails} aria-label="close">
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ mb: 3 }}>
                 <Typography variant="subtitle1">
-                  <strong>N° Factura:</strong> {selectedCompra.numero_factura}
+                  <strong>Factura:</strong> {selectedCompra.numero_factura}
                 </Typography>
                 <Typography variant="subtitle1">
                   <strong>Proveedor:</strong> {selectedCompra.proveedor?.nombre}
                 </Typography>
                 <Typography variant="subtitle1">
-                  <strong>Fecha:</strong> {new Date(selectedCompra.fecha_compra).toLocaleDateString()}
+                  <strong>Fecha:</strong> {
+                    selectedCompra.fecha_compra ? 
+                      new Date(selectedCompra.fecha_compra).toLocaleDateString() : 
+                    selectedCompra.fecha_vencimiento ? 
+                      new Date(selectedCompra.fecha_vencimiento).toLocaleDateString() : 
+                    selectedCompra.created_at ?
+                      new Date(selectedCompra.created_at).toLocaleDateString() :
+                    'N/A'
+                  }
                 </Typography>
                 <Typography variant="subtitle1">
-                  <strong>Estado:</strong>{' '}
+                  <strong>Total:</strong> Q{parseFloat(selectedCompra.total || 0).toFixed(2)}
+                </Typography>
+                <Typography variant="subtitle1">
+                  <strong>Estado:</strong> 
                   <Chip 
-                    label={selectedCompra.estado_pago || selectedCompra.estado} 
+                    label={selectedCompra.estado_pago || selectedCompra.estado}
                     color={getEstadoColor(selectedCompra.estado_pago || selectedCompra.estado)}
                     size="small"
-                    sx={{
-                      fontWeight: 'medium',
-                      '& .MuiChip-label': {
-                        color: 'white'
-                      }
-                    }}
+                    sx={{ ml: 1, fontWeight: 'medium', '& .MuiChip-label': { color: 'white' } }}
                   />
                 </Typography>
-                <Typography variant="subtitle1">
-                  <strong>Tipo de Pago:</strong> {selectedCompra.tipo_pago}
-                </Typography>
-                <Typography variant="subtitle1">
-                  <strong>Total:</strong> Q{parseFloat(selectedCompra?.total || 0).toFixed(2)}
-                </Typography>
                 {selectedCompra.observaciones && (
-                  <Typography variant="subtitle1" sx={{ gridColumn: '1 / -1' }}>
+                  <Typography variant="subtitle1">
                     <strong>Observaciones:</strong> {selectedCompra.observaciones}
                   </Typography>
                 )}
@@ -1349,67 +1542,15 @@ const Compras = () => {
               <PagosCompra 
                 idCompra={selectedCompra.id_compras} 
                 totalCompra={selectedCompra.total} 
+                onEstadoChange={handleEstadoChange}
               />
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDetails}>Cerrar</Button>
-        </DialogActions>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseDetails}>Cerrar</Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
-
-      {/* Botón flotante para diagnóstico API */}
-      <button 
-        style={floatingButtonStyle} 
-        onClick={testApiRoutes}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          const saved = localStorage.getItem('bestUpdateRoute');
-          if (saved) {
-            const config = JSON.parse(saved);
-            Swal.fire({
-              title: 'Configuración API',
-              html: `
-                <div style="text-align: left;">
-                  <p><strong>Ruta:</strong> ${config.route}</p>
-                  <p><strong>Método:</strong> ${config.method}</p>
-                  <p><strong>Formato:</strong> ${config.format || 'No especificado'}</p>
-                  <p><small>Click normal: Diagnóstico completo API</small></p>
-                  <p><small>Click derecho: Ver/Reiniciar configuración</small></p>
-                  <p><small>Alt+Click: Diagnóstico de estado</small></p>
-                  <p><small>Shift+Alt+Click: Forzar actualización de estado</small></p>
-                </div>
-              `,
-              showCancelButton: true,
-              cancelButtonText: 'Reiniciar config',
-              confirmButtonText: 'OK'
-            }).then(r => {
-              if (r.dismiss === Swal.DismissReason.cancel) {
-                localStorage.removeItem('bestUpdateRoute');
-                Swal.fire('Configuración reiniciada', '', 'success');
-              }
-            });
-          } else {
-            Swal.fire('Sin configuración', 'Ejecute el diagnóstico primero', 'info');
-          }
-          return false;
-        }}
-        onMouseDown={(e) => {
-          // Si se presiona Alt+Click, ejecutar diagnóstico de estado
-          if (e.altKey && e.shiftKey) {
-            e.preventDefault();
-            forzarActualizacionEstado();
-            return false;
-          } else if (e.altKey) {
-            e.preventDefault();
-            testEstadoCompra();
-            return false;
-          }
-        }}
-        title="Clic: Diagnóstico API | Clic derecho: Ver configuración | Alt+Clic: Diagnóstico estado | Shift+Alt+Clic: Forzar actualización"
-      >
-        🔍
-      </button>
     </Box>
   );
 };

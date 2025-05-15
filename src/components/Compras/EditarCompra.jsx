@@ -1,3 +1,11 @@
+// Agregar configuración compartida para todas las alertas
+const alertConfig = {
+  customClass: {
+    container: 'swal-container-highest',
+    popup: 'swal-popup-highest'
+  }
+};
+
 const handleEdit = async () => {
   try {
     setLoading(true);
@@ -9,13 +17,23 @@ const handleEdit = async () => {
     
     // Validaciones
     if (!compraForm.id_proveedor) {
-      Swal.fire('Error', 'Debe seleccionar un proveedor', 'error');
+      Swal.fire({
+        title: 'Error',
+        text: 'Debe seleccionar un proveedor',
+        icon: 'error',
+        ...alertConfig
+      });
       setLoading(false);
       return;
     }
     
     if (!compraForm.numeroFactura) {
-      Swal.fire('Error', 'Debe ingresar un número de factura', 'error');
+      Swal.fire({
+        title: 'Error',
+        text: 'Debe ingresar un número de factura',
+        icon: 'error',
+        ...alertConfig
+      });
       setLoading(false);
       return;
     }
@@ -43,7 +61,8 @@ const handleEdit = async () => {
         text: 'La compra se ha actualizado correctamente',
         icon: 'success',
         timer: 2000,
-        showConfirmButton: false
+        showConfirmButton: false,
+        ...alertConfig
       });
       
       // Actualizar el estado local en lugar de recargar
@@ -61,7 +80,8 @@ const handleEdit = async () => {
     Swal.fire({
       title: 'Error',
       text: `Error al actualizar la compra: ${error.message}`,
-      icon: 'error'
+      icon: 'error',
+      ...alertConfig
     });
   } finally {
     setLoading(false);

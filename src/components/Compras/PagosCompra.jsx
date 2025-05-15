@@ -8,25 +8,55 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import * as comprasService from '../../services/comprasService';
 import Swal from 'sweetalert2';
 
+// Usar los mismos estados que en Compras
 const tiposPago = ['Efectivo', 'Transferencia', 'Tarjeta de Crédito', 'Cheque'];
-const estadosPago = ['Por Pagar', 'Pagado'];
+const estadosPago = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
 
-const PagosCompra = ({ idCompra, totalCompra }) => {
+// Agregar una configuración común para todas las alertas
+const alertConfig = {
+  customClass: {
+    container: 'swal-container-highest',
+    popup: 'swal-popup-highest'
+  }
+};
+
+const PagosCompra = ({ idCompra, totalCompra, onEstadoChange }) => {
   const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [estadoActualCompra, setEstadoActualCompra] = useState('PENDIENTE');
   const [pago, setPago] = useState({
     monto: 0,
     tipo_pago: '',
     numero_referencia: '',
-    estado_pago: estadosPago[0],
+    estado_pago: 'PENDIENTE',
     observaciones: '',
     usuario_registro: parseInt(localStorage.getItem('userId')) || 1
   });
+
+  useEffect(() => {
+    // Crear un elemento de estilo
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = `
+      .swal-container-highest {
+        z-index: 9999 !important;
+      }
+      .swal-popup-highest {
+        z-index: 10000 !important;
+      }
+    `;
+    document.head.appendChild(styleElement);
+
+    // Limpiar al desmontar
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
 
   useEffect(() => {
     console.log('ID Compra recibido:', idCompra);
@@ -41,6 +71,18 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       const data = await comprasService.getPagosCompra(idCompra);
       setPagos(data);
       
+      // Obtener el estado actual de la compra para usarlo en nuevos pagos
+      try {
+        const compraActual = await comprasService.getCompraById(idCompra);
+        if (compraActual) {
+          const estadoCompra = compraActual.estado_pago || compraActual.estado || 'PENDIENTE';
+          setEstadoActualCompra(estadoCompra);
+          console.log('Estado actual de la compra:', estadoCompra);
+        }
+      } catch (error) {
+        console.error('Error al obtener estado de la compra:', error);
+      }
+      
       // Verificar si debemos actualizar el estado de la compra basado en los pagos existentes
       await verificarEstadoCompra(data);
     } catch (error) {
@@ -48,7 +90,8 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       Swal.fire({
         title: 'Error',
         text: 'No se pudieron cargar los pagos',
-        icon: 'error'
+        icon: 'error',
+        ...alertConfig
       });
     } finally {
       setLoading(false);
@@ -61,7 +104,7 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
       monto: 0,
       tipo_pago: '',
       numero_referencia: '',
-      estado_pago: estadosPago[0],
+      estado_pago: estadoActualCompra, // Usar el estado actual de la compra
       observaciones: '',
       usuario_registro: parseInt(localStorage.getItem('userId')) || 1
     });
@@ -93,38 +136,72 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
         throw new Error('El monto del pago no puede ser mayor al saldo pendiente');
       }
 
+      // Preparar datos del pago
+      const pagoData = {
+        ...pago,
+        id_compra: idCompra
+      };
 
-        // Guardar el pago
+      console.log('Datos del pago a guardar:', pagoData);
+
+      // Guardar el pago
       if (editando) {
-        await updatePagoCompra(pago.id, pagoData);
+        await comprasService.updatePagoCompra(pago.id, pagoData);
       } else {
-        await createPagoCompra(pagoData);
+        await comprasService.createPagoCompra(idCompra, pagoData);
       }
       
-      // Si el estado del pago es "Pagado", actualizar el estado de la compra
-      if (pago.estado_pago === 'Pagado') {
-        await comprasService.actualizarEstadoCompra(idCompra, 'Pagado');
-      } else if (pago.estado_pago === 'Por Pagar') {
-        await comprasService.actualizarEstadoCompra(idCompra, 'Por Pagar');
+      // Actualizar el estado de la compra con el mismo estado del pago
+      try {
+        await comprasService.actualizarEstadoCompra(idCompra, pago.estado_pago);
+        console.log(`Estado de la compra actualizado a: ${pago.estado_pago}`);
+        
+        // Notificar al componente padre sobre el cambio de estado
+        if (onEstadoChange) {
+          onEstadoChange(pago.estado_pago);
+        }
+        
+        // Mostrar una notificación temporal en la parte superior del componente
+        const estadoActualizado = document.createElement('div');
+        estadoActualizado.textContent = `¡Estado actualizado a ${pago.estado_pago}!`;
+        estadoActualizado.style.backgroundColor = '#4caf50';
+        estadoActualizado.style.color = 'white';
+        estadoActualizado.style.padding = '10px';
+        estadoActualizado.style.borderRadius = '4px';
+        estadoActualizado.style.textAlign = 'center';
+        estadoActualizado.style.fontWeight = 'bold';
+        estadoActualizado.style.position = 'fixed';
+        estadoActualizado.style.top = '20px';
+        estadoActualizado.style.left = '50%';
+        estadoActualizado.style.transform = 'translateX(-50%)';
+        estadoActualizado.style.zIndex = '10000'; // z-index elevado
+        estadoActualizado.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+        document.body.appendChild(estadoActualizado);
+        
+        // Eliminar la notificación después de 3 segundos
+        setTimeout(() => {
+          document.body.removeChild(estadoActualizado);
+        }, 3000);
+      } catch (estadoError) {
+        console.error('Error al actualizar estado de la compra:', estadoError);
+        // No interrumpir el flujo si falla la actualización del estado
       }
-      
-      // Crear el pago
-      await comprasService.createPagoCompra(idCompra, pago);
       
       // Verificar si este pago completa el total de la compra
       const nuevoPagoMonto = Number(pago.monto) || 0;
       const totalPagadoActual = calcularTotalPagado() + (editando ? 0 : nuevoPagoMonto);
       const compraTotal = Number(totalCompra) || 0;
       
-      // Si el pago es aprobado y cubre el total, mostrar mensaje sugerido
+      // Si el pago es APROBADO y cubre el total, mostrar mensaje sugerido
       if (pago.estado_pago === 'APROBADO' && totalPagadoActual >= compraTotal && saldoPendiente <= nuevoPagoMonto) {
         // Este mensaje se mostrará después de que se muestre el mensaje de pago exitoso
         setTimeout(() => {
           Swal.fire({
             title: 'Sugerencia',
-            text: 'Se recomienda actualizar el estado de la compra manualmente a APROBADO desde la lista de compras.',
+            text: 'Se recomienda verificar que el estado de la compra se haya actualizado a APROBADO.',
             icon: 'info',
-            confirmButtonText: 'Entendido'
+            confirmButtonText: 'Entendido',
+            ...alertConfig
           });
         }, 2000);
       }
@@ -138,29 +215,42 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
         monto: 0,
         tipo_pago: '',
         numero_referencia: '',
-        estado_pago: estadosPago[0],
+        estado_pago: estadoActualCompra, // Restablecer al estado actual de la compra
         observaciones: '',
         usuario_registro: parseInt(localStorage.getItem('userId')) || 1
       });
       
       Swal.fire({
         title: editando ? 'Pago Actualizado' : 'Pago Registrado',
-        text: `El pago ha sido ${editando ? 'actualizado' : 'registrado'} exitosamente`,
-        icon: 'success'
+        text: `El pago ha sido ${editando ? 'actualizado' : 'registrado'} exitosamente y el estado de la compra ha sido actualizado a ${pago.estado_pago}.`,
+        icon: 'success',
+        ...alertConfig
       });
     } catch (error) {
       console.error('Error al procesar el pago:', error);
       Swal.fire({
         title: 'Error',
         text: error.message || 'Hubo un error al procesar el pago',
-        icon: 'error'
+        icon: 'error',
+        ...alertConfig
       });
     }
-};
-
+  };
 
   const handleDelete = async (id) => {
     try {
+      // Verificar que el ID sea válido
+      if (!id) {
+        console.error('Error: ID de pago es undefined');
+        Swal.fire({
+          title: 'Error',
+          text: 'No se pudo identificar el pago a eliminar',
+          icon: 'error',
+          ...alertConfig
+        });
+        return;
+      }
+      
       const result = await Swal.fire({
         title: '¿Está seguro?',
         text: "El pago será eliminado",
@@ -169,25 +259,30 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
         confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
+        cancelButtonText: 'Cancelar',
+        ...alertConfig
       });
 
       if (result.isConfirmed) {
-        await comprasService.deletePagoCompra(id);
+        // Logear el ID para debug
+        console.log(`Intentando eliminar pago con ID: ${id}, de la compra: ${idCompra}`);
+        await comprasService.deletePagoCompra(id, idCompra);
         await fetchPagos();
         
         Swal.fire({
           title: 'Eliminado',
           text: 'El pago ha sido eliminado',
-          icon: 'success'
+          icon: 'success',
+          ...alertConfig
         });
       }
     } catch (error) {
       console.error('Error al eliminar pago:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Error al eliminar el pago',
-        icon: 'error'
+        text: 'Error al eliminar el pago: ' + error.message,
+        icon: 'error',
+        ...alertConfig
       });
     }
   };
@@ -235,9 +330,10 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
           setTimeout(() => {
             Swal.fire({
               title: 'Información',
-              text: 'La compra ya tiene todos los pagos completados. Se recomienda actualizar el estado de la compra manualmente a APROBADO.',
+              text: 'La compra ya tiene todos los pagos completados. Se recomienda verificar que el estado de la compra sea APROBADO.',
               icon: 'info',
-              confirmButtonText: 'Entendido'
+              confirmButtonText: 'Entendido',
+              ...alertConfig
             });
           }, 1000);
         }
@@ -245,6 +341,73 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
     } catch (error) {
       console.error('Error al verificar estado de la compra:', error);
       // No lanzamos error para que el flujo continúe
+    }
+  };
+
+  // Obtener el color del chip según el estado
+  const getEstadoColor = (estado) => {
+    switch (estado) {
+      case 'PENDIENTE':
+        return 'warning';
+      case 'APROBADO':
+        return 'success';  // Verde
+      case 'RECHAZADO':
+        return 'error';    // Rojo
+      case 'ANULADO':
+        return 'info';     // Azul celeste
+      default:
+        return 'default';
+    }
+  };
+
+  // Agregar función para eliminar todos los pagos
+  const handleDeleteAllPagos = async () => {
+    try {
+      const result = await Swal.fire({
+        title: '¿Eliminar todos los pagos?',
+        text: "¡Esta acción eliminará TODOS los pagos de esta compra y no se puede revertir!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar todos',
+        cancelButtonText: 'Cancelar',
+        ...alertConfig
+      });
+
+      if (result.isConfirmed) {
+        // Mostrar un mensaje de carga
+        Swal.fire({
+          title: 'Eliminando pagos...',
+          text: 'Esto puede tomar un momento',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading()
+          },
+          ...alertConfig
+        });
+        
+        // Llamar al servicio para eliminar todos los pagos
+        await comprasService.deletePagosPorCompra(idCompra);
+        
+        // Recargar la lista de pagos
+        await fetchPagos();
+        
+        Swal.fire({
+          title: 'Completado',
+          text: 'Todos los pagos han sido eliminados',
+          icon: 'success',
+          ...alertConfig
+        });
+      }
+    } catch (error) {
+      console.error('Error al eliminar todos los pagos:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Error al eliminar los pagos: ' + error.message,
+        icon: 'error',
+        ...alertConfig
+      });
     }
   };
 
@@ -260,31 +423,38 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
     <Box sx={{ mt: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Pagos de la Compra</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleClickOpen}
-          sx={{ backgroundColor: '#1976d2' }}
-        >
-          Nuevo Pago
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteSweepIcon />}
+            onClick={handleDeleteAllPagos}
+            title="Eliminar todos los pagos de esta compra utilizando el id_compra"
+            disabled={loading}
+          >
+            Eliminar todos
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleClickOpen}
+            sx={{ backgroundColor: '#1976d2' }}
+          >
+            Nuevo Pago
+          </Button>
+        </Box>
+      </Box>
+      
+      {/* Mensaje de información sobre eliminación por id_compra */}
+      <Box sx={{ 
+
+      }}>
       </Box>
       
       {/* Aviso sobre actualización manual del estado */}
       {calcularSaldoPendiente() <= 0 && pagos.some(p => p.estado_pago === 'APROBADO') && (
         <Box sx={{ 
-          backgroundColor: '#e3f2fd', 
-          p: 2, 
-          mb: 3, 
-          borderRadius: 1, 
-          border: '1px solid #90caf9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
         }}>
-          <Typography variant="body1" sx={{ fontWeight: 'medium', color: '#0d47a1' }}>
-            ⚠️ Esta compra tiene sus pagos completos. Para actualizar su estado a APROBADO, vaya a la lista de compras y edite la compra manualmente.
-          </Typography>
         </Box>
       )}
       
@@ -333,19 +503,24 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
           <TableBody>
             {pagos.map((pago, index) => (
               <TableRow key={index}>
-                <TableCell>{pago.fecha_creacion ? new Date(pago.fecha_creacion).toLocaleDateString() : 'N/A'}</TableCell>
+                <TableCell>
+                  {pago.fecha_creacion 
+                    ? new Date(pago.fecha_creacion).toLocaleDateString() 
+                    : pago.fecha_registro 
+                      ? new Date(pago.fecha_registro).toLocaleDateString()
+                      : pago.created_at
+                        ? new Date(pago.created_at).toLocaleDateString()
+                        : 'N/A'}
+                </TableCell>
                 <TableCell>Q{Number(pago.monto).toFixed(2)}</TableCell>
                 <TableCell>{pago.tipo_pago}</TableCell>
                 <TableCell>{pago.numero_referencia}</TableCell>
                 <TableCell>
                   <Chip
                     label={pago.estado_pago}
-                    color={pago.estado_pago === 'Pagado' ? 'success' : 'warning'}
+                    color={getEstadoColor(pago.estado_pago)}
                     size="small"
-                    title={
-                      pago.estado_pago === 'Pagado' ? 'Este pago ha sido verificado y aprobado' : 
-                      'Este pago está pendiente de pago'
-                    }
+                    title={`Este pago está en estado: ${pago.estado_pago}`}
                     sx={{ 
                       cursor: 'pointer',
                       '&:hover': { 
@@ -359,9 +534,15 @@ const PagosCompra = ({ idCompra, totalCompra }) => {
                   <IconButton size="small" onClick={() => handleEdit(pago)} sx={{ color: '#1976d2' }}>
                     <EditIcon />
                   </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(pago.id)} sx={{ color: '#d32f2f' }}>
-                    <DeleteIcon />
-                  </IconButton>
+                  {pago.id ? (
+                    <IconButton size="small" onClick={() => handleDelete(pago.id)} sx={{ color: '#d32f2f' }}>
+                      <DeleteIcon />
+                    </IconButton>
+                  ) : (
+                    <IconButton size="small" disabled sx={{ color: 'rgba(211, 47, 47, 0.5)' }}>
+                      <DeleteIcon />
+                    </IconButton>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

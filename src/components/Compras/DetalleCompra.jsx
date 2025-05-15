@@ -26,6 +26,14 @@ import * as materialService from '../../services/materialService';
 import Swal from 'sweetalert2';
 import * as comprasService from '../../services/comprasService';
 
+// Agregar configuración compartida para todas las alertas
+const alertConfig = {
+  customClass: {
+    container: 'swal-container-highest',
+    popup: 'swal-popup-highest'
+  }
+};
+
 const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
   const [materiales, setMateriales] = useState([]);
   const [materialesDisponibles, setMaterialesDisponibles] = useState([]);
@@ -63,7 +71,12 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
         setMaterialesDisponibles(disponibles);
       } catch (error) {
         console.error('Error al cargar materiales:', error);
-        Swal.fire('Error', 'Error al cargar los materiales', 'error');
+        Swal.fire({
+          title: 'Error',
+          text: 'Error al cargar los materiales',
+          icon: 'error',
+          ...alertConfig
+        });
       } finally {
         setLoading(false);
       }
@@ -134,7 +147,12 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
       });
     } catch (error) {
       console.error('Error al agregar detalle:', error);
-      Swal.fire('Error', error.message, 'error');
+      Swal.fire({
+        title: 'Error',
+        text: error.message,
+        icon: 'error',
+        ...alertConfig
+      });
     }
   };
 

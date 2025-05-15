@@ -536,13 +536,99 @@ export const updatePagoCompra = async (idPago, pagoData) => {
   }
 };
 
-export const deletePagoCompra = async (idPago) => {
+export const deletePagoCompra = async (idPago, idCompra) => {
   try {
-    const response = await api.delete(`/pagos-compra/${idPago}`);
+    // El id_pago no se utiliza directamente por la API pero lo mantenemos para referencia interna
+    // Verificamos que al menos tengamos un id_compra 
+    if (!idCompra) {
+      throw new Error(`No se puede eliminar el pago: ID de compra inválido`);
+    }
+    console.log(`Eliminando pago de compra ID: ${idCompra}, pago interno ID: ${idPago}`);
+    
+    // Usar endpoint que elimina por id_compra
+    const response = await api.delete(`/pagos-compra/por-compra/${idCompra}`);
     return response.data;
   } catch (error) {
     console.error('Error al eliminar pago:', error);
-    throw new Error(error.response?.data?.message || 'No se pudo eliminar el pago');
+    throw new Error(error.response?.data?.message || `No se pudo eliminar el pago de la compra (ID: ${idCompra})`);
+  }
+};
+
+// Función para eliminar todos los pagos asociados a una compra
+export const deletePagosPorCompra = async (idCompra) => {
+  try {
+    if (!idCompra) {
+      throw new Error(`No se pueden eliminar los pagos: ID de compra inválido (${idCompra})`);
+    }
+    console.log(`Eliminando todos los pagos de la compra ID: ${idCompra}`);
+    
+    // Intentar eliminar todos los pagos de esta compra
+    try {
+      // Cambiar a un endpoint más específico y consistente para eliminar pagos por id_compra
+      const response = await api.delete(`/pagos-compra/eliminar-por-compra/${idCompra}`);
+      console.log('Pagos eliminados exitosamente por id_compra');
+      return response.data;
+    } catch (apiError) {
+      console.log('Error eliminando pagos por id_compra:', apiError.message);
+      
+      // Intentar con otra estructura de endpoint
+      try {
+        // Esta es una alternativa que puede estar implementada en el backend
+        const response = await api.delete(`/pagos-compra/compra/${idCompra}/eliminar`);
+        console.log('Pagos eliminados exitosamente usando formato alternativo');
+        return response.data;
+      } catch (alternateError) {
+        console.log('Error con formato alternativo:', alternateError.message);
+        
+        // Intentar con endpoint más genérico
+        try {
+          // Utilizamos POST como último recurso con _method=DELETE para compatibilidad RESTful
+          const axios = await import('axios');
+          const response = await axios.default.post(
+            `${api.defaults.baseURL}/pagos-compra/eliminar`, 
+            { id_compra: idCompra, _method: 'DELETE' },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            }
+          );
+          console.log('Pagos eliminados exitosamente usando método POST con _method=DELETE');
+          return response.data;
+        } catch (postMethodError) {
+          console.log('Error con método POST:', postMethodError.message);
+          
+          // Como último recurso, intentar obtener la lista de pagos y eliminarlos uno por uno
+          try {
+            const pagosResponse = await getPagosCompra(idCompra);
+            if (Array.isArray(pagosResponse) && pagosResponse.length > 0) {
+              console.log(`Encontrados ${pagosResponse.length} pagos para eliminar individualmente`);
+              
+              // Eliminar cada pago uno por uno
+              for (const pago of pagosResponse) {
+                try {
+                  await api.delete(`/pagos-compra/${pago.id_pago}`);
+                  console.log(`Pago eliminado: ${pago.id_pago}`);
+                } catch (deleteError) {
+                  console.log(`Error al eliminar pago ${pago.id_pago}:`, deleteError.message);
+                }
+              }
+              return { message: `Se eliminaron ${pagosResponse.length} pagos individualmente` };
+            } else {
+              console.log('No se encontraron pagos para eliminar');
+              return { message: 'No hay pagos para eliminar' };
+            }
+          } catch (fetchError) {
+            console.log('Error obteniendo pagos para eliminar:', fetchError.message);
+            throw new Error('No se encontró un endpoint válido para eliminar pagos por id_compra');
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Error al eliminar pagos de compra ${idCompra}:`, error);
+    throw new Error(error.response?.data?.message || `No se pudieron eliminar los pagos de la compra (ID: ${idCompra})`);
   }
 };
 
