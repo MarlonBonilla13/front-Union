@@ -21,6 +21,9 @@ import CotizacionForm from './components/Cotizaciones/CotizacionForm';
 import { Toaster } from 'react-hot-toast';
 import Proveedores from './components/Proveedores/Proveedores';
 import Compras from './components/Compras/Compras';
+import VentasList from './components/Ventas/VentasList';
+import NuevaVenta from './components/Ventas/NuevaVenta';
+import VentaForm from './components/Ventas/VentaForm';
 
 function App() {
   return (
@@ -166,6 +169,30 @@ function App() {
                                 <Box sx={{ pt: 8, px: 2 }}>
                                   <Compras />
                                 </Box>
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/ventas" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <VentasList />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/ventas/nueva" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <NuevaVenta />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/ventas/editar/:id" 
+                            element={
+                              <ProtectedRoute roles={['admin']}>
+                                <VentaForm />
                               </ProtectedRoute>
                             } 
                           />

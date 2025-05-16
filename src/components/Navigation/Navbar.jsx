@@ -26,6 +26,7 @@ import Swal from 'sweetalert2';
 // Add this import with your other icon imports
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -85,6 +86,12 @@ const Navbar = () => {
       text: 'Compras',
       icon: <ShoppingCartIcon />,
       path: '/compras',
+      roles: ['admin']
+    },
+    {
+      text: 'Ventas',
+      icon: <PointOfSaleIcon />,
+      path: '/ventas',
       roles: ['admin']
     },
     {
