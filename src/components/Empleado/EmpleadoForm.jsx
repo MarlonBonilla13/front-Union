@@ -151,23 +151,17 @@ const EmpleadoForm = () => {
         }
       }
 
-      // Validar y formatear la fecha
-      let fechaIngreso;
-      try {
-        fechaIngreso = new Date(formData.fecha_ingreso);
-        if (isNaN(fechaIngreso.getTime())) {
-          throw new Error('Fecha inválida');
-        }
-      } catch (error) {
+      // Validar formato de fecha
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.fecha_ingreso)) {
         await Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'La fecha de ingreso no es válida'
+          text: 'La fecha debe tener el formato YYYY-MM-DD'
         });
         return;
       }
 
-      // Preparar datos para envío
+      // Preparar datos para envío (sin manipulación adicional de fechas)
       const empleadoData = {
         codigo_empleado: formData.codigo_empleado.trim(),
         nombre: formData.nombre.trim(),
@@ -176,15 +170,28 @@ const EmpleadoForm = () => {
         cargo: formData.cargo.trim(),
         email: formData.email?.trim() || null,
         telefono: formData.telefono?.trim() || null,
-        fecha_ingreso: fechaIngreso.toISOString().split('T')[0],
+        fecha_ingreso: formData.fecha_ingreso, // Enviar la fecha sin procesar
         estado: formData.estado ?? true
       };
 
       console.log('Modo:', isEditMode ? 'Edición' : 'Creación');
       console.log('Datos a enviar:', empleadoData);
 
+      // Mostrar indicador de carga
+      await Swal.fire({
+        title: 'Procesando...',
+        text: 'Por favor espere mientras se procesa la solicitud',
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false
+      });
+
       if (isEditMode) {
         await updateEmpleado(formData.id_empleado, empleadoData);
+        Swal.close();
         await Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -194,6 +201,7 @@ const EmpleadoForm = () => {
         });
       } else {
         await createEmpleado(empleadoData);
+        Swal.close();
         await Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -203,15 +211,20 @@ const EmpleadoForm = () => {
         });
       }
 
-      resetForm();
+      // Recargar lista de empleados y reiniciar formulario
       await loadEmpleados();
-
+      resetForm();
     } catch (error) {
-      console.error('Error detallado:', error);
+      console.error('Error en el envío del formulario:', error);
+      
+      // Cerrar diálogo de carga si está abierto
+      Swal.close();
+      
+      // Mostrar mensaje de error
       await Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.message || 'No se pudo procesar la solicitud'
+        text: error.message || 'Ha ocurrido un error al procesar la solicitud'
       });
     }
   };

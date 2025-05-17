@@ -52,18 +52,6 @@ export const updateEmpleado = async (id, empleadoData) => {
     
     console.log('Datos recibidos para actualizar:', empleadoData);
 
-    // Validar y formatear la fecha
-    let fechaIngreso;
-    try {
-      fechaIngreso = new Date(empleadoData.fecha_ingreso);
-      if (isNaN(fechaIngreso.getTime())) {
-        throw new Error('Fecha de ingreso inválida');
-      }
-    } catch (error) {
-      console.error('Error al procesar la fecha:', error);
-      throw new Error('La fecha de ingreso no tiene un formato válido');
-    }
-
     // Preparar datos para actualización (nunca incluir codigo_empleado)
     const updateData = {
       nombre: empleadoData.nombre?.trim(),
@@ -72,7 +60,7 @@ export const updateEmpleado = async (id, empleadoData) => {
       cargo: empleadoData.cargo?.trim(),
       email: empleadoData.email?.trim() || null,
       telefono: empleadoData.telefono?.trim() || null,
-      fecha_ingreso: fechaIngreso.toISOString().split('T')[0],
+      fecha_ingreso: empleadoData.fecha_ingreso, // No manipular la fecha
       estado: empleadoData.estado
     };
 
@@ -94,8 +82,18 @@ export const updateEmpleado = async (id, empleadoData) => {
       message: error.message,
       response: error.response?.data,
       status: error.response?.status,
-      data: error.response?.config?.data
+      data: JSON.stringify(empleadoData) // Usar el mismo formato que en createEmpleado
     });
+    
+    // Personalizar mensaje de error basado en el código de respuesta
+    if (error.response?.status === 409) {
+      throw new Error(`Conflicto al actualizar el empleado: ${error.response?.data?.message || 'La operación no puede completarse'}`);
+    } else if (error.response?.status === 400) {
+      throw new Error(`Error de validación: ${error.response?.data?.message || 'Verifique los datos ingresados'}`);
+    } else if (error.response?.status === 500) {
+      throw new Error('Error en el servidor. Por favor, inténtelo de nuevo más tarde.');
+    }
+    
     throw error;
   }
 };
@@ -120,19 +118,7 @@ export const createEmpleado = async (empleadoData) => {
   try {
     console.log('Datos originales recibidos:', empleadoData);
 
-    // Validar y formatear la fecha
-    let fechaIngreso;
-    try {
-      fechaIngreso = new Date(empleadoData.fecha_ingreso);
-      if (isNaN(fechaIngreso.getTime())) {
-        throw new Error('Fecha de ingreso inválida');
-      }
-    } catch (error) {
-      console.error('Error al procesar la fecha:', error);
-      throw new Error('La fecha de ingreso no tiene un formato válido');
-    }
-
-    // Preparar datos para creación
+    // Preparar datos para creación - Mantenerlo simple para evitar errores
     const createData = {
       codigo_empleado: empleadoData.codigo_empleado?.trim(),
       nombre: empleadoData.nombre?.trim(),
@@ -141,8 +127,8 @@ export const createEmpleado = async (empleadoData) => {
       cargo: empleadoData.cargo?.trim(),
       email: empleadoData.email?.trim() || null,
       telefono: empleadoData.telefono?.trim() || null,
-      fecha_ingreso: fechaIngreso.toISOString().split('T')[0],
-      estado: true // Por defecto, un nuevo empleado se crea como activo
+      fecha_ingreso: empleadoData.fecha_ingreso, // Enviar la fecha tal como viene, sin procesamiento
+      estado: empleadoData.estado ?? true
     };
 
     // Validar campos requeridos
@@ -160,34 +146,30 @@ export const createEmpleado = async (empleadoData) => {
 
     console.log('Datos formateados para crear:', createData);
 
-    // Verificar si ya existe un empleado con el mismo código
-    try {
-      const checkResponse = await api.get(`/empleados/codigo/${createData.codigo_empleado}`);
-      if (checkResponse.status === 200) {
-        // Si llegamos aquí, significa que el empleado existe
-        throw new Error(`Ya existe un empleado con el código ${createData.codigo_empleado}`);
-      }
-    } catch (error) {
-      // Si el error es 404, significa que el código no existe y podemos continuar
-      if (error.response && error.response.status !== 404) {
-        // Si el error no es 404, propagamos el error original
-        throw error;
-      }
-      // Si es 404, continuamos con la creación
-      console.log('Código de empleado disponible, procediendo con la creación');
-    }
+    // No intentar verificar duplicados, dejar que el backend lo maneje
 
-    // Crear el empleado
+    // Crear el empleado directamente
     const response = await api.post('/empleados', createData);
     console.log('Respuesta del servidor:', response.data);
     return response.data;
   } catch (error) {
+    // Mejorar el log de errores
     console.error('Error detallado en createEmpleado:', {
       message: error.message,
       response: error.response?.data,
       status: error.response?.status,
-      data: error.response?.config?.data
+      data: JSON.stringify(empleadoData) // Mostrar los datos originales para diagnóstico
     });
+    
+    // Personalizar mensaje de error basado en el código de respuesta
+    if (error.response?.status === 409) {
+      throw new Error(`Ya existe un empleado con el código ${empleadoData.codigo_empleado}`);
+    } else if (error.response?.status === 400) {
+      throw new Error(`Error de validación: ${error.response?.data?.message || 'Verifique los datos ingresados'}`);
+    } else if (error.response?.status === 500) {
+      throw new Error('Error en el servidor. Por favor, inténtelo de nuevo más tarde.');
+    }
+    
     throw error;
   }
 };
