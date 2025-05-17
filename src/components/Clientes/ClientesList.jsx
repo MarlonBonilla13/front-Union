@@ -192,8 +192,14 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
   
   // Add the toggle button in the Box component near the search field
   return (
-    <Paper elevation={3} sx={{ width: '100%', overflow: 'hidden' }}>
-      <Box sx={{ p: 2 }}>
+    <Paper elevation={3} sx={{ 
+      width: '100%', 
+      overflow: 'visible',
+      height: 'calc(100vh - 120px)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <Box sx={{ p: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" component="div">
             {showInactive ? 'Clientes Inactivos' : 'Clientes Activos'}
@@ -229,22 +235,27 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
         </Box>
       ) : (
         <>
-          <TableContainer sx={{ maxHeight: 600 }}>
-            <Table stickyHeader size="small" aria-label="sticky table">
+          <TableContainer sx={{ flexGrow: 1, height: 'auto', overflow: 'auto' }}>
+            <Table 
+              stickyHeader 
+              size="small" 
+              aria-label="sticky table"
+              sx={{ tableLayout: 'fixed' }}
+            >
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ minWidth: 70, maxWidth: 80 }}>Logo</TableCell>
-                  <TableCell sx={{ minWidth: 120 }}>Nombre</TableCell>
-                  <TableCell sx={{ minWidth: 120 }}>Nombre Comercial</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>Teléfono</TableCell>
-                  <TableCell sx={{ minWidth: 120 }}>Correo</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>Tipo de cliente</TableCell>
-                  <TableCell sx={{ minWidth: 120 }}>Dirección</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>Lugar</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>Fecha Registro</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>Última Actualización</TableCell>
-                  <TableCell sx={{ minWidth: 80 }}>Estado</TableCell>
-                  <TableCell align="center" sx={{ minWidth: 100 }}>Acciones</TableCell>
+                  <TableCell sx={{ width: '60px' }}>Logo</TableCell>
+                  <TableCell sx={{ width: '140px' }}>Nombre</TableCell>
+                  <TableCell sx={{ width: '140px' }}>Nombre Comercial</TableCell>
+                  <TableCell sx={{ width: '100px' }}>Teléfono</TableCell>
+                  <TableCell sx={{ width: '180px' }}>Correo</TableCell>
+                  <TableCell sx={{ width: '100px' }}>Tipo de cliente</TableCell>
+                  <TableCell sx={{ width: '160px' }}>Dirección</TableCell>
+                  <TableCell sx={{ width: '100px' }}>Lugar</TableCell>
+                  <TableCell sx={{ width: '100px' }}>Fecha Registro</TableCell>
+                  <TableCell sx={{ width: '100px' }}>Última Act.</TableCell>
+                  <TableCell sx={{ width: '80px' }}>Estado</TableCell>
+                  <TableCell align="center" sx={{ width: '100px' }}>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -259,8 +270,8 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                               src={getImageUrl(cliente.imagen_url)}
                               alt={`Logo de ${cliente.nombre}`}
                               style={{
-                                width: '50px',
-                                height: '50px',
+                                width: '40px',
+                                height: '40px',
                                 objectFit: 'contain',
                                 border: '1px solid #ddd',
                                 borderRadius: '4px'
@@ -279,14 +290,15 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                         ) : (
                           <Box
                             sx={{
-                              width: '50px',
-                              height: '50px',
+                              width: '40px',
+                              height: '40px',
                               border: '1px solid #ddd',
                               borderRadius: '4px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              backgroundColor: '#f5f5f5'
+                              backgroundColor: '#f5f5f5',
+                              fontSize: '10px'
                             }}
                           >
                             No logo
@@ -352,15 +364,16 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
           </TableContainer>
           
           <TablePagination
-            rowsPerPageOptions={[10, 25, 50]}
+            rowsPerPageOptions={[10, 25, 50, 100]}
             component="div"
             count={filteredClientes.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage="Filas por página:"
+            labelRowsPerPage="Filas:"
             labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            sx={{ borderTop: '1px solid #e0e0e0', py: 0 }}
           />
         </>
       )}
