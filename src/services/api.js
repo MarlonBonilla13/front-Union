@@ -52,6 +52,13 @@ api.interceptors.response.use(
     console.error('Método:', error.config?.method);
     console.error('Status:', error.response?.status);
     
+    // Información específica para errores en el módulo de ventas
+    if (error.config?.url?.includes('ventas')) {
+      console.error('Error en módulo de ventas:');
+      console.error('Datos de la venta:', error.config?.data ? JSON.parse(error.config.data) : 'Sin datos');
+      console.error('Respuesta del servidor:', error.response?.data);
+    }
+    
     // Información más detallada para errores de estado
     if (error.response?.status === 400) {
       console.error('Error 400 - Bad Request. Posible error en el formato de los datos enviados');

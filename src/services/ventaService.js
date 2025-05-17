@@ -6,7 +6,7 @@ export const getVentas = async () => {
     return response.data;
   } catch (error) {
     console.error('Error al obtener ventas:', error);
-    throw error;
+    throw new Error('No se pudieron cargar las ventas');
   }
 };
 
@@ -16,7 +16,7 @@ export const getVentaById = async (id) => {
     return response.data;
   } catch (error) {
     console.error('Error al obtener venta:', error);
-    throw error;
+    throw new Error('No se pudo encontrar la venta');
   }
 };
 
