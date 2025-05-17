@@ -192,7 +192,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
   
   // Add the toggle button in the Box component near the search field
   return (
-    <Paper elevation={3} sx={{ width: '110%', overflow: 'hidden' }}>
+    <Paper elevation={3} sx={{ width: '100%', overflow: 'hidden' }}>
       <Box sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" component="div">
@@ -229,22 +229,22 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
         </Box>
       ) : (
         <>
-          <TableContainer sx={{ maxHeight: 440 }}>
-            <Table stickyHeader aria-label="sticky table">
+          <TableContainer sx={{ maxHeight: 600 }}>
+            <Table stickyHeader size="small" aria-label="sticky table">
               <TableHead>
                 <TableRow>
-                  <TableCell>Logo</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Nombre Comercial</TableCell>
-                  <TableCell>Teléfono</TableCell>
-                  <TableCell>Correo</TableCell>
-                  <TableCell>Tipo de cliente</TableCell>
-                  <TableCell>Dirección</TableCell>
-                  <TableCell>Lugar</TableCell>
-                  <TableCell>Fecha Registro</TableCell>
-                  <TableCell>Última Actualización</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell align="center">Acciones</TableCell>
+                  <TableCell sx={{ minWidth: 70, maxWidth: 80 }}>Logo</TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>Nombre</TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>Nombre Comercial</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Teléfono</TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>Correo</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Tipo de cliente</TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>Dirección</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Lugar</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Fecha Registro</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Última Actualización</TableCell>
+                  <TableCell sx={{ minWidth: 80 }}>Estado</TableCell>
+                  <TableCell align="center" sx={{ minWidth: 100 }}>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -352,7 +352,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
           </TableContainer>
           
           <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
+            rowsPerPageOptions={[10, 25, 50]}
             component="div"
             count={filteredClientes.length}
             rowsPerPage={rowsPerPage}
