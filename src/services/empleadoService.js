@@ -43,6 +43,37 @@ export const getEmpleado = async (id) => {
   }
 };
 
+// Modificar la función para formatear la fecha correctamente para NestJS
+const formatearFechaParaAPI = (fechaString) => {
+  // Si la fecha ya es un objeto Date válido, no necesita conversión
+  if (fechaString instanceof Date && !isNaN(fechaString.getTime())) {
+    return fechaString.toISOString();
+  }
+
+  // Si tenemos un string en formato YYYY-MM-DD, convertirlo a ISO string
+  if (typeof fechaString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fechaString)) {
+    // El backend espera una fecha con hora, añadimos T00:00:00Z
+    // Esto crea un ISO string válido en UTC
+    const fecha = new Date(`${fechaString}T00:00:00Z`);
+    if (!isNaN(fecha.getTime())) {
+      return fecha.toISOString();
+    }
+  }
+
+  // Para otros formatos, intentar convertir
+  try {
+    const fecha = new Date(fechaString);
+    if (!isNaN(fecha.getTime())) {
+      return fecha.toISOString();
+    }
+  } catch (error) {
+    console.error('Error al convertir fecha:', error);
+  }
+
+  // Si todo falla, devolver la fecha actual
+  return new Date().toISOString();
+};
+
 export const updateEmpleado = async (id, empleadoData) => {
   try {
     const numericId = parseInt(id);
@@ -52,17 +83,32 @@ export const updateEmpleado = async (id, empleadoData) => {
     
     console.log('Datos recibidos para actualizar:', empleadoData);
 
-    // Preparar datos para actualización (nunca incluir codigo_empleado)
+    // Preparar datos para actualización - solo incluir lo estrictamente necesario
     const updateData = {
       nombre: empleadoData.nombre?.trim(),
       apellido: empleadoData.apellido?.trim(),
       departamento: empleadoData.departamento?.trim(),
       cargo: empleadoData.cargo?.trim(),
       email: empleadoData.email?.trim() || null,
-      telefono: empleadoData.telefono?.trim() || null,
-      fecha_ingreso: empleadoData.fecha_ingreso, // No manipular la fecha
-      estado: empleadoData.estado
+      telefono: empleadoData.telefono?.trim() || null
     };
+    
+    // Solo incluir la fecha si está presente, convertida al formato correcto
+    if (empleadoData.fecha_ingreso) {
+      updateData.fecha_ingreso = formatearFechaParaAPI(empleadoData.fecha_ingreso);
+    }
+    
+    // Solo incluir el estado si se proporciona específicamente
+    if (empleadoData.estado !== undefined) {
+      updateData.estado = empleadoData.estado;
+    }
+    
+    // Eliminar campos con valores undefined o null
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined || updateData[key] === null) {
+        delete updateData[key];
+      }
+    });
 
     // Validar campos requeridos
     const camposRequeridos = ['nombre', 'apellido', 'departamento', 'cargo'];
@@ -74,24 +120,46 @@ export const updateEmpleado = async (id, empleadoData) => {
 
     console.log('Datos formateados para actualizar:', updateData);
     
-    const response = await api.patch(`/empleados/${numericId}`, updateData);
-    console.log('Respuesta del servidor:', response.data);
-    return response.data;
+    try {
+      const response = await api.patch(`/empleados/${numericId}`, updateData);
+      console.log('Respuesta del servidor:', response.data);
+      return response.data;
+    } catch (requestError) {
+      // Capturar y registrar detalles específicos del error de la solicitud
+      console.error('Error HTTP detallado en updateEmpleado:', {
+        status: requestError.response?.status,
+        statusText: requestError.response?.statusText,
+        headers: requestError.response?.headers,
+        data: requestError.response?.data,
+        config: {
+          url: requestError.config?.url,
+          method: requestError.config?.method,
+          headers: requestError.config?.headers,
+          data: requestError.config?.data
+        },
+        originalSentData: updateData
+      });
+      
+      throw requestError; // Re-lanzar para el manejo de errores externo
+    }
   } catch (error) {
     console.error('Error detallado en updateEmpleado:', {
       message: error.message,
       response: error.response?.data,
       status: error.response?.status,
-      data: JSON.stringify(empleadoData) // Usar el mismo formato que en createEmpleado
+      data: JSON.stringify(empleadoData), // Usar el mismo formato que en createEmpleado
+      stack: error.stack
     });
     
     // Personalizar mensaje de error basado en el código de respuesta
     if (error.response?.status === 409) {
       throw new Error(`Conflicto al actualizar el empleado: ${error.response?.data?.message || 'La operación no puede completarse'}`);
     } else if (error.response?.status === 400) {
-      throw new Error(`Error de validación: ${error.response?.data?.message || 'Verifique los datos ingresados'}`);
+      throw new Error(`Error de validación: ${error.response?.data?.message || 'Verifique el formato de los datos, especialmente la fecha'}`);
     } else if (error.response?.status === 500) {
-      throw new Error('Error en el servidor. Por favor, inténtelo de nuevo más tarde.');
+      const errorMessage = error.response?.data?.message || 'Error en el servidor';
+      console.error('Error 500 detalles completos:', error.response);
+      throw new Error(`Error en el servidor: ${errorMessage}. Esto podría deberse a un problema con el formato de los datos. Por favor, verifique y vuelva a intentarlo.`);
     }
     
     throw error;
@@ -118,17 +186,7 @@ export const createEmpleado = async (empleadoData) => {
   try {
     console.log('Datos originales recibidos:', empleadoData);
 
-    // Manejo especial para la fecha
-    let fechaIngreso = empleadoData.fecha_ingreso;
-    
-    // Verificar si la fecha está en formato MM/DD/YYYY y convertirla a YYYY-MM-DD
-    if (fechaIngreso && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaIngreso)) {
-      const partes = fechaIngreso.split('/');
-      fechaIngreso = `${partes[2]}-${partes[0]}-${partes[1]}`;
-      console.log('Fecha convertida de MM/DD/YYYY a YYYY-MM-DD:', fechaIngreso);
-    }
-
-    // Preparar datos para creación
+    // Preparar datos para creación, con fecha en formato ISO
     const createData = {
       codigo_empleado: empleadoData.codigo_empleado?.trim(),
       nombre: empleadoData.nombre?.trim(),
@@ -137,7 +195,8 @@ export const createEmpleado = async (empleadoData) => {
       cargo: empleadoData.cargo?.trim(),
       email: empleadoData.email?.trim() || null,
       telefono: empleadoData.telefono?.trim() || null,
-      fecha_ingreso: fechaIngreso, // Usar la fecha procesada
+      // Convertir la fecha al formato que espera NestJS (ISO string)
+      fecha_ingreso: formatearFechaParaAPI(empleadoData.fecha_ingreso),
       estado: empleadoData.estado ?? true
     };
 
@@ -155,8 +214,6 @@ export const createEmpleado = async (empleadoData) => {
     }
 
     console.log('Datos formateados para crear:', createData);
-
-    // Añadir información detallada sobre la solicitud
     console.log('URL de API:', api.defaults.baseURL);
     console.log('Endpoint:', '/empleados');
     
@@ -181,36 +238,6 @@ export const createEmpleado = async (empleadoData) => {
         originalSentData: createData
       });
       
-      // Verificar si hay problemas específicos con la fecha
-      if (requestError.response?.status === 500 && createData.fecha_ingreso) {
-        console.warn('Posible problema con formato de fecha, intentando alternativa...');
-        
-        // Intento alternativo con otro formato de fecha
-        try {
-          // Parse y format la fecha a YYYY-MM-DD sin dependencias
-          const date = new Date(createData.fecha_ingreso);
-          if (!isNaN(date.getTime())) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            
-            // Actualizar datos con el nuevo formato
-            const newData = {
-              ...createData,
-              fecha_ingreso: `${year}-${month}-${day}`
-            };
-            
-            console.log('Reintentando con fecha reformateada:', newData.fecha_ingreso);
-            const retryResponse = await api.post('/empleados', newData);
-            console.log('Respuesta exitosa con fecha alternativa:', retryResponse.data);
-            return retryResponse.data;
-          }
-        } catch (retryError) {
-          console.error('Falló también el intento alternativo:', retryError);
-          // Continuar con el manejo regular de errores
-        }
-      }
-      
       throw requestError; // Re-lanzar para el manejo de errores externo
     }
   } catch (error) {
@@ -227,7 +254,7 @@ export const createEmpleado = async (empleadoData) => {
     if (error.response?.status === 409) {
       throw new Error(`Ya existe un empleado con el código ${empleadoData.codigo_empleado}`);
     } else if (error.response?.status === 400) {
-      throw new Error(`Error de validación: ${error.response?.data?.message || 'Verifique los datos ingresados'}`);
+      throw new Error(`Error de validación: ${error.response?.data?.message || 'Verifique el formato de los datos, especialmente la fecha'}`);
     } else if (error.response?.status === 500) {
       const errorMessage = error.response?.data?.message || 'Error en el servidor';
       console.error('Error 500 detalles completos:', error.response);

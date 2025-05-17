@@ -70,6 +70,48 @@ const EmpleadoForm = () => {
     setIsEditMode(false);
   };
 
+  // Función para asegurar formato de fecha válido
+  const asegurarFormatoFechaValido = (fecha) => {
+    // Usamos un formato que sea compatible con NestJS (@IsDate)
+    // NestJS espera una fecha que pueda ser convertida a objeto Date
+
+    // Si ya está en formato YYYY-MM-DD, verificar que sea válido
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      // Verificar que sea una fecha válida
+      const [year, month, day] = fecha.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      if (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day
+      ) {
+        // Formato correcto para backend - añadimos la hora
+        return `${fecha}T00:00:00.000Z`;
+      }
+    }
+    
+    // Intentar convertir otros formatos
+    try {
+      // Primero verificar si es MM/DD/YYYY
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(fecha)) {
+        const [month, day, year] = fecha.split('/').map(Number);
+        const date = new Date(year, month - 1, day);
+        return date.toISOString();
+      }
+      
+      // Si no, intentar convertir con Date
+      const date = new Date(fecha);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    } catch (error) {
+      console.error('Error al convertir fecha:', error);
+    }
+    
+    // Si no se puede convertir, devolver la fecha actual en formato ISO
+    return new Date().toISOString();
+  };
+
   // Función para cargar la lista de empleados
   const loadEmpleados = async () => {
     try {
@@ -103,11 +145,20 @@ const EmpleadoForm = () => {
   const loadEmpleadoData = async (empleadoId) => {
     try {
       const empleadoData = await getEmpleado(empleadoId);
+      
+      // Asegurar que la fecha tenga el formato correcto
+      const fechaFormateada = asegurarFormatoFechaValido(empleadoData.fecha_ingreso);
+      
       setFormData({
         ...empleadoData,
-        fecha_ingreso: formatDate(empleadoData.fecha_ingreso)
+        fecha_ingreso: fechaFormateada
       });
       setIsEditMode(true);
+      
+      console.log('Empleado cargado con éxito:', {
+        ...empleadoData,
+        fecha_ingreso: fechaFormateada
+      });
     } catch (error) {
       console.error('Error loading employee:', error);
       Swal.fire({
@@ -137,6 +188,8 @@ const EmpleadoForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    let loadingDialog = null;
+    
     try {
       console.log('Formulario enviado con datos:', formData);
       
@@ -184,7 +237,7 @@ const EmpleadoForm = () => {
         return;
       }
 
-      // Preparar datos para envío (sin manipulación adicional de fechas)
+      // Preparar datos para envío con fecha validada (o sin fecha si se ha elegido omitirla)
       const empleadoData = {
         codigo_empleado: formData.codigo_empleado.trim(),
         nombre: formData.nombre.trim(),
@@ -193,15 +246,24 @@ const EmpleadoForm = () => {
         cargo: formData.cargo.trim(),
         email: formData.email?.trim() || null,
         telefono: formData.telefono?.trim() || null,
-        fecha_ingreso: formData.fecha_ingreso, // Enviar la fecha sin procesar
         estado: formData.estado ?? true
       };
+
+      // Solo incluir la fecha si no se ha elegido omitirla
+      if (!opcionesAvanzadas.omitirFecha) {
+        empleadoData.fecha_ingreso = asegurarFormatoFechaValido(formData.fecha_ingreso);
+      }
 
       console.log('Modo:', isEditMode ? 'Edición' : 'Creación');
       console.log('Datos a enviar:', empleadoData);
 
+      // Variable para tiempo límite (10 segundos)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('La operación ha tardado demasiado tiempo. Por favor, inténtelo de nuevo.')), 10000);
+      });
+
       // Mostrar indicador de carga
-      await Swal.fire({
+      loadingDialog = Swal.fire({
         title: 'Procesando...',
         text: 'Por favor espere mientras se procesa la solicitud',
         didOpen: () => {
@@ -213,8 +275,17 @@ const EmpleadoForm = () => {
       });
 
       if (isEditMode) {
-        await updateEmpleado(formData.id_empleado, empleadoData);
-        Swal.close();
+        // Utilizar Promise.race para manejar tiempos de espera
+        const result = await Promise.race([
+          updateEmpleado(formData.id_empleado, empleadoData),
+          timeoutPromise
+        ]);
+        
+        // Si llegamos aquí, la operación fue exitosa
+        if (loadingDialog) {
+          Swal.close();
+        }
+        
         await Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -223,8 +294,17 @@ const EmpleadoForm = () => {
           showConfirmButton: false
         });
       } else {
-        await createEmpleado(empleadoData);
-        Swal.close();
+        // Utilizar Promise.race para manejar tiempos de espera
+        const result = await Promise.race([
+          createEmpleado(empleadoData),
+          timeoutPromise
+        ]);
+        
+        // Si llegamos aquí, la operación fue exitosa
+        if (loadingDialog) {
+          Swal.close();
+        }
+        
         await Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -241,38 +321,113 @@ const EmpleadoForm = () => {
       console.error('Error en el envío del formulario:', error);
       
       // Cerrar diálogo de carga si está abierto
-      Swal.close();
+      if (loadingDialog) {
+        Swal.close();
+      }
+      
+      // Determinar si fue un error de timeout
+      const esTiempoExcedido = error.message && error.message.includes('tardado demasiado tiempo');
       
       // Mostrar mensaje de error con detalles específicos
       let errorMsg = error.message || 'Ha ocurrido un error al procesar la solicitud';
       
       // Añadir información más detallada para depuración
       console.error('Detalles completos del error:', {
-        message: error.message,
-        response: error.response,
-        stack: error.stack,
-        formData
+        mensaje: error.message,
+        esTimeout: esTiempoExcedido,
+        respuesta: error.response?.data,
+        estado: error.response?.status,
+        config: error.config,
+        datos: formData
       });
       
-      // Determinar si podría ser un problema con el formato de fecha
+      // Depuración específica para errores 500
+      if (error.response?.status === 500) {
+        console.error('Error 500 detectado, información detallada:', {
+          url: error.config?.url,
+          método: error.config?.method,
+          headers: error.config?.headers,
+          datosEnviados: error.config?.data
+        });
+      }
+      
+      // Determinar si podría ser un problema con la fecha
       const posibleErrorDeFecha = 
         errorMsg.includes('fecha') || 
         errorMsg.includes('date') || 
-        errorMsg.includes('500');
+        errorMsg.includes('500') ||
+        esTiempoExcedido;
+      
+      // Sugerencias específicas según el error
+      let sugerenciasFecha = '';
+      if (posibleErrorDeFecha) {
+        const fechaActual = formData.fecha_ingreso;
+        sugerenciasFecha = `
+          - Verifique que la fecha tenga el formato YYYY-MM-DD<br>
+          - Fecha actual: ${fechaActual}<br>
+          - Intente con: ${asegurarFormatoFechaValido(fechaActual)}<br>
+        `;
+      }
       
       await Swal.fire({
-        icon: 'error',
-        title: 'Error',
+        icon: esTiempoExcedido ? 'warning' : 'error',
+        title: esTiempoExcedido ? 'Tiempo excedido' : 'Error',
         text: errorMsg,
+        html: `
+          <div>
+            <p>${errorMsg}</p>
+            ${posibleErrorDeFecha ? `
+              <div style="margin: 15px 0; text-align: left; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                <h4 style="margin-top: 0; color: #d33;">Opciones avanzadas para problemas de fecha</h4>
+                <label style="display: flex; align-items: center; margin: 10px 0;">
+                  <input type="checkbox" id="omitirFecha" ${opcionesAvanzadas.omitirFecha ? 'checked' : ''}>
+                  <span style="margin-left: 5px;">Omitir actualización de fecha</span>
+                </label>
+                <p style="font-size: 11px; color: #666; margin: 5px 0 0 20px;">
+                  Use esta opción si el servidor está rechazando el formato de fecha.
+                  Solo los demás campos serán actualizados.
+                </p>
+              </div>
+            ` : ''}
+          </div>
+        `,
         footer: `
           <div style="text-align: left; font-size: 12px; color: #666; margin-top: 10px;">
             <strong>Sugerencias:</strong><br>
-            ${posibleErrorDeFecha ? '- Verifique que la fecha tenga el formato YYYY-MM-DD<br>' : ''}
+            ${sugerenciasFecha}
             - Compruebe que el código de empleado no esté duplicado<br>
             - Revise que todos los campos obligatorios estén completos<br>
+            ${esTiempoExcedido ? '- El servidor podría estar ocupado, intente de nuevo más tarde<br>' : ''}
             - Si el problema persiste, contacte con soporte técnico
           </div>
-        `
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Reintentar',
+        cancelButtonText: 'Cancelar',
+        allowOutsideClick: true,
+        preConfirm: () => {
+          // Capturar el valor del checkbox antes de cerrar
+          if (posibleErrorDeFecha) {
+            const omitirFecha = document.getElementById('omitirFecha')?.checked || false;
+            setOpcionesAvanzadas(prev => ({
+              ...prev,
+              omitirFecha,
+              intentosConectividad: prev.intentosConectividad + 1
+            }));
+            return { omitirFecha };
+          }
+          return {};
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Si el usuario elige reintentar, intentamos nuevamente con las opciones actualizadas
+          console.log('Reintentando con opciones:', result.value);
+          
+          // Esperar un momento antes de reenviar
+          setTimeout(() => {
+            handleSubmit(new Event('submit'));
+          }, 500);
+        }
       });
     }
   };
@@ -292,9 +447,13 @@ const EmpleadoForm = () => {
     }
     const empleado = empleados.find(emp => emp.id_empleado === empleadoId);
     if (empleado) {
+      // Asegurar que la fecha tenga un formato válido antes de cargarla
+      const fechaCorregida = asegurarFormatoFechaValido(empleado.fecha_ingreso);
+      console.log(`Fecha original: ${empleado.fecha_ingreso}, Fecha corregida: ${fechaCorregida}`);
+      
       setFormData({
         ...empleado,
-        fecha_ingreso: formatDate(empleado.fecha_ingreso)
+        fecha_ingreso: fechaCorregida
       });
       setIsEditMode(true);
     }
@@ -363,6 +522,12 @@ const EmpleadoForm = () => {
       }));
     }
   }, []);
+
+  // Al comienzo del componente, agregar estado para opciones avanzadas
+  const [opcionesAvanzadas, setOpcionesAvanzadas] = useState({
+    omitirFecha: false,
+    intentosConectividad: 0
+  });
 
   return (
     <Box sx={{ p: 3 }}>
@@ -467,7 +632,32 @@ const EmpleadoForm = () => {
                   name="fecha_ingreso"
                   type="date"
                   value={formData.fecha_ingreso}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    // Validación en tiempo real para asegurar formato YYYY-MM-DD
+                    const value = e.target.value;
+                    if (!value || /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                      setFormData(prevState => ({
+                        ...prevState,
+                        fecha_ingreso: value
+                      }));
+                    } else {
+                      // Intentar convertir el formato si no es válido
+                      try {
+                        const date = new Date(value);
+                        if (!isNaN(date.getTime())) {
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(2, '0');
+                          const day = String(date.getDate()).padStart(2, '0');
+                          setFormData(prevState => ({
+                            ...prevState,
+                            fecha_ingreso: `${year}-${month}-${day}`
+                          }));
+                        }
+                      } catch (error) {
+                        console.error('Error al convertir fecha:', error);
+                      }
+                    }
+                  }}
                   required
                   InputLabelProps={{
                     shrink: true,
@@ -475,7 +665,7 @@ const EmpleadoForm = () => {
                   inputProps={{
                     placeholder: 'yyyy-MM-dd'
                   }}
-                  helperText="Formato requerido: YYYY-MM-DD"
+                  helperText="Formato requerido: YYYY-MM-DD (ej. 2023-05-15)"
                   error={formData.fecha_ingreso && !/^\d{4}-\d{2}-\d{2}$/.test(formData.fecha_ingreso)}
                 />
               </Grid>
