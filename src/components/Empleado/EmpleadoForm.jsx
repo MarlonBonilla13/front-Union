@@ -138,6 +138,8 @@ const EmpleadoForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      console.log('Formulario enviado con datos:', formData);
+      
       // Validar campos requeridos
       const camposRequeridos = ['codigo_empleado', 'nombre', 'apellido', 'departamento', 'cargo', 'fecha_ingreso'];
       for (const campo of camposRequeridos) {
@@ -157,6 +159,27 @@ const EmpleadoForm = () => {
           icon: 'error',
           title: 'Error',
           text: 'La fecha debe tener el formato YYYY-MM-DD'
+        });
+        return;
+      }
+
+      // Validar formato de código de empleado
+      // Podemos establecer una regla específica, por ejemplo solo letras, números y guiones
+      if (!/^[A-Za-z0-9\-]+$/.test(formData.codigo_empleado)) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'El código de empleado solo debe contener letras, números y guiones'
+        });
+        return;
+      }
+
+      // Validar email si se proporciona
+      if (formData.email && !formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'El formato del email no es válido'
         });
         return;
       }
@@ -220,11 +243,36 @@ const EmpleadoForm = () => {
       // Cerrar diálogo de carga si está abierto
       Swal.close();
       
-      // Mostrar mensaje de error
+      // Mostrar mensaje de error con detalles específicos
+      let errorMsg = error.message || 'Ha ocurrido un error al procesar la solicitud';
+      
+      // Añadir información más detallada para depuración
+      console.error('Detalles completos del error:', {
+        message: error.message,
+        response: error.response,
+        stack: error.stack,
+        formData
+      });
+      
+      // Determinar si podría ser un problema con el formato de fecha
+      const posibleErrorDeFecha = 
+        errorMsg.includes('fecha') || 
+        errorMsg.includes('date') || 
+        errorMsg.includes('500');
+      
       await Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.message || 'Ha ocurrido un error al procesar la solicitud'
+        text: errorMsg,
+        footer: `
+          <div style="text-align: left; font-size: 12px; color: #666; margin-top: 10px;">
+            <strong>Sugerencias:</strong><br>
+            ${posibleErrorDeFecha ? '- Verifique que la fecha tenga el formato YYYY-MM-DD<br>' : ''}
+            - Compruebe que el código de empleado no esté duplicado<br>
+            - Revise que todos los campos obligatorios estén completos<br>
+            - Si el problema persiste, contacte con soporte técnico
+          </div>
+        `
       });
     }
   };
@@ -427,6 +475,8 @@ const EmpleadoForm = () => {
                   inputProps={{
                     placeholder: 'yyyy-MM-dd'
                   }}
+                  helperText="Formato requerido: YYYY-MM-DD"
+                  error={formData.fecha_ingreso && !/^\d{4}-\d{2}-\d{2}$/.test(formData.fecha_ingreso)}
                 />
               </Grid>
 

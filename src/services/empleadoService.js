@@ -118,7 +118,17 @@ export const createEmpleado = async (empleadoData) => {
   try {
     console.log('Datos originales recibidos:', empleadoData);
 
-    // Preparar datos para creación - Mantenerlo simple para evitar errores
+    // Manejo especial para la fecha
+    let fechaIngreso = empleadoData.fecha_ingreso;
+    
+    // Verificar si la fecha está en formato MM/DD/YYYY y convertirla a YYYY-MM-DD
+    if (fechaIngreso && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaIngreso)) {
+      const partes = fechaIngreso.split('/');
+      fechaIngreso = `${partes[2]}-${partes[0]}-${partes[1]}`;
+      console.log('Fecha convertida de MM/DD/YYYY a YYYY-MM-DD:', fechaIngreso);
+    }
+
+    // Preparar datos para creación
     const createData = {
       codigo_empleado: empleadoData.codigo_empleado?.trim(),
       nombre: empleadoData.nombre?.trim(),
@@ -127,7 +137,7 @@ export const createEmpleado = async (empleadoData) => {
       cargo: empleadoData.cargo?.trim(),
       email: empleadoData.email?.trim() || null,
       telefono: empleadoData.telefono?.trim() || null,
-      fecha_ingreso: empleadoData.fecha_ingreso, // Enviar la fecha tal como viene, sin procesamiento
+      fecha_ingreso: fechaIngreso, // Usar la fecha procesada
       estado: empleadoData.estado ?? true
     };
 
@@ -146,19 +156,71 @@ export const createEmpleado = async (empleadoData) => {
 
     console.log('Datos formateados para crear:', createData);
 
-    // No intentar verificar duplicados, dejar que el backend lo maneje
-
-    // Crear el empleado directamente
-    const response = await api.post('/empleados', createData);
-    console.log('Respuesta del servidor:', response.data);
-    return response.data;
+    // Añadir información detallada sobre la solicitud
+    console.log('URL de API:', api.defaults.baseURL);
+    console.log('Endpoint:', '/empleados');
+    
+    try {
+      // Crear el empleado directamente
+      const response = await api.post('/empleados', createData);
+      console.log('Respuesta del servidor:', response.data);
+      return response.data;
+    } catch (requestError) {
+      // Capturar y registrar detalles específicos del error de la solicitud
+      console.error('Error HTTP detallado:', {
+        status: requestError.response?.status,
+        statusText: requestError.response?.statusText,
+        headers: requestError.response?.headers,
+        data: requestError.response?.data,
+        config: {
+          url: requestError.config?.url,
+          method: requestError.config?.method,
+          headers: requestError.config?.headers,
+          data: requestError.config?.data
+        },
+        originalSentData: createData
+      });
+      
+      // Verificar si hay problemas específicos con la fecha
+      if (requestError.response?.status === 500 && createData.fecha_ingreso) {
+        console.warn('Posible problema con formato de fecha, intentando alternativa...');
+        
+        // Intento alternativo con otro formato de fecha
+        try {
+          // Parse y format la fecha a YYYY-MM-DD sin dependencias
+          const date = new Date(createData.fecha_ingreso);
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            
+            // Actualizar datos con el nuevo formato
+            const newData = {
+              ...createData,
+              fecha_ingreso: `${year}-${month}-${day}`
+            };
+            
+            console.log('Reintentando con fecha reformateada:', newData.fecha_ingreso);
+            const retryResponse = await api.post('/empleados', newData);
+            console.log('Respuesta exitosa con fecha alternativa:', retryResponse.data);
+            return retryResponse.data;
+          }
+        } catch (retryError) {
+          console.error('Falló también el intento alternativo:', retryError);
+          // Continuar con el manejo regular de errores
+        }
+      }
+      
+      throw requestError; // Re-lanzar para el manejo de errores externo
+    }
   } catch (error) {
     // Mejorar el log de errores
     console.error('Error detallado en createEmpleado:', {
       message: error.message,
       response: error.response?.data,
       status: error.response?.status,
-      data: JSON.stringify(empleadoData) // Mostrar los datos originales para diagnóstico
+      data: JSON.stringify(empleadoData), // Mostrar los datos originales para diagnóstico
+      stack: error.stack // Incluir stack trace para diagnóstico
     });
     
     // Personalizar mensaje de error basado en el código de respuesta
@@ -167,7 +229,9 @@ export const createEmpleado = async (empleadoData) => {
     } else if (error.response?.status === 400) {
       throw new Error(`Error de validación: ${error.response?.data?.message || 'Verifique los datos ingresados'}`);
     } else if (error.response?.status === 500) {
-      throw new Error('Error en el servidor. Por favor, inténtelo de nuevo más tarde.');
+      const errorMessage = error.response?.data?.message || 'Error en el servidor';
+      console.error('Error 500 detalles completos:', error.response);
+      throw new Error(`Error en el servidor: ${errorMessage}. Esto podría deberse a un problema con el formato de los datos. Por favor, verifique y vuelva a intentarlo.`);
     }
     
     throw error;
