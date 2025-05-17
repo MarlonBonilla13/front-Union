@@ -3,7 +3,7 @@ import {
   Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, Typography, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Chip, Tabs, Tab,
-  Card, CardContent, InputAdornment, CircularProgress, Grid, FormControl, InputLabel, Select
+  Card, CardContent, InputAdornment, CircularProgress, Grid, FormControl, InputLabel, Select, Avatar
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -17,6 +17,9 @@ import DetalleCompra from './DetalleCompra';
 import PagosCompra from './PagosCompra';
 import RestoreIcon from '@mui/icons-material/Restore';
 import CloseIcon from '@mui/icons-material/Close';
+import api from '../../services/api';
+import ExportPreviewComprasDialog from './ExportPreviewComprasDialog';
+import PreviewIcon from '@mui/icons-material/Preview';
 
 const tiposPago = ['CONTADO', 'CREDITO'];
 const estadosCompra = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
@@ -49,6 +52,39 @@ const alertConfig = {
   }
 };
 
+// Función para obtener la URL de la imagen del proveedor
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  
+  // Si ya es una URL completa, asegurarse de que use HTTPS en producción
+  if (imagePath.startsWith('http')) {
+    if (process.env.NODE_ENV === 'production') {
+      return imagePath.replace('http://', 'https://');
+    }
+    return imagePath;
+  }
+
+  // Si es una ruta relativa, construir la URL completa
+  return `${api.defaults.baseURL}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+};
+
+// Función para generar colores basados en el nombre
+const getColorForName = (name = 'A') => {
+  const colors = [
+    '#f44336', '#e91e63', '#9c27b0', '#673ab7', 
+    '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
+    '#009688', '#4caf50', '#8bc34a', '#cddc39', 
+    '#ffc107', '#ff9800', '#ff5722'
+  ];
+  
+  let hashCode = 0;
+  for (let i = 0; i < name.length; i++) {
+    hashCode += name.charCodeAt(i);
+  }
+  
+  return colors[hashCode % colors.length];
+};
+
 const Compras = () => {
   const [compras, setCompras] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +107,8 @@ const Compras = () => {
     observaciones: '',
     total: 0
   });
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -152,7 +190,8 @@ const Compras = () => {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(compra => 
         (compra.numero_factura?.toLowerCase() || '').includes(searchLower) ||
-        (compra.proveedor?.nombre?.toLowerCase() || '').includes(searchLower)
+        (compra.proveedor?.nombre?.toLowerCase() || '').includes(searchLower) ||
+        (compra.proveedor?.contacto?.toLowerCase() || '').includes(searchLower)
       );
     }
 
@@ -1164,6 +1203,70 @@ const Compras = () => {
     }
   };
 
+  const handlePreviewExport = () => {
+    setPreviewData(compras);
+    setPreviewOpen(true);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewOpen(false);
+  };
+
+  const handleExportToExcel = (filteredData) => {
+    console.log('Exportando a Excel:', filteredData);
+    Swal.fire({
+      title: 'Exportación a Excel',
+      text: 'La funcionalidad estará disponible próximamente',
+      icon: 'info',
+      ...alertConfig,
+      customClass: {
+        container: 'swal-container-highest',
+        popup: 'swal-popup-highest'
+      }
+    });
+  };
+
+  const handleExportToPDF = (filteredData) => {
+    console.log('Exportando a PDF:', filteredData);
+    Swal.fire({
+      title: 'Exportación a PDF',
+      text: 'La funcionalidad estará disponible próximamente',
+      icon: 'info',
+      ...alertConfig,
+      customClass: {
+        container: 'swal-container-highest',
+        popup: 'swal-popup-highest'
+      }
+    });
+  };
+
+  // Componente para añadir estilos globales para las alertas con alta prioridad de z-index
+  const GlobalSwalStyles = () => {
+    useEffect(() => {
+      // Crear un elemento de estilo
+      const styleElement = document.createElement('style');
+      styleElement.innerHTML = `
+        .swal-container-highest {
+          z-index: 9999 !important;
+        }
+        .swal-popup-highest {
+          z-index: 9999 !important;
+        }
+      `;
+      // Añadir al head del documento
+      document.head.appendChild(styleElement);
+
+      // Limpiar cuando el componente se desmonte
+      return () => {
+        if (document.head.contains(styleElement)) {
+          document.head.removeChild(styleElement);
+        }
+      };
+    }, []);
+
+    return null;
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -1202,26 +1305,41 @@ const Compras = () => {
 
   return (
     <Box sx={{ p: 3, mt: 8 }}>
+      <GlobalSwalStyles />
       <Card sx={{ width: '100%', boxShadow: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" component="h2" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
               Lista de Compras
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleClickOpen}
-              sx={{ backgroundColor: '#1976d2' }}
-            >
-              Nueva Compra
-            </Button>
+            <Box>
+              <Button
+                variant="outlined"
+                startIcon={<PreviewIcon />}
+                onClick={handlePreviewExport}
+                sx={{ 
+                  borderColor: '#1976d2', 
+                  color: '#1976d2',
+                  mr: 2
+                }}
+              >
+                Vista Previa Exportación
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleClickOpen}
+                sx={{ backgroundColor: '#1976d2' }}
+              >
+                Nueva Compra
+              </Button>
+            </Box>
           </Box>
 
           <TextField
             fullWidth
             variant="outlined"
-            placeholder="Buscar por número de factura o proveedor..."
+            placeholder="Buscar por número de factura, proveedor o contacto..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
@@ -1278,7 +1396,9 @@ const Compras = () => {
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#1976d2' }}>
                   <TableCell sx={{ color: 'white' }}>N° Factura</TableCell>
+                  <TableCell sx={{ color: 'white', width: 80 }} align="center">Logo</TableCell>
                   <TableCell sx={{ color: 'white' }}>Proveedor</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Contacto</TableCell>
                   <TableCell sx={{ color: 'white' }}>Fecha</TableCell>
                   <TableCell sx={{ color: 'white' }}>Total</TableCell>
                   <TableCell sx={{ color: 'white' }}>Estado</TableCell>
@@ -1290,7 +1410,60 @@ const Compras = () => {
                 {getFilteredCompras().map((compra) => (
                   <TableRow key={compra.id_compras}>
                     <TableCell>{compra.numero_factura}</TableCell>
+                    <TableCell align="center">
+                      {compra.proveedor?.imagen_url ? (
+                        <img
+                          src={getImageUrl(compra.proveedor.imagen_url)}
+                          alt={`Logo de ${compra.proveedor.nombre}`}
+                          style={{
+                            width: '50px',
+                            height: '50px',
+                            objectFit: 'contain',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                          onError={(e) => {
+                            console.error('Error cargando imagen:', e.target.src);
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            // Mostrar un avatar con la inicial
+                            e.target.parentNode.innerHTML = `
+                              <div style="
+                                width: 50px;
+                                height: 50px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                background-color: ${getColorForName(compra.proveedor.nombre)};
+                                border-radius: 4px;
+                                color: white;
+                                font-weight: bold;
+                                margin: 0 auto;
+                              ">
+                                ${compra.proveedor.nombre.charAt(0).toUpperCase()}
+                              </div>
+                            `;
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '50px',
+                          height: '50px',
+                          backgroundColor: getColorForName(compra.proveedor?.nombre || 'P'),
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          margin: '0 auto'
+                        }}>
+                          {(compra.proveedor?.nombre || 'P').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>{compra.proveedor?.nombre}</TableCell>
+                    <TableCell>{compra.proveedor?.contacto || 'N/A'}</TableCell>
                     <TableCell>{compra.fecha_compra ? new Date(compra.fecha_compra).toLocaleDateString() : 
                                compra.fecha_vencimiento ? new Date(compra.fecha_vencimiento).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
@@ -1551,6 +1724,14 @@ const Compras = () => {
           </>
         )}
       </Dialog>
+
+      <ExportPreviewComprasDialog
+        open={previewOpen}
+        onClose={handleClosePreview}
+        data={previewData}
+        onExportExcel={handleExportToExcel}
+        onExportPDF={handleExportToPDF}
+      />
     </Box>
   );
 };

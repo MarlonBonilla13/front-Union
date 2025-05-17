@@ -780,7 +780,7 @@ const VentaForm = () => {
                   fullWidth
                   multiline
                   rows={2}
-                  label="Descripción de la venta"
+                  label="Descripción del producto"
                   value={formData.observaciones}
                   onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                   disabled={isEditMode}
@@ -791,7 +791,7 @@ const VentaForm = () => {
 
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Materiales para la venta</Typography>
+              <Typography variant="h6">Materiales para el producto</Typography>
               {!isEditMode && (
                 <Button
                   startIcon={<AddIcon />}

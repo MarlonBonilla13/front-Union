@@ -24,10 +24,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RestoreIcon from '@mui/icons-material/Restore';
 import SearchIcon from '@mui/icons-material/Search';
+import PreviewIcon from '@mui/icons-material/Preview';
 import { getVentas } from '../../services/ventaService';
 import * as ventaService from '../../services/ventaService';
 import Swal from 'sweetalert2';
 import api from '../../services/api'; // Importar api para URL base
+import ExportPreviewVentasDialog from './ExportPreviewVentasDialog';
 
 // Configuración común para Swal
 const swalConfig = {
@@ -66,6 +68,8 @@ const VentasList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [tabValue, setTabValue] = useState('ACTIVAS');
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
 
   // Añadir estilos globales para que el Swal aparezca por encima de los modales
   useEffect(() => {
@@ -226,19 +230,43 @@ const VentasList = () => {
     }
   };
 
+  const handlePreviewExport = () => {
+    setPreviewData(ventas);
+    setPreviewOpen(true);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewOpen(false);
+  };
+
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5" color="primary" fontWeight={600}>
+    <Box sx={{ p: 3, mt: 8 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h6" component="h2" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
           Ventas
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/ventas/nueva')}
-        >
-          Nueva Venta
-        </Button>
+        <Box>
+          <Button
+            variant="outlined"
+            startIcon={<PreviewIcon />}
+            onClick={handlePreviewExport}
+            sx={{ 
+              borderColor: '#1976d2', 
+              color: '#1976d2',
+              mr: 2
+            }}
+          >
+            Vista Previa Exportación
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/ventas/nueva')}
+            sx={{ backgroundColor: '#1976d2' }}
+          >
+            Nueva Venta
+          </Button>
+        </Box>
       </Box>
 
       <TextField
@@ -392,6 +420,12 @@ const VentasList = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <ExportPreviewVentasDialog
+        open={previewOpen}
+        onClose={handleClosePreview}
+        data={previewData}
+      />
     </Box>
   );
 };
