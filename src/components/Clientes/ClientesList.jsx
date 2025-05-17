@@ -195,7 +195,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
     <Paper elevation={3} sx={{ 
       width: '100%', 
       overflow: 'visible',
-      height: 'calc(100vh - 120px)',
+      height: 'calc(100vh - 650px)',
       display: 'flex',
       flexDirection: 'column'
     }}>
