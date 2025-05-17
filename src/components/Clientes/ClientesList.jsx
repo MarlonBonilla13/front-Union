@@ -235,6 +235,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                 <TableRow>
                   <TableCell>Logo</TableCell>
                   <TableCell>Nombre</TableCell>
+                  <TableCell>Nombre Comercial</TableCell>
                   <TableCell>Teléfono</TableCell>
                   <TableCell>Correo</TableCell>
                   <TableCell>Tipo de cliente</TableCell>
@@ -293,6 +294,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                         )}
                       </TableCell>
                       <TableCell>{`${cliente.nombre} ${cliente.apellido}`}</TableCell>
+                      <TableCell>{cliente.nombre_comercial || '-'}</TableCell>
                       <TableCell>{cliente.telefono}</TableCell>
                       <TableCell>{cliente.correo}</TableCell>
                       <TableCell>{cliente.tipo_cliente}</TableCell>
@@ -340,7 +342,7 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
                   ))}
                 {filteredClientes.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={12} align="center">
                       No se encontraron clientes
                     </TableCell>
                   </TableRow>

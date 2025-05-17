@@ -178,18 +178,24 @@ const CotizacionesList = () => {
     }
   };
 
-  // Añadir función para manejar las URLs de imágenes
-  const getImageUrl = (logo) => {
-    if (!logo) return null;
-    
-    // Si ya es una URL completa
-    if (logo.startsWith('http://') || logo.startsWith('https://')) {
-      return logo;
+  // Actualizar la función getImageUrl para usar el mismo enfoque que en ClientesList y ClienteForm
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) {
+      console.log('No hay ruta de imagen');
+      return null;
     }
     
+    // Si la URL ya es absoluta (comienza con http)
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+
     // Si es una ruta relativa
+    const cleanPath = imagePath.split('/').pop();
     const baseUrl = process.env.REACT_APP_API_URL || 'https://backend-union-production.up.railway.app';
-    return `${baseUrl}${logo.startsWith('/') ? '' : '/'}${logo}`;
+    const url = `${baseUrl}/uploads/clientes/${cleanPath}`;
+    console.log('URL construida:', url);
+    return url;
   };
 
   // Función para generar color basado en nombre (para avatares sin imagen)
@@ -279,13 +285,18 @@ const CotizacionesList = () => {
                 <TableCell>{cotizacion.id_cotizacion}</TableCell>
                 <TableCell>{`${cotizacion.cliente?.nombre || ''} ${cotizacion.cliente?.apellido || ''}`}</TableCell>
                 <TableCell>
-                  {cotizacion.cliente?.logo ? (
+                  {cotizacion.cliente?.imagen_url ? (
                     <Avatar
-                      src={getImageUrl(cotizacion.cliente.logo)}
+                      src={getImageUrl(cotizacion.cliente.imagen_url)}
                       alt={cotizacion.cliente?.nombre || 'Logo'}
                       sx={{ width: 40, height: 40 }}
                       onError={(e) => {
                         // Si hay error al cargar la imagen, mostrar avatar con inicial
+                        console.error('Error cargando imagen:', {
+                          cliente: cotizacion.cliente?.nombre,
+                          url: e.target.src,
+                          originalUrl: cotizacion.cliente?.imagen_url
+                        });
                         e.target.onerror = null;
                         e.target.src = '';
                       }}
