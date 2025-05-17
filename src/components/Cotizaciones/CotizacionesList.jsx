@@ -17,7 +17,8 @@ import {
   InputAdornment,
   TextField,
   Tabs,
-  Tab
+  Tab,
+  Avatar
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
@@ -28,6 +29,7 @@ import Swal from 'sweetalert2';
 import RestoreIcon from '@mui/icons-material/Restore';
 import { getCotizaciones, deleteCotizacion, generatePDF, reactivateCotizacion } from '../../services/cotizacionService';
 import SearchIcon from '@mui/icons-material/Search';
+import PersonIcon from '@mui/icons-material/Person';
 
 const CotizacionesList = () => {
   const navigate = useNavigate();
@@ -40,8 +42,6 @@ const CotizacionesList = () => {
     loadCotizaciones();
   }, []);
 
-  // Eliminar el segundo useEffect que estaba causando problemas
-  
   const loadCotizaciones = async () => {
     try {
       setLoading(true);
@@ -178,6 +178,40 @@ const CotizacionesList = () => {
     }
   };
 
+  // Añadir función para manejar las URLs de imágenes
+  const getImageUrl = (logo) => {
+    if (!logo) return null;
+    
+    // Si ya es una URL completa
+    if (logo.startsWith('http://') || logo.startsWith('https://')) {
+      return logo;
+    }
+    
+    // Si es una ruta relativa
+    const baseUrl = process.env.REACT_APP_API_URL || 'https://backend-union-production.up.railway.app';
+    return `${baseUrl}${logo.startsWith('/') ? '' : '/'}${logo}`;
+  };
+
+  // Función para generar color basado en nombre (para avatares sin imagen)
+  const getColorForName = (name) => {
+    if (!name) return '#757575'; // Color gris por defecto
+    
+    // Generar un color basado en el texto del nombre
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Convertir a color hexadecimal
+    let color = '#';
+    for (let i = 0; i < 3; i++) {
+      const value = (hash >> (i * 8)) & 0xFF;
+      color += ('00' + value.toString(16)).substr(-2);
+    }
+    
+    return color;
+  };
+
   return (
     <Box p={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -230,6 +264,7 @@ const CotizacionesList = () => {
             <TableRow>
               <TableCell>ID</TableCell>
               <TableCell>Cliente</TableCell>
+              <TableCell>Logo</TableCell>
               <TableCell>Nombre Comercial</TableCell>
               <TableCell>Fecha</TableCell>
               <TableCell>Creado por</TableCell>
@@ -243,6 +278,30 @@ const CotizacionesList = () => {
               <TableRow key={cotizacion.id_cotizacion}>
                 <TableCell>{cotizacion.id_cotizacion}</TableCell>
                 <TableCell>{`${cotizacion.cliente?.nombre || ''} ${cotizacion.cliente?.apellido || ''}`}</TableCell>
+                <TableCell>
+                  {cotizacion.cliente?.logo ? (
+                    <Avatar
+                      src={getImageUrl(cotizacion.cliente.logo)}
+                      alt={cotizacion.cliente?.nombre || 'Logo'}
+                      sx={{ width: 40, height: 40 }}
+                      onError={(e) => {
+                        // Si hay error al cargar la imagen, mostrar avatar con inicial
+                        e.target.onerror = null;
+                        e.target.src = '';
+                      }}
+                    />
+                  ) : (
+                    <Avatar 
+                      sx={{ 
+                        width: 40, 
+                        height: 40, 
+                        bgcolor: getColorForName(cotizacion.cliente?.nombre) 
+                      }}
+                    >
+                      {(cotizacion.cliente?.nombre || '?').charAt(0).toUpperCase()}
+                    </Avatar>
+                  )}
+                </TableCell>
                 <TableCell>{cotizacion.cliente?.nombre_comercial || '-'}</TableCell>
                 <TableCell>{formatearFecha(cotizacion.fecha_cotizacion)}</TableCell>
                 <TableCell>{cotizacion.usuario_creacion_nombre || 'Usuario desconocido'}</TableCell>
