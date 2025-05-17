@@ -10,11 +10,6 @@ const handleEdit = async () => {
   try {
     setLoading(true);
     
-    // Convertir el estado a formato numérico si es necesario
-    const estadoNumerico = typeof compraForm.estado === 'string' 
-      ? (compraForm.estado === 'APROBADO' ? 2 : 1)
-      : compraForm.estado;
-    
     // Validaciones
     if (!compraForm.id_proveedor) {
       Swal.fire({
@@ -38,17 +33,21 @@ const handleEdit = async () => {
       return;
     }
     
-    // Formatear los datos
+    // Simplificar los datos a enviar - solo enviar lo que realmente cambiará
     const compraEditada = {
-      id_proveedor: compraForm.id_proveedor,
-      id_estado: estadoNumerico,
-      numeroFactura: compraForm.numeroFactura,
-      fecha: compraForm.fecha,
-      tipoPago: compraForm.tipoPago,
-      estado: compraForm.estado,
-      observaciones: compraForm.observaciones || '',
-      detalles: compraForm.detalles
+      estado_pago: compraForm.estado || 'PENDIENTE',
+      observaciones: compraForm.observaciones || ''
     };
+    
+    // Si hay detalles, incluirlos en el formato correcto
+    if (compraForm.detalles && compraForm.detalles.length > 0) {
+      compraEditada.detalles = compraForm.detalles.map(detalle => ({
+        id_material: parseInt(detalle.idMaterial || detalle.id_material),
+        cantidad: parseFloat(detalle.cantidad),
+        precio_unitario: parseFloat(detalle.precioUnitario || detalle.precio_unitario),
+        descuento: parseFloat(detalle.descuento || 0)
+      }));
+    }
     
     console.log('Datos a enviar:', compraEditada);
     

@@ -25,6 +25,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import * as materialService from '../../services/materialService';
 import Swal from 'sweetalert2';
 import * as comprasService from '../../services/comprasService';
+import { API_BASE_URL } from '../../config/config';
 
 // Agregar configuración compartida para todas las alertas
 const alertConfig = {
@@ -32,6 +33,22 @@ const alertConfig = {
     container: 'swal-container-highest',
     popup: 'swal-popup-highest'
   }
+};
+
+// Función para obtener la URL correcta de la imagen
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  
+  // Si ya es una URL completa, asegurarse de que use HTTPS en producción
+  if (imagePath.startsWith('http')) {
+    if (process.env.NODE_ENV === 'production') {
+      return imagePath.replace('http://', 'https://');
+    }
+    return imagePath;
+  }
+
+  // Si es una ruta relativa, construir la URL completa
+  return `${API_BASE_URL}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
 };
 
 const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
@@ -58,7 +75,7 @@ const DetalleCompra = ({ idCompra, detalles = [], onDetallesChange }) => {
         const transformedData = data.map(material => ({
           ...material,
           id_material: material.id_material.toString(),
-          imagen_url: material.imagen_url ? `http://localhost:4001/${material.imagen_url}` : null,
+          imagen_url: material.imagen_url ? getImageUrl(material.imagen_url) : null,
           nombre: material.nombre || 'Sin nombre', // Ensure nombre exists
           codigo: material.codigo || 'Sin código' // Ensure codigo exists
         }));
