@@ -20,6 +20,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import api from '../../services/api';
 import ExportPreviewComprasDialog from './ExportPreviewComprasDialog';
 import PreviewIcon from '@mui/icons-material/Preview';
+import * as XLSX from 'xlsx';
 
 const tiposPago = ['CONTADO', 'CREDITO'];
 const estadosCompra = ['PENDIENTE', 'APROBADO', 'RECHAZADO', 'ANULADO'];
@@ -1212,19 +1213,96 @@ const Compras = () => {
     setPreviewOpen(false);
   };
 
-  const handleExportToExcel = (filteredData) => {
-    console.log('Exportando a Excel:', filteredData);
-    Swal.fire({
-      title: 'Exportación a Excel',
-      text: 'La funcionalidad estará disponible próximamente',
-      icon: 'info',
-      ...alertConfig,
-      customClass: {
-        container: 'swal-container-highest',
-        popup: 'swal-popup-highest'
+  const handleExportToExcel = async (dataToExport) => {
+  try {
+    // Obtener los detalles de cada compra
+    const comprasConDetalles = await Promise.all(dataToExport.map(async (compra) => {
+      try {
+        const detalles = await comprasService.getDetallesByCompraId(compra.id_compras);
+        return {
+          ...compra,
+          detalles: detalles
+        };
+      } catch (error) {
+        console.error(`Error al obtener detalles de la compra ${compra.id_compras}:`, error);
+        return {
+          ...compra,
+          detalles: []
+        };
       }
+    }));
+
+    // Formatear los datos para el Excel incluyendo los detalles de materiales
+    const formattedData = comprasConDetalles.map(compra => {
+      // Obtener los detalles de materiales como string
+      const materialesStr = compra.detalles?.map(detalle => 
+        `${detalle.material?.nombre || 'N/A'} (${detalle.cantidad} unidades a Q${detalle.precio_unitario})`
+      ).join('\n') || 'Sin materiales';
+
+      // Calcular el IVA total de la compra (12% del subtotal)
+      const ivaTotal = compra.detalles?.reduce((acc, detalle) => 
+        acc + (detalle.iva_monto || 0), 0
+      ) || 0;
+
+      return {
+        'Número de Factura': compra.numero_factura || '',
+        'Proveedor': compra.proveedor?.nombre || '',
+        'Contacto': compra.proveedor?.contacto || '',
+        'Fecha': new Date(compra.fecha_compra).toLocaleDateString(),
+        'Materiales': materialesStr,
+        'IVA': `Q${ivaTotal.toFixed(2)} (12%)`,
+        'Total': `Q${parseFloat(compra.total || 0).toFixed(2)}`,
+        'Estado': compra.estado_pago || compra.estado,
+        'Tipo de Pago': compra.tipo_pago || '',
+        'Observaciones': compra.observaciones || ''
+      };
     });
-  };
+
+    // Crear el libro de trabajo
+    const ws = XLSX.utils.json_to_sheet(formattedData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Compras');
+    
+    // Ajustar el ancho de las columnas
+    const wscols = [
+      {wch: 15}, // Número de Factura
+      {wch: 20}, // Proveedor
+      {wch: 20}, // Contacto
+      {wch: 12}, // Fecha
+      {wch: 60}, // Materiales
+      {wch: 15}, // IVA (Nueva columna)
+      {wch: 12}, // Total
+      {wch: 12}, // Estado
+      {wch: 12}, // Tipo de Pago
+      {wch: 30}  // Observaciones
+    ];
+    ws['!cols'] = wscols;
+
+    // Configurar que las celdas se ajusten al texto
+    ws['!rows'] = formattedData.map(() => ({ hpt: 30 }));
+
+    // Generar el archivo
+    XLSX.writeFile(wb, `Compras_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    // Mostrar mensaje de éxito
+    Swal.fire({
+      title: '¡Éxito!',
+      text: 'El archivo Excel se ha generado correctamente',
+      icon: 'success',
+      timer: 2000,
+      showConfirmButton: false,
+      ...alertConfig
+    });
+  } catch (error) {
+    console.error('Error al exportar a Excel:', error);
+    Swal.fire({
+      title: 'Error',
+      text: 'No se pudo generar el archivo Excel',
+      icon: 'error',
+      ...alertConfig
+    });
+  }
+};
 
   const handleExportToPDF = (filteredData) => {
     console.log('Exportando a PDF:', filteredData);

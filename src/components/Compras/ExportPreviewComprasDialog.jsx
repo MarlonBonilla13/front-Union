@@ -521,4 +521,4 @@ const ExportPreviewComprasDialog = ({ open, onClose, data, onExportExcel, onExpo
   );
 };
 
-export default ExportPreviewComprasDialog; 
+export default ExportPreviewComprasDialog;

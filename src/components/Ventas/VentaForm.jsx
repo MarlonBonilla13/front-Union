@@ -32,6 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import * as clienteService from '../../services/clienteService';
 import * as materialService from '../../services/materialService';
 import * as ventaService from '../../services/ventaService';
+import * as XLSX from 'xlsx';
 
 // Configuración común para Swal
 const swalConfig = {
@@ -914,6 +915,16 @@ const VentaForm = () => {
           </Paper>
 
           <Box display="flex" justifyContent="flex-end" gap={2}>
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={exportarAExcel}
+                startIcon={<FileDownloadIcon />}
+              >
+                Exportar a Excel
+              </Button>
+            </Box>
             <Button
               variant="contained"
               color="primary"
@@ -936,4 +947,74 @@ const VentaForm = () => {
   );
 };
 
+const exportarAExcel = () => {
+  try {
+    // Crear los datos para el Excel
+    const datosExcel = {
+      informacionVenta: {
+        numeroFactura: formData.numero_factura,
+        fecha: formData.fecha_venta,
+        cliente: formData.nombre_comercial,
+        tipoPago: formData.tipo_pago,
+        estadoPago: formData.estado_pago,
+        observaciones: formData.observaciones
+      },
+      detalles: detalles.map(detalle => {
+        const material = materiales.find(m => m.id_material === detalle.id_material);
+        return {
+          material: material?.nombre || 'N/A',
+          cantidad: detalle.cantidad,
+          precioUnitario: detalle.precio_unitario,
+          descuento: detalle.descuento + '%',
+          subtotal: detalle.subtotal,
+          iva: detalle.iva,
+          total: detalle.subtotal + detalle.iva - (detalle.subtotal * detalle.descuento / 100)
+        };
+      }),
+      totales: {
+        subtotal: totales.subtotal,
+        iva: totales.ivaTotal,
+        descuento: totales.descuentoTotal,
+        manoDeObra: totales.manoDeObra,
+        total: totales.total
+      }
+    };
+
+    // Crear un nuevo libro de Excel
+    const workbook = XLSX.utils.book_new();
+
+    // Crear la hoja de información general
+    const infoSheet = XLSX.utils.json_to_sheet([datosExcel.informacionVenta]);
+    XLSX.utils.book_append_sheet(workbook, infoSheet, "Información General");
+
+    // Crear la hoja de detalles
+    const detallesSheet = XLSX.utils.json_to_sheet(datosExcel.detalles);
+    XLSX.utils.book_append_sheet(workbook, detallesSheet, "Detalles");
+
+    // Crear la hoja de totales
+    const totalesSheet = XLSX.utils.json_to_sheet([datosExcel.totales]);
+    XLSX.utils.book_append_sheet(workbook, totalesSheet, "Totales");
+
+    // Generar el archivo
+    XLSX.writeFile(workbook, `Venta_${formData.numero_factura}.xlsx`);
+
+    Swal.fire({
+      title: '¡Éxito!',
+      text: 'El archivo Excel se ha generado correctamente',
+      icon: 'success',
+      ...swalConfig
+    });
+  } catch (error) {
+    console.error('Error al exportar a Excel:', error);
+    Swal.fire({
+      title: 'Error',
+      text: 'No se pudo generar el archivo Excel',
+      icon: 'error',
+      ...swalConfig
+    });
+  };
+};
+
 export default VentaForm;
+
+
