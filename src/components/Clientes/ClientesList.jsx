@@ -192,10 +192,10 @@ const ClientesList = ({ onEditCliente = () => {} }) => {  // Add default empty f
   
   // Add the toggle button in the Box component near the search field
   return (
-    <Paper elevation={3} sx={{ 
-      width: '100%', 
+    <Paper  sx={{ 
+      width: '120%', 
       overflow: 'visible',
-      height: 'calc(100vh - 650px)',
+      height: 'calc(100vh - 450px)',
       display: 'flex',
       flexDirection: 'column'
     }}>
