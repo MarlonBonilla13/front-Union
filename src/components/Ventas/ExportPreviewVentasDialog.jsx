@@ -26,7 +26,6 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { getClientes } from '../../services/clienteService';
 import { getUsers } from '../../services/userService';
 import Swal from 'sweetalert2';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 // Configuración para asegurar que las alertas aparezcan por encima del modal
 const swalConfig = {
